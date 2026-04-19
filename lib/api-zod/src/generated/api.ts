@@ -59,15 +59,3 @@ export const GetPublicObjectParams = zod.object({
     .string()
     .describe("Relative file path within the public search paths."),
 });
-
-/**
- * Serves object entities uploaded via presigned URLs. These can optionally
-be protected with authentication or ACL checks based on the use case.
-
- * @summary Serve an object entity from PRIVATE_OBJECT_DIR
- */
-export const GetStorageObjectParams = zod.object({
-  objectPath: zod.coerce
-    .string()
-    .describe("Object path within the private object dir."),
-});

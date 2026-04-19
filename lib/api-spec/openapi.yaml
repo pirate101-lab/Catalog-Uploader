@@ -94,41 +94,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
-  /storage/objects/{objectPath}:
-    get:
-      tags: [Storage]
-      operationId: getStorageObject
-      summary: Serve an object entity from PRIVATE_OBJECT_DIR
-      description: |
-        Serves object entities uploaded via presigned URLs. These can optionally
-        be protected with authentication or ACL checks based on the use case.
-      parameters:
-        - name: objectPath
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Object path within the private object dir.
-      responses:
-        '200':
-          description: Object content streamed with correct Content-Type.
-          content:
-            '*/*':
-              schema:
-                type: string
-                format: binary
-        '404':
-          description: Object not found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-        '500':
-          description: Failed to serve object.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   schemas:
     HealthStatus:
