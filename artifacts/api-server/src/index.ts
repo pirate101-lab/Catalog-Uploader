@@ -30,8 +30,8 @@ app.listen(port, (err) => {
     logger.info("Object storage: configured");
   } else {
     logger.warn(
-      "Object storage: NOT configured — set PUBLIC_OBJECT_SEARCH_PATHS and " +
-        "PRIVATE_OBJECT_DIR (provision an Object Storage bucket to get these values)"
+      "Object storage: NOT configured — set PUBLIC_OBJECT_SEARCH_PATHS " +
+        "(provision an Object Storage bucket to get this value)"
     );
   }
 });
