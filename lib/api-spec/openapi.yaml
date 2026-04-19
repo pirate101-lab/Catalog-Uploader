@@ -129,7 +129,7 @@ components:
           description: Presigned GCS URL for PUT upload.
         objectPath:
           type: string
-          description: Normalized object path (e.g. /objects/uploads/uuid).
+          description: Relative path for serving via GET /storage/public-objects/{objectPath} (e.g. catalog/uuid-filename.jpg).
         metadata:
           $ref: '#/components/schemas/UploadUrlRequest'
     ErrorEnvelope:

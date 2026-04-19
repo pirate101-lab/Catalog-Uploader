@@ -30,7 +30,7 @@ export interface UploadUrlRequest {
 export interface UploadUrlResponse {
   /** Presigned GCS URL for PUT upload. */
   uploadURL: string;
-  /** Normalized object path (e.g. /objects/uploads/uuid). */
+  /** Relative path for serving via GET /storage/public-objects/{objectPath} (e.g. catalog/uuid-filename.jpg). */
   objectPath: string;
   metadata?: UploadUrlRequest;
 }

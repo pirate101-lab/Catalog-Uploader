@@ -6,7 +6,6 @@ import {
 } from "@workspace/api-zod";
 import {
   ObjectStorageService,
-  ObjectNotFoundError,
   StorageNotConfiguredError,
 } from "../lib/objectStorage";
 
@@ -16,10 +15,10 @@ const objectStorageService = new ObjectStorageService();
 /**
  * POST /storage/uploads/request-url
  *
- * Request a presigned URL for file upload.
- * The client sends JSON metadata (name, size, contentType) — NOT the file.
- * Then uploads the file directly to the returned presigned URL.
- * Returns 503 if storage env vars are not configured.
+ * Request a presigned PUT URL for uploading a catalog image.
+ * The file is stored directly in the public search path so it is immediately
+ * accessible via GET /storage/public-objects/{objectPath}.
+ * Returns 503 if storage has not been configured.
  */
 router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
@@ -30,9 +29,7 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
 
   try {
     const { name, size, contentType } = parsed.data;
-
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-    const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+    const { uploadURL, objectPath } = await objectStorageService.getUploadURL(name);
 
     res.json(
       RequestUploadUrlResponse.parse({
@@ -55,9 +52,8 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
  * GET /storage/public-objects/*
  *
  * Serve public assets from PUBLIC_OBJECT_SEARCH_PATHS.
- * These are unconditionally public — no authentication or ACL checks.
- * Use this endpoint for catalog images and other public content.
- * Returns 503 if storage env vars are not configured.
+ * No authentication required — suitable for product catalog images.
+ * Returns 404 if not found, 503 if storage is not configured.
  */
 router.get("/storage/public-objects/*filePath", async (req: Request, res: Response) => {
   try {
