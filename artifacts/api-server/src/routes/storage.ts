@@ -4,7 +4,11 @@ import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import {
+  ObjectStorageService,
+  ObjectNotFoundError,
+  StorageNotConfiguredError,
+} from "../lib/objectStorage";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -15,6 +19,7 @@ const objectStorageService = new ObjectStorageService();
  * Request a presigned URL for file upload.
  * The client sends JSON metadata (name, size, contentType) — NOT the file.
  * Then uploads the file directly to the returned presigned URL.
+ * Returns 503 if storage env vars are not configured.
  */
 router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
@@ -37,6 +42,10 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
       }),
     );
   } catch (error) {
+    if (error instanceof StorageNotConfiguredError) {
+      res.status(503).json({ error: error.message });
+      return;
+    }
     req.log.error({ err: error }, "Error generating upload URL");
     res.status(500).json({ error: "Failed to generate upload URL" });
   }
@@ -48,6 +57,7 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
  * Serve public assets from PUBLIC_OBJECT_SEARCH_PATHS.
  * These are unconditionally public — no authentication or ACL checks.
  * Use this endpoint for catalog images and other public content.
+ * Returns 503 if storage env vars are not configured.
  */
 router.get("/storage/public-objects/*filePath", async (req: Request, res: Response) => {
   try {
@@ -71,6 +81,10 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
       res.end();
     }
   } catch (error) {
+    if (error instanceof StorageNotConfiguredError) {
+      res.status(503).json({ error: error.message });
+      return;
+    }
     req.log.error({ err: error }, "Error serving public object");
     res.status(500).json({ error: "Failed to serve public object" });
   }
