@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { createProxyMiddleware } from "http-proxy-middleware";
 
 const app: Express = express();
 
@@ -30,5 +31,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+if (process.env.NODE_ENV !== "production") {
+  const viteProxy = createProxyMiddleware({
+    target: "http://127.0.0.1:25245",
+    changeOrigin: true,
+    ws: true,
+    logger: console,
+  });
+  app.use("/", viteProxy);
+}
 
 export default app;

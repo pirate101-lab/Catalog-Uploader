@@ -5,9 +5,6 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-export interface HealthStatus {
-  status: string;
-}
 
 export interface UploadUrlRequest {
   /**
@@ -25,16 +22,4 @@ export interface UploadUrlRequest {
    * @minLength 1
    */
   contentType: string;
-}
-
-export interface UploadUrlResponse {
-  /** Presigned GCS URL for PUT upload. */
-  uploadURL: string;
-  /** Normalized object path (e.g. /objects/uploads/uuid). */
-  objectPath: string;
-  metadata?: UploadUrlRequest;
-}
-
-export interface ErrorEnvelope {
-  error: string;
 }
