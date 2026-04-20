@@ -110,20 +110,50 @@ export function ProductsAdmin() {
     !requiresTypedConfirm ||
     confirmInput.trim().toUpperCase() === pendingAction?.confirmWord;
 
+  const refreshOverrides = async () => {
+    const arr = await adminApi.listOverrides();
+    const m = new Map<string, ProductOverride>();
+    for (const o of arr) m.set(o.productId, o);
+    setOverrides(m);
+  };
+
   const confirmBulk = async () => {
     if (!pendingAction) return;
     if (!typedConfirmOk) return;
     const count = selected.size;
     const action = pendingAction;
+    const ids = [...selected];
+    // Snapshot prior override state for each affected product so we
+    // can restore exactly what was there if the operator clicks Undo.
+    const priorEntries = ids.map((productId) => ({
+      productId,
+      override: overrides.get(productId) ?? null,
+    }));
     setPendingAction(null);
     setConfirmInput("");
-    await adminApi.bulkOverride([...selected], action.patch);
-    toast.success(`${action.label}: updated ${count} product${count === 1 ? "" : "s"}`);
+    await adminApi.bulkOverride(ids, action.patch);
     setSelected(new Set());
-    const arr = await adminApi.listOverrides();
-    const m = new Map<string, ProductOverride>();
-    for (const o of arr) m.set(o.productId, o);
-    setOverrides(m);
+    await refreshOverrides();
+    toast.success(
+      `${action.label}: updated ${count} product${count === 1 ? "" : "s"}`,
+      {
+        duration: 10000,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              await adminApi.bulkRestore(priorEntries);
+              await refreshOverrides();
+              toast.success(
+                `Restored ${count} product${count === 1 ? "" : "s"}`,
+              );
+            } catch (e) {
+              toast.error(`Undo failed: ${(e as Error).message}`);
+            }
+          },
+        },
+      },
+    );
   };
 
   const allChecked = useMemo(

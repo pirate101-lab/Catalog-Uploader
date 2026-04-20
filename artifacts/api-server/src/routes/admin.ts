@@ -236,6 +236,69 @@ router.post("/admin/product-overrides/bulk", async (req, res) => {
   res.json({ updated: ids.length });
 });
 
+/* Bulk restore — used by the "Undo" action in the admin UI to revert
+ * a bulk override to the prior state. For each entry, if `override` is
+ * null, any existing override for that product is deleted (because the
+ * product had no override before the bulk action); otherwise the row
+ * is upserted with the supplied prior values.
+ */
+router.post("/admin/product-overrides/bulk-restore", async (req, res) => {
+  const entries: Array<{
+    productId: string;
+    override: {
+      featured?: boolean;
+      hidden?: boolean;
+      priceOverride?: string | null;
+      badge?: string | null;
+      stockLevel?: number | null;
+    } | null;
+  }> = Array.isArray(req.body?.entries) ? req.body.entries : [];
+  let restored = 0;
+  for (const entry of entries) {
+    if (!entry?.productId) continue;
+    if (entry.override === null) {
+      await db
+        .delete(productOverridesTable)
+        .where(eq(productOverridesTable.productId, entry.productId));
+      restored++;
+      continue;
+    }
+    const ov = entry.override;
+    const values = {
+      productId: entry.productId,
+      featured: !!ov.featured,
+      hidden: !!ov.hidden,
+      priceOverride:
+        ov.priceOverride !== undefined && ov.priceOverride !== null
+          ? String(ov.priceOverride)
+          : null,
+      badge: ov.badge ?? null,
+      stockLevel:
+        ov.stockLevel === undefined || ov.stockLevel === null
+          ? null
+          : Number.isFinite(Number(ov.stockLevel))
+            ? Math.max(0, Math.floor(Number(ov.stockLevel)))
+            : null,
+    };
+    await db
+      .insert(productOverridesTable)
+      .values(values)
+      .onConflictDoUpdate({
+        target: productOverridesTable.productId,
+        set: {
+          featured: values.featured,
+          hidden: values.hidden,
+          priceOverride: values.priceOverride,
+          badge: values.badge,
+          stockLevel: values.stockLevel,
+        },
+      });
+    restored++;
+  }
+  invalidateOverrides();
+  res.json({ restored });
+});
+
 /* ---------------- Admin Products listing ----------------
  * Storefront /storefront/products intentionally hides products with
  * { hidden: true } overrides. The admin needs the full catalog so it

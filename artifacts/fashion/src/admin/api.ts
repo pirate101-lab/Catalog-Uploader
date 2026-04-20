@@ -157,6 +157,16 @@ export const adminApi = {
       method: "POST",
       body: JSON.stringify({ productIds, patch }),
     }),
+  bulkRestore: (
+    entries: Array<{
+      productId: string;
+      override: ProductOverride | null;
+    }>,
+  ) =>
+    adminFetch<{ restored: number }>(
+      "/admin/product-overrides/bulk-restore",
+      { method: "POST", body: JSON.stringify({ entries }) },
+    ),
 
   /* Orders */
   listOrders: (params?: { status?: string; limit?: number; offset?: number }) => {
