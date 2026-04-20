@@ -439,7 +439,7 @@ export function ProductDetailPage() {
           </div>
         </div>
 
-        <section className="mt-24 pt-12 border-t border-border">
+        <section className="mt-10 md:mt-12 pt-6 md:pt-8 border-t border-border">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
             <div>
               <h2 className="font-serif text-3xl md:text-4xl font-extrabold mb-3">
