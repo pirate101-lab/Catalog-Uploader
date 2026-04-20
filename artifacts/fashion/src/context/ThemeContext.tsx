@@ -25,7 +25,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle('dark', theme === 'dark');
+    // Always set both classes explicitly so the root element matches
+    // exactly what the pre-paint script in index.html applies. This
+    // keeps any `.light` selectors and the theme toggle in sync even
+    // after a session-only flip dark -> light.
+    root.classList.remove('dark', 'light');
+    root.classList.add(theme);
     root.dataset.theme = theme;
     window.localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);

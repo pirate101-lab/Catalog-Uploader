@@ -236,7 +236,8 @@ const Caption = {
   Kicker: ({ children }: { children: React.ReactNode }) => (
     <motion.span
       variants={captionItem}
-      className="text-accent tracking-[0.32em] text-xs md:text-sm font-bold uppercase mb-6 hidden sm:block drop-shadow-md"
+      className="tracking-[0.32em] text-xs md:text-sm font-bold uppercase mb-6 hidden sm:block drop-shadow-md bg-clip-text text-transparent bg-[linear-gradient(90deg,_hsl(212_100%_72%)_0%,_hsl(162_72%_60%)_50%,_hsl(285_95%_78%)_100%)]"
+      style={{ WebkitTextFillColor: 'transparent' }}
     >
       {children}
     </motion.span>
@@ -253,7 +254,7 @@ const Caption = {
   Subline: ({ children }: { children: React.ReactNode }) => (
     <motion.p
       variants={captionItem}
-      className="text-gray-100 text-base md:text-lg max-w-2xl mx-auto mb-10 font-light drop-shadow-md"
+      className="text-white/90 text-base md:text-lg max-w-2xl mx-auto mb-10 font-medium drop-shadow-lg"
     >
       {children}
     </motion.p>
