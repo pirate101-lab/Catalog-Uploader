@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -159,6 +160,9 @@ export const reviewsTable = pgTable(
     uniqueIndex("UX_reviews_user_product")
       .on(table.productId, table.userId)
       .where(sql`user_id IS NOT NULL`),
+    // Defence-in-depth: API also validates with zod, but enforcing the
+    // 1–5 range at the DB level guards against any future code path.
+    check("CK_reviews_rating_range", sql`rating BETWEEN 1 AND 5`),
   ],
 );
 

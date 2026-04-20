@@ -462,9 +462,20 @@ export function ProductDetailPage() {
                     className="border-b border-border dark:border-border/50 pb-8 last:border-b-0"
                     data-testid={`review-${r.id}`}
                   >
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex flex-wrap items-center gap-3 mb-2">
                       <Stars rating={r.rating} />
+                      {r.verifiedPurchase ? (
+                        <span
+                          className="text-[10px] tracking-widest uppercase font-semibold text-primary border border-primary/30 px-2 py-0.5 rounded-full"
+                          data-testid={`review-verified-${r.id}`}
+                        >
+                          Verified buyer
+                        </span>
+                      ) : null}
                     </div>
+                    {r.title ? (
+                      <h4 className="font-serif text-base font-bold mb-1">{r.title}</h4>
+                    ) : null}
                     <p className="text-xs text-muted-foreground mb-3 uppercase tracking-widest">
                       {r.name} · {new Date(r.createdAt).toISOString().slice(0, 10)}
                     </p>
