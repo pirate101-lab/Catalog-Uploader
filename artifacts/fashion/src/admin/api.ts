@@ -69,6 +69,13 @@ export interface CustomerRow {
   lastWishlistAt: string | null;
 }
 
+export interface TestEmailResult {
+  ok: boolean;
+  error?: string;
+  from?: string;
+  usingSandbox?: boolean;
+}
+
 export interface SiteSettings {
   id: number;
   announcementText: string;
@@ -179,6 +186,21 @@ export const adminApi = {
       method: "PUT",
       body: JSON.stringify(data),
     }),
+  /**
+   * Send a sample order email to `to` using the saved From / Reply-To
+   * branding. Doesn't throw on provider failures — the caller should
+   * surface `result.error` inline.
+   */
+  sendTestEmail: async (to: string): Promise<TestEmailResult> => {
+    const res = await fetch("/api/admin/settings/test-email", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ to }),
+    });
+    const body = (await res.json().catch(() => ({}))) as TestEmailResult;
+    return body;
+  },
 
   /* Stats */
   getStats: () => adminFetch<DashboardStats>("/admin/stats"),

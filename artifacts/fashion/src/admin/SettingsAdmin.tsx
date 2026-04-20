@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AdminShell, AdminPageHeader } from "./AdminShell";
-import { adminApi, type SiteSettings } from "./api";
+import { adminApi, type SiteSettings, type TestEmailResult } from "./api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,9 @@ import { toast } from "sonner";
 export function SettingsAdmin() {
   const [s, setS] = useState<SiteSettings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [testTo, setTestTo] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<TestEmailResult | null>(null);
 
   useEffect(() => {
     adminApi.getSettings().then(setS);
@@ -19,6 +22,25 @@ export function SettingsAdmin() {
     setS((prev) => (prev ? { ...prev, [k]: v } : prev));
 
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const testToInvalid = testTo.trim().length > 0 && !emailRe.test(testTo.trim());
+
+  const sendTest = async () => {
+    const to = testTo.trim();
+    if (!to || !emailRe.test(to)) {
+      setTestResult({ ok: false, error: "Enter a valid email address." });
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const result = await adminApi.sendTestEmail(to);
+      setTestResult(result);
+    } catch (e) {
+      setTestResult({ ok: false, error: (e as Error).message });
+    } finally {
+      setTesting(false);
+    }
+  };
   const fromAddrInvalid =
     !!s?.emailFromAddress && s.emailFromAddress.trim().length > 0 && !emailRe.test(s.emailFromAddress.trim());
   const replyToInvalid =
@@ -158,6 +180,91 @@ export function SettingsAdmin() {
                 </p>
               ) : null}
             </Field>
+
+            <div className="border-t pt-4 mt-2">
+              <Label className="text-xs uppercase tracking-widest text-muted-foreground mb-1 block">
+                Send test email
+              </Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Sends a sample message using the saved branding above.
+                Save first if you've made changes.
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  value={testTo}
+                  placeholder="you@example.com"
+                  onChange={(e) => {
+                    setTestTo(e.target.value);
+                    if (testResult) setTestResult(null);
+                  }}
+                  aria-invalid={testToInvalid || undefined}
+                  disabled={testing}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={sendTest}
+                  disabled={
+                    testing ||
+                    testTo.trim().length === 0 ||
+                    testToInvalid ||
+                    fromAddrInvalid ||
+                    replyToInvalid
+                  }
+                >
+                  {testing ? "Sending…" : "Send test"}
+                </Button>
+              </div>
+              {testToInvalid ? (
+                <p className="text-xs text-destructive mt-1">
+                  Enter a valid email address.
+                </p>
+              ) : null}
+              {testResult ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className={`mt-3 rounded-md border p-3 text-sm ${
+                    testResult.ok
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : "border-destructive/50 bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  {testResult.ok ? (
+                    <>
+                      <p className="font-medium">
+                        Test email sent to {testTo.trim()}.
+                      </p>
+                      {testResult.from ? (
+                        <p className="text-xs mt-1 opacity-80">
+                          From: {testResult.from}
+                        </p>
+                      ) : null}
+                      {testResult.usingSandbox ? (
+                        <p className="text-xs mt-1 opacity-80">
+                          Sent from the resend.dev sandbox because no custom
+                          From address is configured. Add one above to send
+                          from your own domain.
+                        </p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium">Failed to send test email.</p>
+                      <p className="text-xs mt-1 break-words">
+                        {testResult.error ?? "Unknown error from email provider."}
+                      </p>
+                      {testResult.from ? (
+                        <p className="text-xs mt-1 opacity-80">
+                          Attempted From: {testResult.from}
+                        </p>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              ) : null}
+            </div>
           </Section>
 
           <Section title="Site state">

@@ -17,7 +17,7 @@ import { requireAdmin } from "../middlewares/adminGuard";
 import { invalidateOverrides } from "../lib/overrides";
 import { invalidateSiteSettings, getSiteSettings } from "../lib/siteSettings";
 import { getAllProducts } from "../lib/catalog";
-import { sendOrderStatusEmail } from "../lib/email";
+import { sendOrderStatusEmail, sendTestOrderEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -507,6 +507,78 @@ router.put("/admin/settings", async (req, res) => {
   invalidateSiteSettings();
   const settings = await getSiteSettings();
   res.json(settings);
+});
+
+/* ---------------- Email test send ----------------
+ * POST /admin/settings/test-email { to } — sends a small sample message
+ * using the same From / Reply-To headers that real order emails use, so
+ * the operator can confirm Resend accepts their domain before placing
+ * a real order. Rate-limited per admin (in-memory) to keep the button
+ * from being abused as a free-form mailer.
+ */
+
+interface TestSendBucket {
+  /** unix-ms timestamps of recent successful submissions */
+  recent: number[];
+}
+const TEST_SEND_LIMIT_HOUR = 5;
+const TEST_SEND_MIN_GAP_MS = 10_000;
+const TEST_SEND_BUCKETS = new Map<string, TestSendBucket>();
+
+function checkTestSendQuota(key: string): { ok: true } | { ok: false; retryAfterMs: number; reason: string } {
+  const now = Date.now();
+  const hourAgo = now - 60 * 60 * 1000;
+  const bucket = TEST_SEND_BUCKETS.get(key) ?? { recent: [] };
+  bucket.recent = bucket.recent.filter((t) => t > hourAgo);
+  if (bucket.recent.length > 0) {
+    const last = bucket.recent[bucket.recent.length - 1] ?? 0;
+    const gap = now - last;
+    if (gap < TEST_SEND_MIN_GAP_MS) {
+      TEST_SEND_BUCKETS.set(key, bucket);
+      return {
+        ok: false,
+        retryAfterMs: TEST_SEND_MIN_GAP_MS - gap,
+        reason: "Please wait a few seconds before sending another test email.",
+      };
+    }
+  }
+  if (bucket.recent.length >= TEST_SEND_LIMIT_HOUR) {
+    const earliest = bucket.recent[0] ?? now;
+    TEST_SEND_BUCKETS.set(key, bucket);
+    return {
+      ok: false,
+      retryAfterMs: 60 * 60 * 1000 - (now - earliest),
+      reason: `Test-send limit reached (${TEST_SEND_LIMIT_HOUR} per hour). Try again later.`,
+    };
+  }
+  bucket.recent.push(now);
+  TEST_SEND_BUCKETS.set(key, bucket);
+  return { ok: true };
+}
+
+const TEST_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+router.post("/admin/settings/test-email", async (req, res) => {
+  const to = typeof req.body?.to === "string" ? req.body.to.trim() : "";
+  if (!to || !TEST_EMAIL_RE.test(to)) {
+    res.status(400).json({ ok: false, error: "Enter a valid email address." });
+    return;
+  }
+  // Prefer the authenticated email as the throttle key, but fall back to
+  // the request IP so a missing user object still rate-limits.
+  const adminEmail = req.user?.email?.toLowerCase();
+  const ip = req.ip ?? req.socket?.remoteAddress ?? "unknown";
+  const quotaKey = adminEmail ?? `ip:${ip}`;
+  const quota = checkTestSendQuota(quotaKey);
+  if (!quota.ok) {
+    res
+      .status(429)
+      .setHeader("Retry-After", Math.ceil(quota.retryAfterMs / 1000))
+      .json({ ok: false, error: quota.reason });
+    return;
+  }
+  const result = await sendTestOrderEmail(to, req.log);
+  res.status(result.ok ? 200 : 502).json(result);
 });
 
 /* ---------------- Dashboard KPIs ---------------- */

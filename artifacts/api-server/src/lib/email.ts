@@ -195,6 +195,59 @@ function renderOrderEmail(
   return { subject, html, text: textLines.join("\n") };
 }
 
+interface SenderResolution {
+  from: string;
+  replyTo: string | null;
+  storeName: string;
+  currencySymbol: string;
+  /** true when from-address came from configured settings or env override
+   *  rather than the resend.dev sandbox fallback. */
+  configured: boolean;
+}
+
+interface SettingsLike {
+  storeName?: string | null;
+  currencySymbol?: string | null;
+  emailFromAddress?: string | null;
+  emailFromName?: string | null;
+  emailReplyTo?: string | null;
+}
+
+/**
+ * Build the {from, replyTo} sender header pair using the same priority
+ * order order emails use:
+ *   1. Site-settings emailFromAddress + emailFromName (preferred)
+ *   2. ORDER_EMAIL_FROM env var (back-compat; may already be formatted)
+ *   3. Sandbox `orders@resend.dev` fallback so dev still works
+ * Exposed so the test-send endpoint stays in lock-step with real sends.
+ */
+export function resolveOrderSender(settings: SettingsLike): SenderResolution {
+  const storeName = settings.storeName ?? "Store";
+  const currencySymbol = settings.currencySymbol ?? "$";
+  const settingsFromAddress = settings.emailFromAddress?.trim() || "";
+  const settingsFromName = settings.emailFromName?.trim() || "";
+  const envFrom = process.env["ORDER_EMAIL_FROM"]?.trim() || "";
+
+  let from: string;
+  let configured: boolean;
+  if (settingsFromAddress) {
+    const name = settingsFromName || storeName;
+    from = name ? `${name} <${settingsFromAddress}>` : settingsFromAddress;
+    configured = true;
+  } else if (envFrom) {
+    from = /[<>]/.test(envFrom) ? envFrom : `${storeName} <${envFrom}>`;
+    configured = true;
+  } else {
+    from = `${storeName} <orders@resend.dev>`;
+    configured = false;
+  }
+  const replyTo =
+    settings.emailReplyTo && settings.emailReplyTo.trim()
+      ? settings.emailReplyTo.trim()
+      : null;
+  return { from, replyTo, storeName, currencySymbol, configured };
+}
+
 async function sendOrderEmail(
   order: Order,
   kind: OrderEmailKind,
@@ -210,29 +263,7 @@ async function sendOrderEmail(
   }
 
   const settings = await getSiteSettings();
-  const storeName = settings.storeName ?? "Store";
-  const currencySymbol = settings.currencySymbol ?? "$";
-
-  const settingsFromAddress = settings.emailFromAddress?.trim() || "";
-  const settingsFromName = settings.emailFromName?.trim() || "";
-  const envFrom = process.env["ORDER_EMAIL_FROM"]?.trim() || "";
-
-  let from: string;
-  if (settingsFromAddress) {
-    const name = settingsFromName || storeName;
-    from = name ? `${name} <${settingsFromAddress}>` : settingsFromAddress;
-  } else if (envFrom) {
-    // Preserve back-compat: ORDER_EMAIL_FROM may already be a fully
-    // formatted sender like "Brand <email@x.com>". Only wrap if it looks
-    // like a bare address.
-    from = /[<>]/.test(envFrom) ? envFrom : `${storeName} <${envFrom}>`;
-  } else {
-    from = `${storeName} <orders@resend.dev>`;
-  }
-  const replyTo =
-    settings.emailReplyTo && settings.emailReplyTo.trim()
-      ? settings.emailReplyTo.trim()
-      : null;
+  const { from, replyTo, storeName, currencySymbol } = resolveOrderSender(settings);
 
   const { subject, html, text } = renderOrderEmail(
     order,
@@ -291,4 +322,113 @@ export async function sendOrderConfirmationEmail(
   log: Logger,
 ): Promise<void> {
   return sendOrderEmail(order, "confirmation", log);
+}
+
+export interface TestEmailResult {
+  ok: boolean;
+  /** Provider error body or short failure reason when ok=false. */
+  error?: string;
+  /** Echoed sender header so the UI can show what was actually used. */
+  from?: string;
+  /** True when the resend.dev sandbox fallback was used because no
+   *  custom from-address has been configured yet. */
+  usingSandbox?: boolean;
+}
+
+/**
+ * Send a small "test message" email to `to` using exactly the same from
+ * / reply-to header pair the order emails use. Returns a structured
+ * result so the Settings UI can surface success or the provider's
+ * error message inline rather than failing silently.
+ */
+export async function sendTestOrderEmail(
+  to: string,
+  log: Logger,
+): Promise<TestEmailResult> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) {
+    return {
+      ok: false,
+      error:
+        "Email is not configured on this server (missing RESEND_API_KEY). Set the API key to enable order emails.",
+    };
+  }
+  const settings = await getSiteSettings();
+  const { from, replyTo, storeName, configured } = resolveOrderSender(settings);
+  const subject = `Test email from ${storeName}`;
+  const safeStore = escapeHtml(storeName);
+  const safeFrom = escapeHtml(from);
+  const safeTo = escapeHtml(to);
+  const html = `<!doctype html>
+<html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fafafa;padding:24px;color:#111;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;padding:32px;border-radius:8px;">
+    <h1 style="font-size:20px;margin:0 0 12px 0;">Test email from ${safeStore}</h1>
+    <p style="margin:0 0 16px 0;color:#444;">
+      This is a test message sent from your storefront's Settings page to
+      confirm that order emails are configured correctly.
+    </p>
+    <p style="margin:0 0 8px 0;color:#666;font-size:13px;"><strong>From:</strong> ${safeFrom}</p>
+    <p style="margin:0 0 24px 0;color:#666;font-size:13px;"><strong>Sent to:</strong> ${safeTo}</p>
+    <p style="margin:0;color:#888;font-size:12px;">If you received this, your customers will receive their order confirmations from the same address.</p>
+  </div>
+</body></html>`;
+  const text = [
+    `Test email from ${storeName}`,
+    "",
+    "This is a test message sent from your storefront's Settings page to",
+    "confirm that order emails are configured correctly.",
+    "",
+    `From: ${from}`,
+    `Sent to: ${to}`,
+  ].join("\n");
+
+  try {
+    const payload: Record<string, unknown> = {
+      from,
+      to,
+      subject,
+      html,
+      text,
+    };
+    if (replyTo) payload["reply_to"] = replyTo;
+    const response = await fetch(RESEND_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      // Try to surface Resend's "message" field for nicer UI; fall back to body.
+      let errorMessage = body;
+      try {
+        const parsed = JSON.parse(body) as { message?: string; error?: string };
+        errorMessage = parsed.message ?? parsed.error ?? body;
+      } catch {
+        /* not JSON; show raw text */
+      }
+      log.warn(
+        { to, statusCode: response.status, body },
+        "Resend API rejected test email",
+      );
+      return {
+        ok: false,
+        error: errorMessage || `Resend returned ${response.status}`,
+        from,
+        usingSandbox: !configured,
+      };
+    }
+    log.info({ to, from }, "Sent test email");
+    return { ok: true, from, usingSandbox: !configured };
+  } catch (err) {
+    log.error({ err, to }, "Failed to send test email");
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Unknown network error",
+      from,
+      usingSandbox: !configured,
+    };
+  }
 }
