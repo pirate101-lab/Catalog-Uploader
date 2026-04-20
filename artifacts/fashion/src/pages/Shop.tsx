@@ -377,6 +377,7 @@ export function ShopPage() {
 
   const clearFilters = () => {
     setRailLabel('All');
+    setGender('all');
     setSelectedSizes([]);
     setSelectedColors([]);
     setPriceRange([0, PRICE_MAX]);
