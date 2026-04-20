@@ -227,7 +227,7 @@ const Caption = {
   Kicker: ({ children }: { children: React.ReactNode }) => (
     <motion.span
       variants={captionItem}
-      className="text-accent tracking-[0.32em] text-xs md:text-sm font-bold uppercase mb-6 block drop-shadow-md"
+      className="text-accent tracking-[0.32em] text-xs md:text-sm font-bold uppercase mb-6 hidden sm:block drop-shadow-md"
     >
       {children}
     </motion.span>
@@ -249,7 +249,10 @@ const Caption = {
     </motion.p>
   ),
   Ctas: ({ children }: { children: React.ReactNode }) => (
-    <motion.div variants={captionItem} className="flex flex-col sm:flex-row gap-4 items-center justify-center">
+    <motion.div
+      variants={captionItem}
+      className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-center [&>a]:w-full sm:[&>a]:w-auto [&>a]:justify-center"
+    >
       {children}
     </motion.div>
   ),
