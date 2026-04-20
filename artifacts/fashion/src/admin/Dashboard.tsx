@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { AdminShell, AdminPageHeader } from "./AdminShell";
 import { adminApi, fmtCents, type DashboardStats } from "./api";
-import { Package, ShoppingBag, DollarSign, TrendingUp } from "lucide-react";
+import {
+  Package,
+  ShoppingBag,
+  DollarSign,
+  TrendingUp,
+  AlertTriangle,
+} from "lucide-react";
 
 export function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -32,7 +38,7 @@ export function AdminDashboard() {
         <div className="text-sm text-muted-foreground">Loading…</div>
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
             <Kpi
               icon={<Package className="w-4 h-4" />}
               label="Products"
@@ -54,7 +60,39 @@ export function AdminDashboard() {
               label="Revenue 7d"
               value={fmtCents(stats.revenueWeekCents)}
             />
+            <Kpi
+              icon={<AlertTriangle className="w-4 h-4" />}
+              label="Low stock"
+              value={stats.lowStockCount.toLocaleString()}
+              sub={
+                stats.lowStockCount === 0
+                  ? "All good"
+                  : "Needs attention"
+              }
+            />
           </div>
+
+          {stats.lowStockProducts.length > 0 && (
+            <section className="border rounded-lg p-6 mb-6 border-amber-500/40 bg-amber-500/5">
+              <h2 className="text-xs uppercase tracking-widest font-bold mb-4 flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                <AlertTriangle className="w-4 h-4" />
+                Low stock alerts
+              </h2>
+              <ul className="divide-y">
+                {stats.lowStockProducts.map((p) => (
+                  <li
+                    key={p.productId}
+                    className="py-2 text-sm flex justify-between"
+                  >
+                    <span className="truncate pr-4">{p.title}</span>
+                    <span className="text-amber-700 dark:text-amber-400 font-medium">
+                      {p.stockLevel} left
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <section className="border rounded-lg p-6">

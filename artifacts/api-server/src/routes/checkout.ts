@@ -73,10 +73,10 @@ async function priceCart(items: CartItemPayload[]) {
   return { lineItems, subtotalCents, shippingCents, taxCents, totalCents };
 }
 
-// We don't have real payments configured, but we do persist a "pending"
-// order on intent so the operator can see attempted carts. Real flows would
-// only persist on a successful charge — but storing both states is fine for
-// this internal storefront.
+// Stripe is not configured for this storefront, so /checkout/intent and
+// /checkout/confirm are intentionally stubs that return 503. Real cart
+// submissions go through /checkout/submit (below), which persists an order
+// without taking payment so the admin Orders queue still works.
 router.post("/checkout/intent", async (req: Request, res: Response) => {
   try {
     const items: CartItemPayload[] = req.body?.items ?? [];
@@ -123,7 +123,6 @@ router.post("/checkout/submit", async (req: Request, res: Response) => {
       return;
     }
     const priced = await priceCart(items);
-    const settings = await getSiteSettings();
 
     const customerName = [customer.firstName, customer.lastName]
       .filter(Boolean)
@@ -153,7 +152,6 @@ router.post("/checkout/submit", async (req: Request, res: Response) => {
       })
       .returning();
 
-    void settings;
     res.status(201).json({
       orderId: order.id,
       totalCents: order.totalCents,

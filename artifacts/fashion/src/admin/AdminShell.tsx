@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
@@ -25,6 +25,20 @@ const NAV: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = 
 export function AdminShell({ children }: { children: ReactNode }) {
   const { user, isLoading, isAuthenticated, login, logout } = useAuth();
   const [location] = useLocation();
+  const [adminCheck, setAdminCheck] = useState<
+    { isAdmin: boolean; loaded: boolean }
+  >({ isAdmin: false, loaded: false });
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setAdminCheck({ isAdmin: false, loaded: true });
+      return;
+    }
+    fetch("/api/auth/admin-status", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setAdminCheck({ isAdmin: !!d.isAdmin, loaded: true }))
+      .catch(() => setAdminCheck({ isAdmin: false, loaded: true }));
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -48,6 +62,44 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <Button onClick={login} className="w-full h-12">
             Sign in
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!adminCheck.loaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Checking access…</p>
+      </div>
+    );
+  }
+
+  if (!adminCheck.isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="max-w-md w-full p-10 border rounded-lg text-center space-y-6">
+          <ShieldAlert className="w-10 h-10 mx-auto text-destructive" />
+          <div>
+            <h1 className="font-serif text-3xl font-bold mb-2">
+              No admin access
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Your account isn't on the admin allowlist. Ask the store owner
+              to add <span className="font-mono">{user?.email}</span> to
+              <span className="font-mono"> ADMIN_EMAILS</span>.
+            </p>
+          </div>
+          <div className="flex gap-2 justify-center">
+            <Link href="/">
+              <Button variant="outline" className="h-11">
+                Back to storefront
+              </Button>
+            </Link>
+            <Button onClick={logout} className="h-11">
+              Sign out
+            </Button>
+          </div>
         </div>
       </div>
     );

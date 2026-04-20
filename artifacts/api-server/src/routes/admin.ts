@@ -11,6 +11,7 @@ import {
   productOverridesTable,
   ordersTable,
   siteSettingsTable,
+  wishlistSignalsTable,
 } from "@workspace/db";
 import { requireAdmin } from "../middlewares/adminGuard";
 import { invalidateOverrides } from "../lib/overrides";
@@ -149,6 +150,12 @@ router.put(
           ? String(body.priceOverride)
           : null,
       badge: body.badge ?? null,
+      stockLevel:
+        body.stockLevel === undefined || body.stockLevel === null
+          ? null
+          : Number.isFinite(Number(body.stockLevel))
+            ? Math.max(0, Math.floor(Number(body.stockLevel)))
+            : null,
     };
     const [row] = await db
       .insert(productOverridesTable)
@@ -160,6 +167,7 @@ router.put(
           hidden: values.hidden,
           priceOverride: values.priceOverride,
           badge: values.badge,
+          stockLevel: values.stockLevel,
         },
       })
       .returning();
@@ -200,6 +208,12 @@ router.post("/admin/product-overrides/bulk", async (req, res) => {
           ? String(patch.priceOverride)
           : null,
       badge: patch.badge ?? null,
+      stockLevel:
+        patch.stockLevel === undefined || patch.stockLevel === null
+          ? null
+          : Number.isFinite(Number(patch.stockLevel))
+            ? Math.max(0, Math.floor(Number(patch.stockLevel)))
+            : null,
     };
     await db
       .insert(productOverridesTable)
@@ -213,6 +227,7 @@ router.post("/admin/product-overrides/bulk", async (req, res) => {
             priceOverride: values.priceOverride,
           }),
           ...(("badge" in patch) && { badge: values.badge }),
+          ...(("stockLevel" in patch) && { stockLevel: values.stockLevel }),
         },
       });
   }
@@ -289,7 +304,12 @@ router.patch("/admin/orders/:id", async (req, res) => {
 /* ---------------- Customers (aggregated from orders) ---------------- */
 
 router.get("/admin/customers", async (_req, res) => {
-  const rows = await db
+  // Best-effort customer list aggregating two signals:
+  //   1. Submitted orders (authoritative spend + name)
+  //   2. Wishlist signals tagged with an email (interest indicator)
+  // Customers may appear from wishlist alone (orderCount 0) if they ever
+  // wishlisted with an email but have not yet checked out.
+  const orderRows = await db
     .select({
       email: ordersTable.email,
       name: sql<string | null>`MAX(${ordersTable.customerName})`,
@@ -298,8 +318,70 @@ router.get("/admin/customers", async (_req, res) => {
       lastOrderAt: sql<Date>`MAX(${ordersTable.createdAt})`,
     })
     .from(ordersTable)
-    .groupBy(ordersTable.email)
-    .orderBy(desc(sql`MAX(${ordersTable.createdAt})`));
+    .groupBy(ordersTable.email);
+
+  const wishRows = await db
+    .select({
+      email: wishlistSignalsTable.email,
+      wishlistCount: sql<number>`COUNT(*)::int`,
+      lastWishlistAt: sql<Date>`MAX(${wishlistSignalsTable.createdAt})`,
+    })
+    .from(wishlistSignalsTable)
+    .where(sql`${wishlistSignalsTable.email} IS NOT NULL`)
+    .groupBy(wishlistSignalsTable.email);
+
+  type Row = {
+    email: string;
+    name: string | null;
+    orderCount: number;
+    totalSpentCents: number;
+    lastOrderAt: Date | null;
+    wishlistCount: number;
+    lastWishlistAt: Date | null;
+  };
+  const map = new Map<string, Row>();
+  for (const r of orderRows) {
+    map.set(r.email, {
+      email: r.email,
+      name: r.name,
+      orderCount: r.orderCount,
+      totalSpentCents: Number(r.totalSpentCents),
+      lastOrderAt: r.lastOrderAt,
+      wishlistCount: 0,
+      lastWishlistAt: null,
+    });
+  }
+  for (const w of wishRows) {
+    if (!w.email) continue;
+    const existing = map.get(w.email);
+    if (existing) {
+      existing.wishlistCount = w.wishlistCount;
+      existing.lastWishlistAt = w.lastWishlistAt;
+    } else {
+      map.set(w.email, {
+        email: w.email,
+        name: null,
+        orderCount: 0,
+        totalSpentCents: 0,
+        lastOrderAt: null,
+        wishlistCount: w.wishlistCount,
+        lastWishlistAt: w.lastWishlistAt,
+      });
+    }
+  }
+  const rows = [...map.values()].sort((a, b) => {
+    const ta =
+      Math.max(
+        a.lastOrderAt ? a.lastOrderAt.getTime() : 0,
+        a.lastWishlistAt ? a.lastWishlistAt.getTime() : 0,
+      );
+    const tb =
+      Math.max(
+        b.lastOrderAt ? b.lastOrderAt.getTime() : 0,
+        b.lastWishlistAt ? b.lastWishlistAt.getTime() : 0,
+      );
+    return tb - ta;
+  });
   res.json(rows);
 });
 
@@ -387,12 +469,37 @@ router.get("/admin/stats", async (_req, res) => {
     .slice(0, 6)
     .map(([slug, count]) => ({ slug, count }));
 
+  const lowStockOverrides = await db
+    .select({
+      productId: productOverridesTable.productId,
+      stockLevel: productOverridesTable.stockLevel,
+    })
+    .from(productOverridesTable)
+    .where(
+      and(
+        sql`${productOverridesTable.stockLevel} IS NOT NULL`,
+        sql`${productOverridesTable.stockLevel} <= 5`,
+      ),
+    )
+    .limit(10);
+
+  const lowStockProducts = lowStockOverrides.map((o) => {
+    const p = allProducts.find((x) => x.id === o.productId);
+    return {
+      productId: o.productId,
+      title: p?.title ?? o.productId,
+      stockLevel: o.stockLevel ?? 0,
+    };
+  });
+
   res.json({
     products: allProducts.length,
     ordersToday: Number(todayAgg?.count ?? 0),
     ordersWeek: Number(weekAgg?.count ?? 0),
     revenueTodayCents: Number(todayAgg?.revenue ?? 0),
     revenueWeekCents: Number(weekAgg?.revenue ?? 0),
+    lowStockCount: lowStockProducts.length,
+    lowStockProducts,
     topCategories,
     recentOrders,
   });

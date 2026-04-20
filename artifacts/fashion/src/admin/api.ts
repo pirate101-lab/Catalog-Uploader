@@ -33,6 +33,7 @@ export interface ProductOverride {
   hidden: boolean;
   priceOverride: string | null;
   badge: string | null;
+  stockLevel: number | null;
 }
 
 export interface OrderRow {
@@ -63,7 +64,9 @@ export interface CustomerRow {
   name: string | null;
   orderCount: number;
   totalSpentCents: number;
-  lastOrderAt: string;
+  lastOrderAt: string | null;
+  wishlistCount: number;
+  lastWishlistAt: string | null;
 }
 
 export interface SiteSettings {
@@ -84,6 +87,12 @@ export interface DashboardStats {
   ordersWeek: number;
   revenueTodayCents: number;
   revenueWeekCents: number;
+  lowStockCount: number;
+  lowStockProducts: Array<{
+    productId: string;
+    title: string;
+    stockLevel: number;
+  }>;
   topCategories: Array<{ slug: string; count: number }>;
   recentOrders: OrderRow[];
 }

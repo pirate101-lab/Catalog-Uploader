@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { asc, eq } from "drizzle-orm";
-import { db, heroSlidesTable } from "@workspace/db";
+import { db, heroSlidesTable, wishlistSignalsTable } from "@workspace/db";
 import { getAllProducts, getProductById, type ProductRow } from "../lib/catalog";
 import { getOverridesMap } from "../lib/overrides";
 import { getSiteSettings } from "../lib/siteSettings";
@@ -248,6 +248,40 @@ router.get("/storefront/products", async (req: Request, res: Response) => {
   const rows = filtered.slice(offset, offset + limit);
   res.json({ rows, total: filtered.length, limit, offset });
 });
+
+router.post(
+  "/storefront/wishlist-signal",
+  async (req: Request, res: Response) => {
+    const productId =
+      typeof req.body?.productId === "string" ? req.body.productId : null;
+    if (!productId) {
+      res.status(400).json({ error: "productId is required" });
+      return;
+    }
+    // Prefer the authenticated user's email (server-trusted) so wishlist
+    // signals can be attributed to a customer in the admin Customers view.
+    // Fall back to a body-supplied email only when not authenticated.
+    const sessionEmail =
+      req.isAuthenticated() && typeof req.user?.email === "string"
+        ? req.user.email.toLowerCase()
+        : null;
+    const bodyEmail =
+      typeof req.body?.email === "string" && req.body.email.includes("@")
+        ? req.body.email.toLowerCase()
+        : null;
+    const email = sessionEmail ?? bodyEmail;
+    const sessionId =
+      typeof req.body?.sessionId === "string"
+        ? req.body.sessionId.slice(0, 64)
+        : null;
+    await db.insert(wishlistSignalsTable).values({
+      productId,
+      email,
+      sessionId,
+    });
+    res.status(201).json({ ok: true });
+  },
+);
 
 router.get("/storefront/products/:id", async (req: Request, res: Response) => {
   const idParam = req.params["id"];

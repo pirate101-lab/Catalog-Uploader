@@ -90,6 +90,19 @@ router.get("/auth/user", (req: Request, res: Response) => {
   );
 });
 
+router.get("/auth/admin-status", async (req: Request, res: Response) => {
+  const { isAdminEmail } = await import("../middlewares/adminGuard");
+  if (!req.isAuthenticated()) {
+    res.json({ authenticated: false, isAdmin: false });
+    return;
+  }
+  res.json({
+    authenticated: true,
+    isAdmin: isAdminEmail(req.user.email),
+    email: req.user.email ?? null,
+  });
+});
+
 router.get("/login", async (req: Request, res: Response) => {
   const config = await getOidcConfig();
   const callbackUrl = `${getOrigin(req)}/api/callback`;

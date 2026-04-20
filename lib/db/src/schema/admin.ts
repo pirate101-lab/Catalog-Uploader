@@ -37,6 +37,7 @@ export const productOverridesTable = pgTable("product_overrides", {
   hidden: boolean("hidden").notNull().default(false),
   priceOverride: numeric("price_override", { precision: 10, scale: 2 }),
   badge: text("badge"),
+  stockLevel: integer("stock_level"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()
@@ -90,3 +91,16 @@ export const siteSettingsTable = pgTable("site_settings", {
 
 export type SiteSettings = typeof siteSettingsTable.$inferSelect;
 export type InsertSiteSettings = typeof siteSettingsTable.$inferInsert;
+
+export const wishlistSignalsTable = pgTable("wishlist_signals", {
+  id: serial("id").primaryKey(),
+  productId: varchar("product_id").notNull(),
+  email: text("email"),
+  sessionId: varchar("session_id", { length: 64 }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type WishlistSignal = typeof wishlistSignalsTable.$inferSelect;
+export type InsertWishlistSignal = typeof wishlistSignalsTable.$inferInsert;

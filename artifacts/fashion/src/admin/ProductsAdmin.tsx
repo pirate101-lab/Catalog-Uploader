@@ -52,6 +52,7 @@ export function ProductsAdmin() {
       hidden: false,
       priceOverride: null,
       badge: null,
+      stockLevel: null,
     };
     const merged = { ...current, ...patch };
     const saved = await adminApi.upsertOverride(productId, merged);
@@ -161,12 +162,13 @@ export function ProductsAdmin() {
               <th className="p-3 text-center">Featured</th>
               <th className="p-3 text-left">Override $</th>
               <th className="p-3 text-left">Badge</th>
+              <th className="p-3 text-left">Stock</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {loading && (
               <tr>
-                <td colSpan={9} className="p-6 text-center text-muted-foreground">
+                <td colSpan={10} className="p-6 text-center text-muted-foreground">
                   Loading…
                 </td>
               </tr>
@@ -239,6 +241,25 @@ export function ProductsAdmin() {
                         onBlur={(e) => {
                           const v = e.target.value.trim();
                           setOv(r.id, { badge: v === "" ? null : v });
+                        }}
+                      />
+                    </td>
+                    <td className="p-3">
+                      <Input
+                        type="number"
+                        min={0}
+                        defaultValue={ov?.stockLevel ?? ""}
+                        placeholder="—"
+                        className={`h-8 w-20 ${
+                          ov?.stockLevel != null && ov.stockLevel <= 5
+                            ? "border-amber-500 text-amber-700 dark:text-amber-300"
+                            : ""
+                        }`}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          setOv(r.id, {
+                            stockLevel: v === "" ? null : Number(v),
+                          });
                         }}
                       />
                     </td>
