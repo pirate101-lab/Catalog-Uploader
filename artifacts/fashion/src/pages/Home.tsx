@@ -451,7 +451,83 @@ export function HomePage() {
 
       <HeroSlider slides={decoratedSlides} />
 
-      <section id="home-browse" className="py-12 md:py-20 bg-background">
+      {/* Horizontal browse bar — phones + tablets only. The desktop
+          (lg+) layout keeps the full sidebar rail. */}
+      <div className="lg:hidden sticky top-16 md:top-[68px] z-30 bg-background/95 backdrop-blur-md border-b border-border">
+        <div className="container mx-auto px-4 py-3 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <div
+              role="radiogroup"
+              aria-label="Shop for"
+              className="flex rounded-full border border-border overflow-hidden bg-background h-11"
+            >
+              {GENDER_OPTIONS.map((g) => {
+                const active = filters.gender === g.value;
+                return (
+                  <button
+                    key={g.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => updateFilters({ gender: g.value })}
+                    className={`px-4 min-w-[44px] text-[11px] font-semibold uppercase tracking-widest transition-colors ${
+                      active
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-foreground/80 hover:text-foreground'
+                    }`}
+                    data-testid={`home-bar-gender-${g.value}`}
+                  >
+                    {g.label}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setMobileFiltersOpen(true)}
+              className="ml-auto inline-flex items-center gap-2 h-11 px-4 rounded-full border border-border text-[11px] uppercase tracking-widest"
+              data-testid="home-bar-filters-open"
+            >
+              <SlidersHorizontal className="w-4 h-4" /> Filters
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
+          <div className="-mx-4 overflow-x-auto">
+            <div className="px-4 flex items-center gap-2 whitespace-nowrap">
+              {(['All', ...RAIL_GROUPS.map((g) => g.label)] as string[]).map((label) => {
+                // Resolve the active state through the rail hierarchy so a
+                // selected leaf (e.g. "T-Shirts") still highlights its parent
+                // group ("Tops") in the chip bar.
+                const parentForActive = (() => {
+                  if (filters.category === label) return label;
+                  const grp = RAIL_GROUPS.find((g) => g.items?.includes(filters.category));
+                  return grp?.label;
+                })();
+                const active = parentForActive === label;
+                return (
+                  <button
+                    key={label}
+                    onClick={() => updateFilters({ category: label })}
+                    className={`shrink-0 h-11 px-4 rounded-full border text-[11px] font-semibold uppercase tracking-widest transition-colors ${
+                      active
+                        ? 'bg-foreground text-background border-foreground'
+                        : 'border-border text-foreground/80 hover:text-foreground'
+                    }`}
+                    data-testid={`home-bar-cat-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section id="home-browse" className="py-10 md:py-20 bg-background">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
             <div>
@@ -468,18 +544,6 @@ export function HomePage() {
               </p>
             </div>
             <div className="flex items-center gap-3 self-start md:self-auto">
-              <button
-                onClick={() => setMobileFiltersOpen(true)}
-                className="lg:hidden inline-flex items-center gap-2 h-10 px-4 border border-border text-xs uppercase tracking-widest"
-                data-testid="home-filters-open"
-              >
-                <SlidersHorizontal className="w-4 h-4" /> Filters
-                {activeFilterCount > 0 && (
-                  <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
               <Link
                 href={shopHref(filters)}
                 className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-primary hover:underline"
@@ -497,7 +561,7 @@ export function HomePage() {
 
             <div>
               {pageLoading && items.length === 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10">
                   {Array.from({ length: 12 }).map((_, i) => (
                     <ProductCardSkeleton key={i} />
                   ))}
@@ -515,7 +579,7 @@ export function HomePage() {
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10">
                   {items.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}

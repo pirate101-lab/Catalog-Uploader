@@ -88,7 +88,7 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
 
   return (
     <section
-      className="group relative h-[100dvh] w-full overflow-hidden bg-black text-white"
+      className="group relative h-[70dvh] min-h-[460px] max-h-[640px] lg:h-[100dvh] lg:min-h-0 lg:max-h-none w-full overflow-hidden bg-black text-white"
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
       aria-roledescription="carousel"
@@ -122,8 +122,7 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
 
       {/* Stronger top/bottom scrim so the vibrant gradient headline always
           stays legible regardless of which hero photo is showing. */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/85 pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_hsl(245_60%_20%/0.18)_0%,_transparent_75%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/25 to-black/80 pointer-events-none" />
 
       {/* Captions */}
       <div className="relative z-10 h-full container mx-auto px-4 flex items-center">
@@ -191,7 +190,7 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
       {/* Dot indicators */}
       {slides.length > 1 && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 bottom-20 md:bottom-24 z-20 flex items-center gap-3"
+          className="absolute left-1/2 -translate-x-1/2 bottom-14 md:bottom-20 lg:bottom-24 z-20 flex items-center gap-3"
           role="tablist"
           aria-label="Hero slide selector"
         >

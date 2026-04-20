@@ -591,7 +591,7 @@ export function ShopPage() {
             )}
 
             {initialLoading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10">
                 {Array.from({ length: 12 }).map((_, i) => (
                   <ProductCardSkeleton key={i} />
                 ))}
@@ -602,7 +602,7 @@ export function ShopPage() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10">
                   {refined.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
@@ -611,7 +611,7 @@ export function ShopPage() {
                 {hasMore && (
                   <div
                     ref={sentinelRef}
-                    className="mt-12 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10"
+                    className="mt-12 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10"
                   >
                     {Array.from({ length: 4 }).map((_, i) => (
                       <ProductCardSkeleton key={i} />
