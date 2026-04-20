@@ -141,7 +141,9 @@ router.get("/storefront/products", (req: Request, res: Response) => {
     const ids = new Set(
       idsParam.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 200),
     );
-    const rows = all.filter((p) => ids.has(p.id));
+    const rows = all.filter(
+      (p) => ids.has(p.id) && (gender ? p.gender === gender : true),
+    );
     res.json({ rows, total: rows.length, limit: rows.length, offset: 0 });
     return;
   }

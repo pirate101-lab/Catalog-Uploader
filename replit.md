@@ -29,12 +29,13 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 ## Artifacts
 
 - **`artifacts/fashion`** — VELOUR women's fashion storefront (React + Vite). Reads catalog via `/api/storefront/*`. Vite dev proxies `/api → ${API_PROXY_TARGET}` (set in `artifact.toml [services.env]`). Service binds `PORT=25246`.
-- **`artifacts/api-server`** — Express API for storefront (`src/routes/storefront.ts`) and checkout stubs (`src/routes/checkout.ts`). Reads from `data/catalog_lite.json` (5 MB, 18,302 products) via `src/lib/catalog.ts`. Service binds `PORT=8080`, paths `/api`.
+- **`artifacts/api-server`** — Express API for storefront (`src/routes/storefront.ts`) and checkout stubs (`src/routes/checkout.ts`). Reads from `data/catalog_lite.json` (18,302 women's products) and `data/catalog_men_lite.json` (2,361 men's products) via `src/lib/catalog.ts`, which merges them and tags each row with `gender: "women" | "men"`. Men's IDs are namespaced with an `m-` prefix to avoid collisions. Service binds `PORT=8080`, paths `/api`. Storefront endpoints accept `?gender=men|women`.
 - **`artifacts/mockup-sandbox`** — design canvas (untouched).
 
 ## Catalog images (Cloudflare R2)
 
-- 18,302 webp images uploaded to R2 bucket `velour-catalog` under prefix `catalog/replit_lite/images/<category>/<id>.webp`.
+- 18,302 women's webp images uploaded to R2 bucket `velour-catalog` under prefix `catalog/replit_lite/images/<category>/<id>.webp`, plus 2,361 men's webp images under `catalog/replit_lite_men/images/<category>/<id>.webp`. Both have the same 3 width variants (`_400`, `_800`, `_1600`).
+- Re-upload the men's set: `pnpm --filter @workspace/api-server exec node scripts/upload-r2.mjs catalog/replit_lite_men/images catalog/replit_lite_men/images` (script accepts an optional R2 prefix as second arg, or `R2_PREFIX` env override).
 - Public CDN base: `R2_PUBLIC_BASE_URL=https://pub-4ad1632e283f4eecafd71b3d7d6c4318.r2.dev` (managed public access).
 - API server rewrites image paths to absolute R2 URLs in `artifacts/api-server/src/lib/catalog.ts` (no client-side env needed).
 - Re-upload script: `pnpm --filter @workspace/api-server exec node scripts/upload-r2.mjs <source-dir>` (idempotent, skip-if-exists, concurrency 80, immutable cache).
