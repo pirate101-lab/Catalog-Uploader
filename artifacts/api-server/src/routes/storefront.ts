@@ -326,13 +326,15 @@ router.get("/storefront/products", async (req: Request, res: Response) => {
       ? (bucketRaw as BucketKey)
       : undefined;
   // Translate bucket-aliased `?category=` labels into the bucket filter
-  // and drop them from the category filter so they don't double-filter
-  // against the (non-existent) "TikTok Verified" product category. An
-  // explicit `?bucket=` param wins if both are present.
-  if (!bucket && category) {
+  // and ALWAYS drop them from the category filter — even if `?bucket=`
+  // is also supplied. Otherwise the alias label leaks through and
+  // double-filters against the (non-existent) "TikTok Verified"
+  // product category, zeroing the result set. An explicit `?bucket=`
+  // wins when both are present.
+  if (category) {
     const alias = CATEGORY_LABEL_TO_BUCKET.get(category.toLowerCase());
     if (alias) {
-      bucket = alias;
+      if (!bucket) bucket = alias;
       category = undefined;
     }
   }
