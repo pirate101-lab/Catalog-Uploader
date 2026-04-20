@@ -39,9 +39,12 @@ function pickWidth(target: number): number {
 
 // Inject `_<width>` before the .webp extension. Non-.webp URLs (e.g.
 // remote source images) are returned unchanged so callers still get a
-// usable URL.
+// usable URL. Idempotent: if the URL already ends in `_<width>.webp`,
+// the existing width suffix is replaced rather than doubled (avoids
+// `id_800_800.webp` if upstream ever returns pre-sized URLs).
 function withSize(url: string, width: number): string {
-  return url.replace(/(\.webp)(\?.*)?$/i, `_${width}$1$2`);
+  const stripped = url.replace(/_(\d+)(\.webp)(\?.*)?$/i, '$2$3');
+  return stripped.replace(/(\.webp)(\?.*)?$/i, `_${width}$1$2`);
 }
 
 function isSizedAsset(url: string): boolean {
