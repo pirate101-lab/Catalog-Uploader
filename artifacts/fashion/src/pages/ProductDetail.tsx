@@ -88,6 +88,7 @@ export function ProductDetailPage() {
   });
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [formName, setFormName] = useState('');
+  const [formTitle, setFormTitle] = useState('');
   const [formRating, setFormRating] = useState(0);
   const [formBody, setFormBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -119,6 +120,7 @@ export function ProductDetailPage() {
       setQuantity(1);
       setActiveImage(0);
       setFormName('');
+      setFormTitle('');
       setFormRating(0);
       setFormBody('');
       void loadReviews(product.id);
@@ -184,6 +186,7 @@ export function ProductDetailPage() {
         name: formName.trim(),
         rating: formRating,
         body: formBody.trim(),
+        title: formTitle.trim() || undefined,
       });
       if (!result.ok) {
         toast.error(result.error ?? 'Could not submit review. Please try again.');
@@ -191,6 +194,7 @@ export function ProductDetailPage() {
       }
       toast.success('Thanks! Your review is live.');
       setFormName('');
+      setFormTitle('');
       setFormRating(0);
       setFormBody('');
       await loadReviews(product.id);
@@ -534,6 +538,20 @@ export function ProductDetailPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="review-title" className="text-xs uppercase tracking-widest">
+                  Headline <span className="text-muted-foreground/60 normal-case">(optional)</span>
+                </Label>
+                <Input
+                  id="review-title"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  maxLength={120}
+                  placeholder="e.g. New favourite"
+                  data-testid="input-review-title"
+                />
               </div>
 
               <div className="space-y-2">

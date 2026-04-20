@@ -54,6 +54,7 @@ export interface SubmitReviewInput {
   name: string;
   rating: number;
   body: string;
+  title?: string;
 }
 
 export interface SubmitReviewResult {

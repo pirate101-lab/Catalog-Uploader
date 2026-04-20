@@ -354,8 +354,13 @@ router.get(
       res.status(400).json({ error: "Missing product id" });
       return;
     }
-    const limit = Math.min(Number(req.query["limit"] ?? 20), 100);
-    const offset = Math.max(Number(req.query["offset"] ?? 0), 0);
+    // Tolerate malformed query strings: anything non-integer falls back to defaults.
+    const parseInt = (v: unknown, fallback: number): number => {
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.trunc(n) : fallback;
+    };
+    const limit = Math.min(Math.max(parseInt(req.query["limit"], 20), 1), 100);
+    const offset = Math.max(parseInt(req.query["offset"], 0), 0);
 
     const rows = await db
       .select({
