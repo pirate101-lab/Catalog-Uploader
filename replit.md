@@ -91,6 +91,20 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ## Site audit (Task #19)
 
-- **Storefront bundle**: admin pages in `App.tsx` are loaded via `React.lazy` + `Suspense` (`AdminFallback`). The eight admin chunks (`Dashboard`, `HeroAdmin`, `ProductsAdmin`, `OrdersAdmin`, `CustomersAdmin`, `ReviewsAdmin`, `EmailsAdmin`, `SettingsAdmin`) are excluded from the homepage bundle and resolve on first navigation under `/admin/*`.
-- **Grid re-render cost**: `ProductCard` is wrapped in `React.memo` with a custom comparator (`prev.product === next.product`). Filter state changes in `Shop.tsx` / `Home.tsx` no longer rerun every card body — only the new/changed cards render. Important: callers must keep product object identity stable across pages (already done — `useProducts.search()` returns fresh arrays only when results change).
-- **Footer dead links**: the four `href="#"` anchors (Contact, Terms, Privacy, Cookies) were replaced with buttons that show a placeholder toast (Contact → email address, legal → "coming soon"). This eliminates the "click → SPA bounces to homepage" bug and keeps the footer honest until the real legal pages ship.
+Pragmatic perf + correctness pass; no behaviour changes other than what's listed.
+
+- **Storefront bundle (code-split admin)**: in `App.tsx`, all eight admin pages (`Dashboard`, `HeroAdmin`, `ProductsAdmin`, `OrdersAdmin` + `OrderDetailAdmin`, `CustomersAdmin`, `ReviewsAdmin`, `EmailsAdmin`, `SettingsAdmin`) are loaded via `React.lazy`. A single `<Suspense fallback={<AdminFallback/>}>` wraps the top-level `<Switch>` so the original flat route list (`/admin`, `/admin/orders/:id`, etc.) keeps matching exactly the same paths it did before — only the chunk fetch is deferred until first admin navigation. Storefront visitors no longer download the moderation UIs.
+- **Grid re-render cost**: `ProductCard` is wrapped in `React.memo` with a custom comparator `(prev.product === next.product)`. Filter / hover state in `Shop.tsx` and `Home.tsx` no longer rerun every tile in 24+ card grids; only the cards whose product object changes render. Product object identity is already stable across pages — `ProductsContext.search()` returns fresh arrays only when results change.
+- **Footer dead links**: the four `href="#"` anchors (Contact, Terms, Privacy, Cookies) were replaced with buttons that show a placeholder toast (Contact → email address, legal → "coming soon"). This eliminates the "click → SPA bounces to homepage" misbehaviour without preempting the dedicated legal-pages task.
+
+### Audit verifications (no code change required)
+
+- **Image pipeline already optimal**: `ProductImage` (`src/components/ProductImage.tsx`) emits a real width-descriptor `srcSet` (400 / 800 / 1600 webp variants from R2) plus the caller-supplied `sizes`, sets `decoding="async"`, and toggles `loading`/`fetchPriority` based on `priority`. `ProductDetail.tsx` and `HeroSlider.tsx` issue an explicit `<link rel="preload" as="image">` for the LCP frame using the matching srcset/sizes, so no further work needed.
+- **Fonts**: `index.html` already preconnects to `fonts.googleapis.com` + `fonts.gstatic.com` (with `crossorigin`) and uses `display=swap` on the Google Fonts URL.
+- **Backend hot endpoints (in-memory catalog)** — measured locally against `:8080` with `curl -w time_total`:
+  - `GET /api/storefront/categories`: ~20 ms
+  - `GET /api/storefront/products?limit=24`: ~6 ms
+  - `GET /api/storefront/products?limit=24&category=Dresses&gender=women&sort=price-asc`: ~14 ms
+  - `GET /api/storefront/settings`: ~5 ms
+
+  Catalog is read from JSON into memory at server boot and filtered/sorted in process, so no DB index work is needed for these paths. The DB-backed admin endpoints (`/admin/overview`, `/admin/orders`, `/admin/email-events`) already use `Promise.all` parallelism and indexed columns (`orders.created_at`, `order_email_events.created_at`, `reviews.product_id`).

@@ -93,29 +93,28 @@ function AppRoutes() {
           : "min-h-[100dvh] flex flex-col w-full bg-background font-sans text-foreground"
       }
     >
-      <Switch>
-        <Route path="/admin/:rest*">
-          <Suspense fallback={<AdminFallback />}>
-            <Switch>
-              <Route path="/admin" component={AdminDashboard} />
-              <Route path="/admin/hero" component={HeroAdmin} />
-              <Route path="/admin/products" component={ProductsAdmin} />
-              <Route path="/admin/orders" component={OrdersAdmin} />
-              <Route path="/admin/orders/:id">
-                {(params) => <OrderDetailAdmin id={params.id} />}
-              </Route>
-              <Route path="/admin/customers" component={CustomersAdmin} />
-              <Route path="/admin/reviews" component={ReviewsAdmin} />
-              <Route path="/admin/emails" component={EmailsAdmin} />
-              <Route path="/admin/settings" component={SettingsAdmin} />
-              <Route path="/admin/:rest*" component={AdminDashboard} />
-            </Switch>
-          </Suspense>
-        </Route>
-        <Route>
-          <StorefrontShell />
-        </Route>
-      </Switch>
+      {/* Flat top-level routes (matches the original wouter pattern); the
+          single Suspense boundary covers any lazy admin chunk that resolves
+          on first navigation. Storefront routes are eager and don't suspend. */}
+      <Suspense fallback={isAdmin ? <AdminFallback /> : null}>
+        <Switch>
+          <Route path="/admin" component={AdminDashboard} />
+          <Route path="/admin/hero" component={HeroAdmin} />
+          <Route path="/admin/products" component={ProductsAdmin} />
+          <Route path="/admin/orders" component={OrdersAdmin} />
+          <Route path="/admin/orders/:id">
+            {(params) => <OrderDetailAdmin id={params.id} />}
+          </Route>
+          <Route path="/admin/customers" component={CustomersAdmin} />
+          <Route path="/admin/reviews" component={ReviewsAdmin} />
+          <Route path="/admin/emails" component={EmailsAdmin} />
+          <Route path="/admin/settings" component={SettingsAdmin} />
+          <Route path="/admin/:rest*" component={AdminDashboard} />
+          <Route>
+            <StorefrontShell />
+          </Route>
+        </Switch>
+      </Suspense>
     </div>
   );
 }
