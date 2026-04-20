@@ -19,7 +19,14 @@ import { requireAdmin } from "../middlewares/adminGuard";
 import { invalidateOverrides } from "../lib/overrides";
 import { invalidateSiteSettings, getSiteSettings } from "../lib/siteSettings";
 import { getAllProducts } from "../lib/catalog";
-import { sendOrderStatusEmail, sendTestOrderEmail } from "../lib/email";
+import {
+  sendOrderStatusEmail,
+  sendOrderConfirmationEmail,
+  sendOrderEmailByKind,
+  sendTestOrderEmail,
+  ORDER_EMAIL_KINDS,
+  type OrderEmailKind,
+} from "../lib/email";
 import { deleteReviewById } from "../lib/reviewSummary";
 
 const router: IRouter = Router();
@@ -425,16 +432,57 @@ router.patch("/admin/orders/:id", async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  if (
-    existing.status !== row.status &&
-    (row.status === "shipped" || row.status === "delivered")
-  ) {
+  if (existing.status !== row.status) {
     // Fire-and-forget so a slow/failing email provider does not block the
-    // admin UI. Errors are logged inside the helper.
-    void sendOrderStatusEmail(row, row.status, req.log);
+    // admin UI. Errors are logged + recorded inside the helpers. Status
+    // → email kind map: packed → confirmation, shipped/delivered → status.
+    if (row.status === "packed") {
+      void sendOrderConfirmationEmail(row, req.log);
+    } else if (row.status === "shipped" || row.status === "delivered") {
+      void sendOrderStatusEmail(row, row.status, req.log);
+    }
   }
   res.json(row);
 });
+
+/** Manually resend any of the four order emails. Used by the Resend
+ *  buttons in the admin order detail when the original send failed,
+ *  or when staff want to nudge a customer who lost the email. */
+router.post(
+  "/admin/orders/:id/resend-email",
+  async (req: Request, res: Response) => {
+    const idRaw = req.params["id"];
+    const id = Array.isArray(idRaw) ? idRaw[0] : idRaw;
+    if (!id) {
+      res.status(400).json({ error: "Missing id" });
+      return;
+    }
+    const kind = req.body?.kind as OrderEmailKind | undefined;
+    if (!kind || !ORDER_EMAIL_KINDS.includes(kind)) {
+      res.status(400).json({
+        error: `Invalid kind. Expected one of ${ORDER_EMAIL_KINDS.join(", ")}.`,
+      });
+      return;
+    }
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, id));
+    if (!order) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+    await sendOrderEmailByKind(order, kind, req.log);
+    // Return the freshly-recorded email events so the UI can refresh
+    // without a second round-trip.
+    const events = await db
+      .select()
+      .from(orderEmailEventsTable)
+      .where(eq(orderEmailEventsTable.orderId, id))
+      .orderBy(asc(orderEmailEventsTable.createdAt));
+    res.json({ ok: true, kind, emailEvents: events });
+  },
+);
 
 /* ---------------- Reviews moderation ----------------
  * Admins can list and remove individual reviews. Deletion goes through

@@ -185,7 +185,13 @@ export function OrderDetailAdmin({ id }: { id: string }) {
                 </div>
               </div>
             </div>
-            <EmailEventsCard events={order.emailEvents ?? []} />
+            <EmailEventsCard
+              orderId={id}
+              events={order.emailEvents ?? []}
+              onChange={(events) =>
+                setOrder((prev) => (prev ? { ...prev, emailEvents: events } : prev))
+              }
+            />
             <div className="border rounded-lg p-5">
               <h3 className="text-xs uppercase tracking-widest font-bold mb-3">
                 Status
@@ -213,71 +219,124 @@ export function OrderDetailAdmin({ id }: { id: string }) {
 }
 
 const EMAIL_KIND_LABEL: Record<OrderEmailEvent["kind"], string> = {
-  confirmation: "Order confirmation",
+  received: "Order received",
+  confirmation: "Order confirmed",
   shipped: "Shipped notification",
   delivered: "Delivered notification",
 };
 
-function EmailEventsCard({ events }: { events: OrderEmailEvent[] }) {
+const EMAIL_KIND_HINT: Record<OrderEmailEvent["kind"], string> = {
+  received: "Sent automatically when the order is placed.",
+  confirmation: "Sent when the status moves from new → packed.",
+  shipped: "Sent when the status moves to shipped.",
+  delivered: "Sent when the status moves to delivered.",
+};
+
+function EmailEventsCard({
+  orderId,
+  events,
+  onChange,
+}: {
+  orderId: string;
+  events: OrderEmailEvent[];
+  onChange: (events: OrderEmailEvent[]) => void;
+}) {
+  const [busyKind, setBusyKind] = useState<OrderEmailEvent["kind"] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   const latestByKind = new Map<OrderEmailEvent["kind"], OrderEmailEvent>();
   for (const e of events) {
     latestByKind.set(e.kind, e);
   }
   const kinds: OrderEmailEvent["kind"][] = [
+    "received",
     "confirmation",
     "shipped",
     "delivered",
   ];
+
+  const resend = async (kind: OrderEmailEvent["kind"]) => {
+    setBusyKind(kind);
+    setError(null);
+    try {
+      const result = await adminApi.resendOrderEmail(orderId, kind);
+      onChange(result.emailEvents);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusyKind(null);
+    }
+  };
+
+  const anyFailed = events.some(
+    (e) => e.status === "failed" || e.status === "skipped",
+  );
+
   return (
     <div className="border rounded-lg p-5">
       <h3 className="text-xs uppercase tracking-widest font-bold mb-3">
         Emails
       </h3>
+      {anyFailed && (
+        <p className="text-xs text-rose-600 dark:text-rose-400 mb-3">
+          One or more emails didn't send — review the entries below and use
+          Resend to try again.
+        </p>
+      )}
+      {error && (
+        <p className="text-xs text-rose-600 dark:text-rose-400 mb-3">
+          {error}
+        </p>
+      )}
       <ul className="space-y-3 text-sm">
         {kinds.map((k) => {
           const e = latestByKind.get(k);
-          if (!e) {
-            return (
-              <li key={k} className="flex items-start justify-between gap-2">
-                <div>
+          const tone = !e
+            ? "bg-muted text-muted-foreground"
+            : e.status === "sent"
+            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+            : e.status === "skipped"
+            ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+            : "bg-rose-500/15 text-rose-700 dark:text-rose-300";
+          const statusLabel = !e ? "not sent" : e.status;
+          return (
+            <li key={k} className="flex flex-col gap-1.5 pb-3 last:pb-0 border-b last:border-b-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
                   <div className="font-medium">{EMAIL_KIND_LABEL[k]}</div>
                   <div className="text-xs text-muted-foreground">
-                    Not sent yet
+                    {e
+                      ? `${new Date(e.createdAt).toLocaleString()}${
+                          e.toAddress ? ` · to ${e.toAddress}` : ""
+                        }`
+                      : EMAIL_KIND_HINT[k]}
                   </div>
+                  {e &&
+                    (e.status === "failed" || e.status === "skipped") &&
+                    e.errorMessage && (
+                      <div className="text-xs text-rose-600 dark:text-rose-400 mt-1 break-words">
+                        {e.statusCode ? `[${e.statusCode}] ` : ""}
+                        {e.errorMessage}
+                      </div>
+                    )}
                 </div>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                  pending
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full capitalize shrink-0 ${tone}`}
+                >
+                  {statusLabel}
                 </span>
-              </li>
-            );
-          }
-          const tone =
-            e.status === "sent"
-              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-              : e.status === "skipped"
-              ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-              : "bg-rose-500/15 text-rose-700 dark:text-rose-300";
-          return (
-            <li key={k} className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="font-medium">{EMAIL_KIND_LABEL[k]}</div>
-                <div className="text-xs text-muted-foreground">
-                  {new Date(e.createdAt).toLocaleString()}
-                  {e.toAddress ? ` · to ${e.toAddress}` : ""}
-                </div>
-                {(e.status === "failed" || e.status === "skipped") &&
-                  e.errorMessage && (
-                    <div className="text-xs text-rose-600 dark:text-rose-400 mt-1 break-words">
-                      {e.statusCode ? `[${e.statusCode}] ` : ""}
-                      {e.errorMessage}
-                    </div>
-                  )}
               </div>
-              <span
-                className={`text-xs px-2 py-0.5 rounded-full capitalize ${tone}`}
-              >
-                {e.status}
-              </span>
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => resend(k)}
+                  disabled={busyKind !== null}
+                  className="h-7 px-3 text-xs"
+                >
+                  {busyKind === k ? "Sending…" : "Resend"}
+                </Button>
+              </div>
             </li>
           );
         })}

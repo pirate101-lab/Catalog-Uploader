@@ -52,7 +52,19 @@ interface ShippingAddress {
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
-export type OrderEmailKind = "confirmation" | "shipped" | "delivered";
+export type OrderEmailKind =
+  | "received"
+  | "confirmation"
+  | "shipped"
+  | "delivered";
+
+/** Display labels mirrored on the admin UI. */
+export const ORDER_EMAIL_KINDS: readonly OrderEmailKind[] = [
+  "received",
+  "confirmation",
+  "shipped",
+  "delivered",
+] as const;
 
 function escapeHtml(value: string): string {
   return value
@@ -103,18 +115,22 @@ function renderOrderEmail(
   let heading: string;
   let intro: string;
   let subject: string;
-  if (kind === "shipped") {
+  if (kind === "received") {
+    heading = "Thanks — we've got your order";
+    intro = `We just received your order #${orderRef} from ${storeName} and our team is reviewing it. You'll get a separate confirmation email the moment it's packed and ready to ship.`;
+    subject = `We received your order #${orderRef}`;
+  } else if (kind === "confirmation") {
+    heading = "Your order is confirmed";
+    intro = `Great news — your order #${orderRef} from ${storeName} is confirmed and being packed for dispatch. We'll email you again as soon as it's on its way.`;
+    subject = `Your order #${orderRef} is confirmed`;
+  } else if (kind === "shipped") {
     heading = "Your order is on its way";
-    intro = `Good news — your order #${orderRef} from ${storeName} just shipped.`;
-    subject = `Order #${orderRef} has shipped`;
-  } else if (kind === "delivered") {
-    heading = "Your order has been delivered";
-    intro = `Your order #${orderRef} from ${storeName} has been delivered. We hope you love it.`;
-    subject = `Order #${orderRef} has been delivered`;
+    intro = `Your order #${orderRef} from ${storeName} just shipped. Tracking details will follow as soon as the carrier scans it in.`;
+    subject = `Order #${orderRef} shipped`;
   } else {
-    heading = "Thanks for your order";
-    intro = `We've received your order #${orderRef} from ${storeName}. Here's your receipt.`;
-    subject = `Order #${orderRef} confirmed`;
+    heading = "Your order has arrived";
+    intro = `Your order #${orderRef} from ${storeName} has been delivered. We hope you love every piece — reply to this email if anything isn't quite right.`;
+    subject = `Order #${orderRef} delivered`;
   }
 
   const itemsHtml = items
@@ -142,7 +158,7 @@ function renderOrderEmail(
   const tax = formatMoney(order.taxCents, currencySymbol);
   const total = formatMoney(order.totalCents, currencySymbol);
 
-  const showBreakdown = kind === "confirmation";
+  const showBreakdown = kind === "received" || kind === "confirmation";
   const breakdownHtml = showBreakdown
     ? `
       <tr>
@@ -160,7 +176,7 @@ function renderOrderEmail(
     : "";
 
   const addressLines =
-    kind === "confirmation"
+    kind === "received" || kind === "confirmation"
       ? formatAddressLines(order.shippingAddress as ShippingAddress | null)
       : [];
   const addressHtml =
@@ -171,9 +187,13 @@ function renderOrderEmail(
          </div>`
       : "";
 
+  // `color-scheme:light` + explicit hex colours keeps Gmail / Apple Mail /
+  // Outlook web from inverting our palette in dark mode (which previously
+  // turned light text on white into white on white). The wrapper bg is a
+  // neutral light grey that reads well in both schemes.
   const html = `<!doctype html>
-<html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fafafa;padding:24px;color:#111;">
-  <div style="max-width:560px;margin:0 auto;background:#fff;padding:32px;border-radius:8px;">
+<html><head><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fafafa;padding:24px;color:#111;color-scheme:light;">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;padding:32px;border-radius:8px;color:#111;">
     <h1 style="font-size:22px;margin:0 0 8px 0;">${escapeHtml(heading)}</h1>
     <p style="margin:0 0 24px 0;color:#444;">${escapeHtml(intro)}</p>
     <h2 style="font-size:14px;text-transform:uppercase;letter-spacing:1px;color:#666;margin:0 0 8px 0;">Order #${orderRef}</h2>
@@ -276,6 +296,53 @@ export function resolveOrderSender(settings: SettingsLike): SenderResolution {
   return { from, replyTo, storeName, currencySymbol, configured };
 }
 
+/** Outcome of one Resend POST attempt. `transient` distinguishes 5xx /
+ *  network blips (worth retrying once) from 4xx-style permanent failures
+ *  (bad domain, invalid email — retrying won't help). */
+interface SendAttempt {
+  ok: boolean;
+  statusCode?: number;
+  errorMessage?: string;
+  transient: boolean;
+}
+
+async function postToResend(
+  apiKey: string,
+  payload: Record<string, unknown>,
+): Promise<SendAttempt> {
+  try {
+    const response = await fetch(RESEND_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (response.ok) return { ok: true, statusCode: response.status, transient: false };
+    const body = await response.text();
+    let errorMessage = body;
+    try {
+      const parsed = JSON.parse(body) as { message?: string; error?: string };
+      errorMessage = parsed.message ?? parsed.error ?? body;
+    } catch {
+      /* not JSON; keep raw text */
+    }
+    return {
+      ok: false,
+      statusCode: response.status,
+      errorMessage: errorMessage || `Resend returned HTTP ${response.status}`,
+      transient: response.status >= 500,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      errorMessage: err instanceof Error ? err.message : "Unknown network error",
+      transient: true,
+    };
+  }
+}
+
 async function sendOrderEmail(
   order: Order,
   kind: OrderEmailKind,
@@ -310,65 +377,32 @@ async function sendOrderEmail(
     currencySymbol,
   );
 
-  try {
-    const payload: Record<string, unknown> = {
-      from,
-      to: order.email,
-      subject,
-      html,
-      text,
-    };
-    if (replyTo) payload["reply_to"] = replyTo;
-    const response = await fetch(RESEND_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      let errorMessage = body;
-      try {
-        const parsed = JSON.parse(body) as { message?: string; error?: string };
-        errorMessage = parsed.message ?? parsed.error ?? body;
-      } catch {
-        /* not JSON; keep raw text */
-      }
-      log.error(
-        { orderId: order.id, kind, statusCode: response.status, body },
-        "Resend API rejected order email",
-      );
-      await recordOrderEmailEvent({
-        orderId: order.id,
-        kind,
-        status: "failed",
-        toAddress: order.email,
-        fromAddress: from,
-        errorMessage:
-          errorMessage || `Resend returned HTTP ${response.status}`,
-        statusCode: response.status,
-        log,
-      });
-      return;
-    }
-    log.info(
-      { orderId: order.id, kind, to: order.email },
-      "Sent order email",
+  const payload: Record<string, unknown> = {
+    from,
+    to: order.email,
+    subject,
+    html,
+    text,
+  };
+  if (replyTo) payload["reply_to"] = replyTo;
+
+  // First attempt + one retry on transient failures (5xx / network).
+  // 500ms backoff is enough to clear a momentary provider blip without
+  // making the admin UI feel sluggish if the second call also fails.
+  let attempt = await postToResend(apiKey, payload);
+  if (!attempt.ok && attempt.transient) {
+    log.warn(
+      { orderId: order.id, kind, statusCode: attempt.statusCode },
+      "Order email transient failure — retrying once",
     );
-    await recordOrderEmailEvent({
-      orderId: order.id,
-      kind,
-      status: "sent",
-      toAddress: order.email,
-      fromAddress: from,
-      log,
-    });
-  } catch (err) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    attempt = await postToResend(apiKey, payload);
+  }
+
+  if (!attempt.ok) {
     log.error(
-      { err, orderId: order.id, kind },
-      "Failed to send order email",
+      { orderId: order.id, kind, statusCode: attempt.statusCode, error: attempt.errorMessage },
+      "Resend API rejected order email",
     );
     await recordOrderEmailEvent({
       orderId: order.id,
@@ -376,11 +410,22 @@ async function sendOrderEmail(
       status: "failed",
       toAddress: order.email,
       fromAddress: from,
-      errorMessage:
-        err instanceof Error ? err.message : "Unknown network error",
+      errorMessage: attempt.errorMessage ?? "Unknown send failure",
+      statusCode: attempt.statusCode ?? null,
       log,
     });
+    return;
   }
+
+  log.info({ orderId: order.id, kind, to: order.email }, "Sent order email");
+  await recordOrderEmailEvent({
+    orderId: order.id,
+    kind,
+    status: "sent",
+    toAddress: order.email,
+    fromAddress: from,
+    log,
+  });
 }
 
 export async function sendOrderStatusEmail(
@@ -396,6 +441,25 @@ export async function sendOrderConfirmationEmail(
   log: Logger,
 ): Promise<void> {
   return sendOrderEmail(order, "confirmation", log);
+}
+
+/** Sent synchronously on checkout submission so the customer sees a
+ *  receipt immediately, before any admin action. */
+export async function sendOrderReceivedEmail(
+  order: Order,
+  log: Logger,
+): Promise<void> {
+  return sendOrderEmail(order, "received", log);
+}
+
+/** Generic dispatcher used by the admin "Resend" buttons so the UI can
+ *  re-fire any of the four templates on demand. */
+export async function sendOrderEmailByKind(
+  order: Order,
+  kind: OrderEmailKind,
+  log: Logger,
+): Promise<void> {
+  return sendOrderEmail(order, kind, log);
 }
 
 export interface TestEmailResult {

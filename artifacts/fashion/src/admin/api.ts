@@ -63,7 +63,7 @@ export interface OrderRow {
 export interface OrderEmailEvent {
   id: number;
   orderId: string;
-  kind: "confirmation" | "shipped" | "delivered";
+  kind: "received" | "confirmation" | "shipped" | "delivered";
   status: "sent" | "failed" | "skipped";
   toAddress: string | null;
   fromAddress: string | null;
@@ -199,6 +199,11 @@ export const adminApi = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
+  resendOrderEmail: (id: string, kind: OrderEmailEvent["kind"]) =>
+    adminFetch<{ ok: true; kind: OrderEmailEvent["kind"]; emailEvents: OrderEmailEvent[] }>(
+      `/admin/orders/${id}/resend-email`,
+      { method: "POST", body: JSON.stringify({ kind }) },
+    ),
 
   /* Customers */
   listCustomers: () => adminFetch<CustomerRow[]>("/admin/customers"),

@@ -3,7 +3,7 @@ import { db, ordersTable } from "@workspace/db";
 import { getProductById } from "../lib/catalog";
 import { getOverridesMap } from "../lib/overrides";
 import { getSiteSettings } from "../lib/siteSettings";
-import { sendOrderConfirmationEmail } from "../lib/email";
+import { sendOrderReceivedEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -156,7 +156,10 @@ router.post("/checkout/submit", async (req: Request, res: Response) => {
       })
       .returning();
 
-    void sendOrderConfirmationEmail(order, req.log);
+    // Fire-and-forget — the customer should always see "order placed"
+    // even if the email provider is degraded. Failures are recorded in
+    // order_email_events and surface in the admin order detail.
+    void sendOrderReceivedEmail(order, req.log);
 
     res.status(201).json({
       orderId: order.id,
