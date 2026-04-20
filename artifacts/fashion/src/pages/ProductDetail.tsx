@@ -11,8 +11,10 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import {
   fetchReviews,
+  fetchReviewEligibility,
   submitReview,
   type Review,
+  type ReviewEligibility,
   type ReviewsResponse,
 } from '@/lib/reviews';
 import { getProductDescription, PRODUCT_DETAILS } from '@/lib/productDescriptions';
@@ -89,12 +91,22 @@ export function ProductDetailPage() {
   const [formRating, setFormRating] = useState(0);
   const [formBody, setFormBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [eligibility, setEligibility] = useState<ReviewEligibility>({
+    canReview: false,
+  });
 
   const loadReviews = useCallback(async (productId: string) => {
     setReviewsLoading(true);
     try {
-      const data = await fetchReviews(productId);
+      const [data, elig] = await Promise.all([
+        fetchReviews(productId),
+        fetchReviewEligibility(productId),
+      ]);
       setReviewData(data);
+      setEligibility(elig);
+      if (elig.canReview && elig.defaultName) {
+        setFormName((current) => (current.trim().length > 0 ? current : elig.defaultName ?? ''));
+      }
     } finally {
       setReviewsLoading(false);
     }
@@ -174,10 +186,10 @@ export function ProductDetailPage() {
         body: formBody.trim(),
       });
       if (!result.ok) {
-        toast.error('Could not submit review. Please try again.');
+        toast.error(result.error ?? 'Could not submit review. Please try again.');
         return;
       }
-      toast.success('Thanks! Your review will appear once approved.');
+      toast.success('Thanks! Your review is live.');
       setFormName('');
       setFormRating(0);
       setFormBody('');
@@ -462,12 +474,16 @@ export function ProductDetailPage() {
               )}
             </div>
 
+            {eligibility.canReview ? (
             <form
               onSubmit={handleSubmitReview}
               className="border border-border dark:border-border/50 p-6 space-y-5 h-fit"
               data-testid="review-form"
             >
               <h3 className="font-serif text-xl font-extrabold">Write a review</h3>
+              <p className="text-xs text-muted-foreground -mt-3">
+                You're a verified buyer for this item.
+              </p>
 
               <div className="space-y-2">
                 <Label htmlFor="review-name" className="text-xs uppercase tracking-widest">
@@ -533,9 +549,24 @@ export function ProductDetailPage() {
                 {submitting ? 'Submitting…' : 'Submit Review'}
               </Button>
               <p className="text-xs text-muted-foreground">
-                Reviews appear after a quick check by our team.
+                Your name and rating will appear publicly on this product page.
               </p>
             </form>
+            ) : (
+              <aside
+                className="border border-border dark:border-border/50 p-6 space-y-3 h-fit"
+                data-testid="review-gate-note"
+              >
+                <h3 className="font-serif text-xl font-extrabold">Verified reviews only</h3>
+                <p className="text-sm text-muted-foreground">
+                  {eligibility.reason === 'not_authenticated' || eligibility.reason === 'no_email'
+                    ? "Sign in with the email you used at checkout to leave a review for this piece."
+                    : eligibility.reason === 'already_reviewed'
+                      ? "You've already shared your thoughts on this item — thank you."
+                      : "Once you've ordered this piece and your order is fulfilled, you'll be able to leave a review here."}
+                </p>
+              </aside>
+            )}
           </div>
         </section>
       </div>

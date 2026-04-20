@@ -1,6 +1,12 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { asc, eq } from "drizzle-orm";
-import { db, heroSlidesTable, wishlistSignalsTable } from "@workspace/db";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
+import {
+  db,
+  heroSlidesTable,
+  ordersTable,
+  reviewsTable,
+  wishlistSignalsTable,
+} from "@workspace/db";
 import { getAllProducts, getProductById, type ProductRow } from "../lib/catalog";
 import { getOverridesMap } from "../lib/overrides";
 import { getSiteSettings } from "../lib/siteSettings";
@@ -280,6 +286,239 @@ router.post(
       sessionId,
     });
     res.status(201).json({ ok: true });
+  },
+);
+
+// ── Reviews ────────────────────────────────────────────────────────────
+// Statuses that count as "the customer received it" for verified-buyer
+// gating. Mirrors the order lifecycle declared in `routes/admin.ts`
+// (`new | packed | shipped | delivered | cancelled`). We deliberately
+// exclude `new` (just submitted) and `cancelled`; `packed` is the first
+// fulfilment milestone, so reviews unlock from there.
+const PAID_ORDER_STATUSES = new Set([
+  "packed",
+  "shipped",
+  "delivered",
+]);
+
+interface OrderItemShape {
+  productId?: string;
+}
+
+async function userHasPurchased(
+  email: string,
+  productId: string,
+): Promise<boolean> {
+  // `orders.email` is normalised at write time in `routes/checkout.ts`.
+  // Lowercasing the lookup key here defends against any legacy rows that
+  // pre-date that normalisation.
+  const normalised = email.trim().toLowerCase();
+  const rows = await db
+    .select({ items: ordersTable.items, status: ordersTable.status })
+    .from(ordersTable)
+    .where(sql`lower(${ordersTable.email}) = ${normalised}`);
+  for (const r of rows) {
+    if (!PAID_ORDER_STATUSES.has(r.status)) continue;
+    const items = (Array.isArray(r.items) ? r.items : []) as OrderItemShape[];
+    if (items.some((it) => it && it.productId === productId)) return true;
+  }
+  return false;
+}
+
+router.get(
+  "/storefront/products/:id/reviews",
+  async (req: Request, res: Response) => {
+    const idParam = req.params["id"];
+    const productId = Array.isArray(idParam) ? idParam[0] : idParam;
+    if (!productId) {
+      res.status(400).json({ error: "Missing product id" });
+      return;
+    }
+    const limit = Math.min(Number(req.query["limit"] ?? 20), 100);
+    const offset = Math.max(Number(req.query["offset"] ?? 0), 0);
+
+    const rows = await db
+      .select({
+        id: reviewsTable.id,
+        name: reviewsTable.name,
+        rating: reviewsTable.rating,
+        title: reviewsTable.title,
+        body: reviewsTable.body,
+        verifiedPurchase: reviewsTable.verifiedPurchase,
+        createdAt: reviewsTable.createdAt,
+      })
+      .from(reviewsTable)
+      .where(eq(reviewsTable.productId, productId))
+      .orderBy(desc(reviewsTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const summary = await db
+      .select({
+        count: sql<number>`count(*)::int`,
+        average: sql<number>`coalesce(avg(${reviewsTable.rating}), 0)::float`,
+      })
+      .from(reviewsTable)
+      .where(eq(reviewsTable.productId, productId));
+
+    const { count = 0, average = 0 } = (summary[0] ?? {}) as {
+      count?: number;
+      average?: number;
+    };
+    res.json({
+      reviews: rows.map((r: (typeof rows)[number]) => ({
+        id: r.id,
+        name: r.name,
+        rating: r.rating,
+        title: r.title,
+        body: r.body,
+        verifiedPurchase: r.verifiedPurchase,
+        createdAt: r.createdAt.toISOString(),
+      })),
+      count,
+      average: Math.round(average * 10) / 10,
+    });
+  },
+);
+
+router.get(
+  "/storefront/products/:id/reviews/eligibility",
+  async (req: Request, res: Response) => {
+    const idParam = req.params["id"];
+    const productId = Array.isArray(idParam) ? idParam[0] : idParam;
+    if (!productId) {
+      res.status(400).json({ error: "Missing product id" });
+      return;
+    }
+    if (!req.isAuthenticated()) {
+      res.json({ canReview: false, reason: "not_authenticated" });
+      return;
+    }
+    const email = req.user.email;
+    if (!email) {
+      res.json({ canReview: false, reason: "no_email" });
+      return;
+    }
+    // Has the user already left a review for this product?
+    const existing = await db
+      .select({ id: reviewsTable.id })
+      .from(reviewsTable)
+      .where(
+        and(
+          eq(reviewsTable.productId, productId),
+          eq(reviewsTable.userId, req.user.id),
+        ),
+      )
+      .limit(1);
+    if (existing.length > 0) {
+      res.json({ canReview: false, reason: "already_reviewed" });
+      return;
+    }
+    const purchased = await userHasPurchased(email, productId);
+    if (!purchased) {
+      res.json({ canReview: false, reason: "not_a_buyer" });
+      return;
+    }
+    res.json({
+      canReview: true,
+      defaultName:
+        req.user.firstName ??
+        (email.includes("@") ? email.split("@")[0] : null),
+    });
+  },
+);
+
+router.post(
+  "/storefront/products/:id/reviews",
+  async (req: Request, res: Response) => {
+    const idParam = req.params["id"];
+    const productId = Array.isArray(idParam) ? idParam[0] : idParam;
+    if (!productId) {
+      res.status(400).json({ error: "Missing product id" });
+      return;
+    }
+    if (!req.isAuthenticated()) {
+      res
+        .status(401)
+        .json({ error: "Please sign in to leave a review for this product." });
+      return;
+    }
+    const email = req.user.email;
+    if (!email) {
+      res.status(401).json({ error: "Your account needs an email address before you can leave a review." });
+      return;
+    }
+
+    const body = req.body ?? {};
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const rating = Number(body.rating);
+    const reviewBody =
+      typeof body.body === "string" ? body.body.trim() : "";
+    const title =
+      typeof body.title === "string" && body.title.trim().length > 0
+        ? body.title.trim().slice(0, 120)
+        : null;
+
+    if (!name || name.length > 80) {
+      res.status(400).json({ error: "Please enter your name (max 80 characters)." });
+      return;
+    }
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      res.status(400).json({ error: "Rating must be a whole number between 1 and 5." });
+      return;
+    }
+    if (reviewBody.length < 4 || reviewBody.length > 4000) {
+      res.status(400).json({ error: "Review must be between 4 and 4000 characters." });
+      return;
+    }
+
+    const purchased = await userHasPurchased(email, productId);
+    if (!purchased) {
+      res.status(403).json({
+        error:
+          "Only verified buyers can review this item. Once your order is fulfilled you'll be able to leave a review.",
+      });
+      return;
+    }
+
+    // One review per user per product.
+    const existing = await db
+      .select({ id: reviewsTable.id })
+      .from(reviewsTable)
+      .where(
+        and(
+          eq(reviewsTable.productId, productId),
+          eq(reviewsTable.userId, req.user.id),
+        ),
+      )
+      .limit(1);
+    if (existing.length > 0) {
+      res.status(409).json({ error: "You've already reviewed this product." });
+      return;
+    }
+
+    try {
+      await db.insert(reviewsTable).values({
+        productId,
+        userId: req.user.id,
+        email: email.toLowerCase(),
+        name,
+        rating,
+        title,
+        body: reviewBody,
+        verifiedPurchase: true,
+        seeded: false,
+      });
+    } catch (err) {
+      // Race against the soft check above — partial unique index on
+      // (product_id, user_id) WHERE user_id IS NOT NULL.
+      if ((err as { code?: string }).code === "23505") {
+        res.status(409).json({ error: "You've already reviewed this product." });
+        return;
+      }
+      throw err;
+    }
+    res.status(201).json({ ok: true, status: "published" });
   },
 );
 

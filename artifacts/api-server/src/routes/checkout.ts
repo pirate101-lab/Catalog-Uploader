@@ -119,6 +119,9 @@ router.post("/checkout/submit", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Email is required" });
       return;
     }
+    // Normalise so verified-buyer lookups (`routes/storefront.ts → reviews`)
+    // and any future per-customer queries match regardless of casing/whitespace.
+    const normalisedEmail = String(customer.email).trim().toLowerCase();
     if (items.length === 0) {
       res.status(400).json({ error: "Cart is empty" });
       return;
@@ -132,7 +135,7 @@ router.post("/checkout/submit", async (req: Request, res: Response) => {
     const [order] = await db
       .insert(ordersTable)
       .values({
-        email: customer.email,
+        email: normalisedEmail,
         customerName,
         shippingAddress: {
           firstName: customer.firstName ?? null,

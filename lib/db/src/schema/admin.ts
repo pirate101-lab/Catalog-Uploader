@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  index,
   integer,
   jsonb,
   numeric,
@@ -8,6 +9,7 @@ import {
   serial,
   text,
   timestamp,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 
@@ -126,3 +128,33 @@ export const orderEmailEventsTable = pgTable("order_email_events", {
 
 export type OrderEmailEvent = typeof orderEmailEventsTable.$inferSelect;
 export type InsertOrderEmailEvent = typeof orderEmailEventsTable.$inferInsert;
+
+export const reviewsTable = pgTable(
+  "reviews",
+  {
+    id: serial("id").primaryKey(),
+    productId: varchar("product_id").notNull(),
+    userId: varchar("user_id"),
+    email: text("email"),
+    name: text("name").notNull(),
+    rating: integer("rating").notNull(),
+    title: text("title"),
+    body: text("body").notNull(),
+    verifiedPurchase: boolean("verified_purchase").notNull().default(false),
+    seeded: boolean("seeded").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("IDX_reviews_product").on(table.productId),
+    // One review per (real) user per product. Seeded rows have userId=NULL
+    // and are excluded from the constraint via the partial WHERE clause.
+    uniqueIndex("UX_reviews_user_product")
+      .on(table.productId, table.userId)
+      .where(sql`user_id IS NOT NULL`),
+  ],
+);
+
+export type Review = typeof reviewsTable.$inferSelect;
+export type InsertReview = typeof reviewsTable.$inferInsert;
