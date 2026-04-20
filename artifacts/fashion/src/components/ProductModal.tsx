@@ -6,6 +6,7 @@ import { useCart } from '@/context/CartContext';
 import { toast } from 'sonner';
 import type { Product } from '@/data/products';
 import { ProductImage } from './ProductImage';
+import { PriceTag } from './PriceTag';
 import { imageUrl } from '@/lib/imageUrl';
 
 interface ProductModalProps {
@@ -83,7 +84,7 @@ export function ProductModal({ product, isOpen, onClose }: ProductModalProps) {
             <h2 className="font-serif text-3xl md:text-4xl font-bold mb-4 leading-tight">
               {product.title}
             </h2>
-            <p className="text-2xl text-foreground font-light mb-10">${product.price.toFixed(2)}</p>
+            <PriceTag amount={product.price} size="xl" className="mb-10 inline-block" />
 
             {showSwatches && (
               <div className="mb-8">

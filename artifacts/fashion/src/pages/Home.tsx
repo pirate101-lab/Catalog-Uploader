@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { ProductCard } from '@/components/ProductCard';
 import { HeroSlider, type HeroSlide } from '@/components/HeroSlider';
@@ -111,7 +111,11 @@ export function HomePage() {
   const [items, setItems] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [pageLoading, setPageLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  // Bumped on every filter change so an in-flight Load More resolves
+  // against the OLD filters and is then ignored.
+  const filterVersionRef = useRef(0);
 
   // URL-driven filter state. parseFilters tolerates missing/garbage params
   // so the homepage always renders even with a stray refresh.
@@ -181,7 +185,10 @@ export function HomePage() {
   // Refetch the grid whenever the URL filters change.
   useEffect(() => {
     let cancelled = false;
+    filterVersionRef.current += 1;
+    const myVersion = filterVersionRef.current;
     setPageLoading(true);
+    setItems([]);
     search({
       category: effectiveCategory,
       gender: filters.gender === 'all' ? undefined : filters.gender,
@@ -193,13 +200,13 @@ export function HomePage() {
       offset: 0,
     })
       .then((r) => {
-        if (cancelled) return;
+        if (cancelled || myVersion !== filterVersionRef.current) return;
         setItems(r.products);
         setTotal(r.total);
         setPageLoading(false);
       })
       .catch(() => {
-        if (cancelled) return;
+        if (cancelled || myVersion !== filterVersionRef.current) return;
         setItems([]);
         setTotal(0);
         setPageLoading(false);
@@ -215,6 +222,46 @@ export function HomePage() {
     filters.priceMax,
     filters.sort,
     search,
+  ]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || pageLoading) return;
+    if (items.length >= total) return;
+    const myVersion = filterVersionRef.current;
+    setLoadingMore(true);
+    try {
+      const r = await search({
+        category: effectiveCategory,
+        gender: filters.gender === 'all' ? undefined : filters.gender,
+        sizes: filters.sizes.length > 0 ? filters.sizes : undefined,
+        priceMin: filters.priceMin > 0 ? filters.priceMin : undefined,
+        priceMax: filters.priceMax < PRICE_MAX ? filters.priceMax : undefined,
+        sort: filters.sort,
+        limit: PAGE_SIZE,
+        offset: items.length,
+      });
+      // Filters changed mid-flight — drop these stale results.
+      if (myVersion !== filterVersionRef.current) return;
+      setItems((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        return [...prev, ...r.products.filter((p) => !seen.has(p.id))];
+      });
+      setTotal(r.total);
+    } finally {
+      if (myVersion === filterVersionRef.current) setLoadingMore(false);
+    }
+  }, [
+    loadingMore,
+    pageLoading,
+    items.length,
+    total,
+    search,
+    effectiveCategory,
+    filters.gender,
+    filters.sizes,
+    filters.priceMin,
+    filters.priceMax,
+    filters.sort,
   ]);
 
   // LCP hint for the first hero slide. For sized .webp variants we can
@@ -398,7 +445,24 @@ export function HomePage() {
               )}
 
               {items.length > 0 && (
-                <div className="flex justify-center mt-12">
+                <div className="flex flex-col items-center gap-4 mt-12">
+                  {items.length < total && (
+                    <>
+                      <button
+                        onClick={loadMore}
+                        disabled={loadingMore}
+                        className="inline-flex items-center gap-2 border border-foreground text-foreground px-12 h-14 text-xs tracking-widest uppercase font-bold hover:bg-foreground hover:text-background transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        data-testid="button-home-load-more"
+                      >
+                        {loadingMore
+                          ? 'Loading…'
+                          : `Show More (${(total - items.length).toLocaleString()} left)`}
+                      </button>
+                      <p className="text-xs text-muted-foreground">
+                        Showing {items.length.toLocaleString()} of {total.toLocaleString()}
+                      </p>
+                    </>
+                  )}
                   <Link
                     href={shopHref(filters)}
                     className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-12 h-14 text-xs tracking-widest uppercase font-bold shadow-lg hover:shadow-xl transition-all"

@@ -4,6 +4,7 @@ import { useProducts } from '@/context/ProductsContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useCart } from '@/context/CartContext';
 import { ProductImage } from './ProductImage';
+import { PriceTag } from './PriceTag';
 import { imageUrl } from '@/lib/imageUrl';
 import { toast } from 'sonner';
 import type { Product } from '@/data/products';
@@ -110,9 +111,7 @@ export function WishlistDrawer({ open, onClose }: Props) {
                     >
                       {p.title}
                     </Link>
-                    <span className="font-serif font-bold text-sm mt-1">
-                      ${p.price.toFixed(2)}
-                    </span>
+                    <PriceTag amount={p.price} size="sm" className="mt-1 inline-block" />
                     <div className="mt-auto flex items-center gap-2 pt-3">
                       <button
                         onClick={() => handleAdd(p)}

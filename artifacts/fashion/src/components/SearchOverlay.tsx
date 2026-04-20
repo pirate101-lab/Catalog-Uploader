@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { Search, X, ArrowRight } from 'lucide-react';
 import { useProducts } from '@/context/ProductsContext';
 import { ProductImage } from './ProductImage';
+import { PriceTag } from './PriceTag';
 import type { Product } from '@/data/products';
 
 interface Props {
@@ -142,7 +143,7 @@ export function SearchOverlay({ open, onClose, initialQuery = '' }: Props) {
                 <p className="text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors">
                   {p.title}
                 </p>
-                <p className="text-sm font-serif font-bold mt-1">${p.price.toFixed(2)}</p>
+                <PriceTag amount={p.price} size="sm" className="mt-1 inline-block" />
               </button>
             ))}
             {results.length === 12 && (

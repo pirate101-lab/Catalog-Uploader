@@ -5,6 +5,7 @@ import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { toast } from 'sonner';
 import { ProductImage } from '@/components/ProductImage';
+import { PriceTag } from '@/components/PriceTag';
 import { imageUrl } from '@/lib/imageUrl';
 
 interface ProductCardProps {
@@ -58,23 +59,11 @@ function formatSold(n: number): string {
   return String(n);
 }
 
-/**
- * Split "27.09" → ["27.", "09"] so the dot stays with the large dollars
- * segment and only the cents render smaller, matching the reference.
- */
-function splitPrice(p: number): [string, string] {
-  const fixed = p.toFixed(2);
-  const dot = fixed.indexOf('.');
-  return [fixed.slice(0, dot + 1), fixed.slice(dot + 1)];
-}
-
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
   const { has: inWishlist, toggle: toggleWishlist } = useWishlist();
   const wishlisted = inWishlist(product.id);
   const stubs = deriveStubs(product);
-  const [whole, cents] = splitPrice(product.price);
-  const [rrpWhole, rrpCents] = splitPrice(stubs.rrp);
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -147,10 +136,7 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Price row + circular cart button */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-baseline gap-1.5 min-w-0">
-            <span className="font-bold text-primary leading-none">
-              <span className="text-lg">${whole}</span>
-              <span className="text-xs">{cents}</span>
-            </span>
+            <PriceTag amount={product.price} size="md" splitCents />
             <span className="text-[11px] text-muted-foreground leading-none truncate">
               {formatSold(stubs.sold)} sold
             </span>
@@ -169,11 +155,7 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[11px] text-muted-foreground -mt-1 mt-auto">
           <span className="inline-flex items-center gap-1">
             <span>
-              RRP{' '}
-              <span className="line-through">
-                ${rrpWhole}
-                {rrpCents}
-              </span>
+              RRP <span className="line-through">${stubs.rrp.toFixed(2)}</span>
             </span>
             <Info className="w-3 h-3" aria-hidden="true" />
           </span>

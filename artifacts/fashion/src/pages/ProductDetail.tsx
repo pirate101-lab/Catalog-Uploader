@@ -18,6 +18,7 @@ import {
 import { getProductDescription, PRODUCT_DETAILS } from '@/lib/productDescriptions';
 import { getGalleryImages } from '@/lib/productImages';
 import { ProductImage } from '@/components/ProductImage';
+import { PriceTag } from '@/components/PriceTag';
 import { imageUrl, imagePreload } from '@/lib/imageUrl';
 
 const HERO_IMAGE_SIZES = '(min-width: 1024px) 480px, (min-width: 768px) 45vw, 100vw';
@@ -310,7 +311,7 @@ export function ProductDetailPage() {
                 {rating.average.toFixed(1)} · {rating.count} reviews
               </span>
             </div>
-            <p className="text-2xl text-foreground font-light mb-8">${product.price.toFixed(2)}</p>
+            <PriceTag amount={product.price} size="xl" className="mb-8 inline-block" />
 
             <p className="text-sm text-muted-foreground leading-relaxed mb-8">{description}</p>
 

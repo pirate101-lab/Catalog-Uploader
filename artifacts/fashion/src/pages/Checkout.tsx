@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CheckCircle2, Lock, AlertTriangle } from 'lucide-react';
+import { PriceTag } from '@/components/PriceTag';
 
 // Display-only estimates while we wait for the server to price the cart.
 // All amounts the customer is actually charged come from the server.
@@ -399,9 +400,7 @@ export function CheckoutPage() {
                       {item.color} / {item.size} · Qty {item.quantity}
                     </p>
                   </div>
-                  <span className="text-sm font-medium whitespace-nowrap">
-                    ${(item.price * item.quantity).toFixed(2)}
-                  </span>
+                  <PriceTag amount={item.price * item.quantity} size="sm" />
                 </div>
               ))}
             </div>
@@ -422,7 +421,7 @@ export function CheckoutPage() {
             <div className="border-t border-border mt-5 pt-5 flex justify-between items-center">
               <span className="text-xs uppercase tracking-widest font-bold">Total</span>
               <span
-                className="font-serif text-2xl font-bold text-primary"
+                className="font-bold text-2xl text-price whitespace-nowrap leading-none"
                 data-testid="order-total"
               >
                 {fmt(totalCents, currencySymbol)}

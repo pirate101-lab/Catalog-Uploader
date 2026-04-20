@@ -61,19 +61,26 @@ export function Header() {
           >
             <svg
               viewBox="0 0 36 36"
-              className="w-7 h-7 md:w-8 md:h-8 text-primary shrink-0"
+              className="w-7 h-7 md:w-8 md:h-8 shrink-0"
               aria-hidden="true"
             >
-              <circle cx="18" cy="18" r="17" fill="none" stroke="currentColor" strokeWidth="2" />
+              <defs>
+                <linearGradient id="velourLogoGrad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="hsl(var(--primary))" />
+                  <stop offset="60%" stopColor="hsl(285 80% 62%)" />
+                  <stop offset="100%" stopColor="hsl(var(--price))" />
+                </linearGradient>
+              </defs>
+              <rect x="1" y="1" width="34" height="34" rx="8" fill="url(#velourLogoGrad)" />
               <path
                 d="M9 12 L18 26 L27 12"
                 fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
+                stroke="#fff"
+                strokeWidth="2.6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <circle cx="18" cy="9" r="1.6" fill="currentColor" />
+              <circle cx="18" cy="8.5" r="1.6" fill="#fff" />
             </svg>
             <span className="font-serif text-[22px] md:text-[26px] font-black tracking-[0.14em] leading-none">
               VELOUR

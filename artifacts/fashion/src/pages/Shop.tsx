@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ALL_SIZES, type Product } from '@/data/products';
 import type { GenderKey } from '@/lib/homeFilters';
@@ -220,7 +220,40 @@ export function ShopPage() {
   const [query, setQuery] = useState(initial.q);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+
+  // Mirror current filter state into the URL (replace, not push) so a refresh,
+  // share, or browser-back keeps the user on the same view.
+  const writeUrl = useCallback(
+    (overrides: {
+      category?: string;
+      q?: string;
+      gender?: GenderKey;
+      sizes?: string[];
+      priceMin?: number;
+      priceMax?: number;
+      sort?: SortKey;
+    }) => {
+      const cat = overrides.category ?? railLabel;
+      const qv = overrides.q ?? query;
+      const gv = overrides.gender ?? gender;
+      const sv = overrides.sizes ?? selectedSizes;
+      const pmin = overrides.priceMin ?? priceRange[0];
+      const pmax = overrides.priceMax ?? priceRange[1];
+      const sortV = overrides.sort ?? sort;
+      const params = new URLSearchParams();
+      if (cat && cat !== 'All') params.set('category', cat);
+      if (qv.trim()) params.set('q', qv.trim());
+      if (gv !== 'all') params.set('gender', gv);
+      if (sv.length > 0) params.set('sizes', sv.join(','));
+      if (pmin !== 0) params.set('priceMin', String(pmin));
+      if (pmax !== PRICE_MAX) params.set('priceMax', String(pmax));
+      if (sortV !== 'featured') params.set('sort', sortV);
+      const qs = params.toString();
+      navigate(qs ? `/shop?${qs}` : '/shop', { replace: true });
+    },
+    [railLabel, query, gender, selectedSizes, priceRange, sort, navigate],
+  );
 
   // Server-driven page state
   const [items, setItems] = useState<Product[]>([]);
@@ -370,10 +403,36 @@ export function ShopPage() {
     return list;
   }, [items, selectedSizes, selectedColors, priceRange]);
 
-  const toggleSize = (size: string) =>
-    setSelectedSizes((c) => (c.includes(size) ? c.filter((s) => s !== size) : [...c, size]));
+  const toggleSize = (size: string) => {
+    const next = selectedSizes.includes(size)
+      ? selectedSizes.filter((s) => s !== size)
+      : [...selectedSizes, size];
+    setSelectedSizes(next);
+    writeUrl({ sizes: next });
+  };
   const toggleColor = (color: string) =>
     setSelectedColors((c) => (c.includes(color) ? c.filter((x) => x !== color) : [...c, color]));
+
+  const updateRail = (label: string) => {
+    setRailLabel(label);
+    writeUrl({ category: label });
+  };
+  const updateGender = (g: GenderKey) => {
+    setGender(g);
+    writeUrl({ gender: g });
+  };
+  const updateSort = (s: SortKey) => {
+    setSort(s);
+    writeUrl({ sort: s });
+  };
+  const updatePriceRange = (r: [number, number]) => {
+    setPriceRange(r);
+    writeUrl({ priceMin: r[0], priceMax: r[1] });
+  };
+  const updateQuery = (q: string) => {
+    setQuery(q);
+    writeUrl({ q });
+  };
 
   const clearFilters = () => {
     setRailLabel('All');
@@ -382,6 +441,7 @@ export function ShopPage() {
     setSelectedColors([]);
     setPriceRange([0, PRICE_MAX]);
     setQuery('');
+    navigate('/shop', { replace: true });
   };
 
   const initialLoading = pageLoading && items.length === 0;
@@ -403,12 +463,12 @@ export function ShopPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-10">
           <aside className="hidden lg:block lg:sticky lg:top-32 lg:self-start lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto pr-2 space-y-10">
-            <CategoryRail active={railLabel} onChange={setRailLabel} />
+            <CategoryRail active={railLabel} onChange={updateRail} />
             <FilterPanel
               selectedSizes={selectedSizes}
               toggleSize={toggleSize}
               priceRange={priceRange}
-              setPriceRange={setPriceRange}
+              setPriceRange={updatePriceRange}
               topColors={topColors}
               selectedColors={selectedColors}
               toggleColor={toggleColor}
@@ -437,7 +497,7 @@ export function ShopPage() {
                 >
                   <SlidersHorizontal className="w-4 h-4" /> Filter
                 </button>
-                <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+                <Select value={sort} onValueChange={(v) => updateSort(v as SortKey)}>
                   <SelectTrigger className="w-[180px] rounded-none h-10" data-testid="select-sort">
                     <SelectValue />
                   </SelectTrigger>
@@ -462,9 +522,9 @@ export function ShopPage() {
                 <span className="text-xs uppercase tracking-widest text-muted-foreground mr-1">
                   Active filters:
                 </span>
-                {query && <FilterChip label={`Search: ${query}`} onClear={() => setQuery('')} />}
+                {query && <FilterChip label={`Search: ${query}`} onClear={() => updateQuery('')} />}
                 {railLabel !== 'All' && (
-                  <FilterChip label={railLabel} onClear={() => setRailLabel('All')} />
+                  <FilterChip label={railLabel} onClear={() => updateRail('All')} />
                 )}
                 {selectedSizes.map((s) => (
                   <FilterChip key={s} label={`Size ${s}`} onClear={() => toggleSize(s)} />
@@ -475,7 +535,7 @@ export function ShopPage() {
                 {(priceRange[0] !== 0 || priceRange[1] !== PRICE_MAX) && (
                   <FilterChip
                     label={`$${priceRange[0]} – $${priceRange[1]}`}
-                    onClear={() => setPriceRange([0, PRICE_MAX])}
+                    onClear={() => updatePriceRange([0, PRICE_MAX])}
                   />
                 )}
                 <button
@@ -547,7 +607,7 @@ export function ShopPage() {
             <CategoryRail
               active={railLabel}
               onChange={(l) => {
-                setRailLabel(l);
+                updateRail(l);
                 setMobileFiltersOpen(false);
               }}
             />
@@ -555,7 +615,7 @@ export function ShopPage() {
               selectedSizes={selectedSizes}
               toggleSize={toggleSize}
               priceRange={priceRange}
-              setPriceRange={setPriceRange}
+              setPriceRange={updatePriceRange}
               topColors={topColors}
               selectedColors={selectedColors}
               toggleColor={toggleColor}

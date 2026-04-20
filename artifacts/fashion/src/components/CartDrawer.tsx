@@ -3,6 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button';
 import { Minus, Plus, X, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { PriceTag } from '@/components/PriceTag';
 
 export function CartDrawer() {
   const { isCartOpen, setIsCartOpen, items, updateQuantity, removeItem, subtotal } = useCart();
@@ -83,7 +84,7 @@ export function CartDrawer() {
                           <Plus className="w-3 h-3" />
                         </button>
                       </div>
-                      <span className="font-serif font-bold text-base">${(item.price * item.quantity).toFixed(2)}</span>
+                      <PriceTag amount={item.price * item.quantity} size="md" />
                     </div>
                   </div>
                 </div>
@@ -96,7 +97,7 @@ export function CartDrawer() {
           <div className="p-6 border-t border-border bg-background shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
             <div className="flex justify-between items-center mb-6">
               <span className="text-sm uppercase tracking-wider font-bold">Subtotal</span>
-              <span className="font-serif text-3xl font-bold text-primary">${subtotal.toFixed(2)}</span>
+              <PriceTag amount={subtotal} size="xl" />
             </div>
             <p className="text-xs text-muted-foreground mb-6">Shipping and taxes calculated at checkout.</p>
             <Button 
