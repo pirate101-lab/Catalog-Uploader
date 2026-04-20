@@ -101,7 +101,7 @@ Pragmatic perf + correctness pass; no behaviour changes other than what's listed
 
 - **Image pipeline already optimal**: `ProductImage` (`src/components/ProductImage.tsx`) emits a real width-descriptor `srcSet` (400 / 800 / 1600 webp variants from R2) plus the caller-supplied `sizes`, sets `decoding="async"`, and toggles `loading`/`fetchPriority` based on `priority`. `ProductDetail.tsx` and `HeroSlider.tsx` issue an explicit `<link rel="preload" as="image">` for the LCP frame using the matching srcset/sizes, so no further work needed.
 - **Fonts**: `index.html` already preconnects to `fonts.googleapis.com` + `fonts.gstatic.com` (with `crossorigin`) and uses `display=swap` on the Google Fonts URL.
-- **Backend hot endpoints — p95 benchmark**: 80 sequential requests per endpoint after a 5-request warm-up, measured against the local API server (`:8080`) with `node` + `performance.now()`. Target was p95 < 200 ms; actual results are an order of magnitude under that:
+- **Backend hot endpoints — p95 benchmark**: 80 sequential requests per endpoint after a 5-request warm-up, measured against the local API server (`:8080`) with the reproducible `node artifacts/api-server/scripts/bench-storefront.mjs` script (env: `API_URL`, `BENCH_N`, `BENCH_WARMUP`). Target was p95 < 200 ms; actual results are an order of magnitude under that:
 
   | Endpoint | min | p50 | **p95** | max |
   |---|---|---|---|---|
