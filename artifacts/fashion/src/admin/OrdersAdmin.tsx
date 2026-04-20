@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { AdminShell, AdminPageHeader } from "./AdminShell";
-import { adminApi, fmtCents, type OrderRow } from "./api";
+import { adminApi, fmtCents, type OrderRow, type OrderEmailEvent } from "./api";
 import { Button } from "@/components/ui/button";
 
 const STATUSES = ["new", "packed", "shipped", "delivered", "cancelled"];
@@ -185,6 +185,7 @@ export function OrderDetailAdmin({ id }: { id: string }) {
                 </div>
               </div>
             </div>
+            <EmailEventsCard events={order.emailEvents ?? []} />
             <div className="border rounded-lg p-5">
               <h3 className="text-xs uppercase tracking-widest font-bold mb-3">
                 Status
@@ -208,6 +209,80 @@ export function OrderDetailAdmin({ id }: { id: string }) {
         </div>
       )}
     </AdminShell>
+  );
+}
+
+const EMAIL_KIND_LABEL: Record<OrderEmailEvent["kind"], string> = {
+  confirmation: "Order confirmation",
+  shipped: "Shipped notification",
+  delivered: "Delivered notification",
+};
+
+function EmailEventsCard({ events }: { events: OrderEmailEvent[] }) {
+  const latestByKind = new Map<OrderEmailEvent["kind"], OrderEmailEvent>();
+  for (const e of events) {
+    latestByKind.set(e.kind, e);
+  }
+  const kinds: OrderEmailEvent["kind"][] = [
+    "confirmation",
+    "shipped",
+    "delivered",
+  ];
+  return (
+    <div className="border rounded-lg p-5">
+      <h3 className="text-xs uppercase tracking-widest font-bold mb-3">
+        Emails
+      </h3>
+      <ul className="space-y-3 text-sm">
+        {kinds.map((k) => {
+          const e = latestByKind.get(k);
+          if (!e) {
+            return (
+              <li key={k} className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-medium">{EMAIL_KIND_LABEL[k]}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Not sent yet
+                  </div>
+                </div>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                  pending
+                </span>
+              </li>
+            );
+          }
+          const tone =
+            e.status === "sent"
+              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+              : e.status === "skipped"
+              ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+              : "bg-rose-500/15 text-rose-700 dark:text-rose-300";
+          return (
+            <li key={k} className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-medium">{EMAIL_KIND_LABEL[k]}</div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(e.createdAt).toLocaleString()}
+                  {e.toAddress ? ` · to ${e.toAddress}` : ""}
+                </div>
+                {(e.status === "failed" || e.status === "skipped") &&
+                  e.errorMessage && (
+                    <div className="text-xs text-rose-600 dark:text-rose-400 mt-1 break-words">
+                      {e.statusCode ? `[${e.statusCode}] ` : ""}
+                      {e.errorMessage}
+                    </div>
+                  )}
+              </div>
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full capitalize ${tone}`}
+              >
+                {e.status}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 

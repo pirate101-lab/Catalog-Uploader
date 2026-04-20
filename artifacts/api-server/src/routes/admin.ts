@@ -10,6 +10,7 @@ import {
   heroSlidesTable,
   productOverridesTable,
   ordersTable,
+  orderEmailEventsTable,
   siteSettingsTable,
   wishlistSignalsTable,
 } from "@workspace/db";
@@ -385,7 +386,12 @@ router.get("/admin/orders/:id", async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  res.json(row);
+  const emailEvents = await db
+    .select()
+    .from(orderEmailEventsTable)
+    .where(eq(orderEmailEventsTable.orderId, id))
+    .orderBy(asc(orderEmailEventsTable.createdAt));
+  res.json({ ...row, emailEvents });
 });
 
 router.patch("/admin/orders/:id", async (req, res) => {
@@ -718,6 +724,17 @@ router.get("/admin/stats", async (_req, res) => {
     };
   });
 
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const [emailFailAgg] = await db
+    .select({ count: sql<number>`COUNT(*)::int` })
+    .from(orderEmailEventsTable)
+    .where(
+      and(
+        gte(orderEmailEventsTable.createdAt, oneDayAgo),
+        sql`${orderEmailEventsTable.status} IN ('failed', 'skipped')`,
+      ),
+    );
+
   res.json({
     products: allProducts.length,
     ordersToday: Number(todayAgg?.count ?? 0),
@@ -728,6 +745,7 @@ router.get("/admin/stats", async (_req, res) => {
     lowStockProducts,
     topCategories,
     recentOrders,
+    emailsFailed24h: Number(emailFailAgg?.count ?? 0),
   });
 });
 

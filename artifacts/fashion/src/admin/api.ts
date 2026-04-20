@@ -57,6 +57,19 @@ export interface OrderRow {
   currency: string;
   status: string;
   createdAt: string;
+  emailEvents?: OrderEmailEvent[];
+}
+
+export interface OrderEmailEvent {
+  id: number;
+  orderId: string;
+  kind: "confirmation" | "shipped" | "delivered";
+  status: "sent" | "failed" | "skipped";
+  toAddress: string | null;
+  fromAddress: string | null;
+  errorMessage: string | null;
+  statusCode: number | null;
+  createdAt: string;
 }
 
 export interface CustomerRow {
@@ -105,6 +118,7 @@ export interface DashboardStats {
   }>;
   topCategories: Array<{ slug: string; count: number }>;
   recentOrders: OrderRow[];
+  emailsFailed24h: number;
 }
 
 export interface ProductRow {

@@ -1,6 +1,34 @@
 import type { Logger } from "pino";
 import { getSiteSettings } from "./siteSettings";
-import type { Order } from "@workspace/db";
+import { db, orderEmailEventsTable, type Order } from "@workspace/db";
+
+async function recordOrderEmailEvent(args: {
+  orderId: string;
+  kind: OrderEmailKind;
+  status: "sent" | "failed" | "skipped";
+  toAddress: string | null;
+  fromAddress: string | null;
+  errorMessage?: string | null;
+  statusCode?: number | null;
+  log: Logger;
+}): Promise<void> {
+  try {
+    await db.insert(orderEmailEventsTable).values({
+      orderId: args.orderId,
+      kind: args.kind,
+      status: args.status,
+      toAddress: args.toAddress,
+      fromAddress: args.fromAddress,
+      errorMessage: args.errorMessage ?? null,
+      statusCode: args.statusCode ?? null,
+    });
+  } catch (err) {
+    args.log.error(
+      { err, orderId: args.orderId, kind: args.kind },
+      "Failed to record order email event",
+    );
+  }
+}
 
 interface OrderItem {
   productId: string;
@@ -259,6 +287,16 @@ async function sendOrderEmail(
       { orderId: order.id, kind },
       "RESEND_API_KEY not configured; skipping order email",
     );
+    await recordOrderEmailEvent({
+      orderId: order.id,
+      kind,
+      status: "skipped",
+      toAddress: order.email,
+      fromAddress: null,
+      errorMessage:
+        "Email is not configured on this server (missing RESEND_API_KEY).",
+      log,
+    });
     return;
   }
 
@@ -291,21 +329,57 @@ async function sendOrderEmail(
     });
     if (!response.ok) {
       const body = await response.text();
+      let errorMessage = body;
+      try {
+        const parsed = JSON.parse(body) as { message?: string; error?: string };
+        errorMessage = parsed.message ?? parsed.error ?? body;
+      } catch {
+        /* not JSON; keep raw text */
+      }
       log.error(
         { orderId: order.id, kind, statusCode: response.status, body },
         "Resend API rejected order email",
       );
+      await recordOrderEmailEvent({
+        orderId: order.id,
+        kind,
+        status: "failed",
+        toAddress: order.email,
+        fromAddress: from,
+        errorMessage:
+          errorMessage || `Resend returned HTTP ${response.status}`,
+        statusCode: response.status,
+        log,
+      });
       return;
     }
     log.info(
       { orderId: order.id, kind, to: order.email },
       "Sent order email",
     );
+    await recordOrderEmailEvent({
+      orderId: order.id,
+      kind,
+      status: "sent",
+      toAddress: order.email,
+      fromAddress: from,
+      log,
+    });
   } catch (err) {
     log.error(
       { err, orderId: order.id, kind },
       "Failed to send order email",
     );
+    await recordOrderEmailEvent({
+      orderId: order.id,
+      kind,
+      status: "failed",
+      toAddress: order.email,
+      fromAddress: from,
+      errorMessage:
+        err instanceof Error ? err.message : "Unknown network error",
+      log,
+    });
   }
 }
 

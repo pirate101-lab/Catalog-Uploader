@@ -107,3 +107,22 @@ export const wishlistSignalsTable = pgTable("wishlist_signals", {
 
 export type WishlistSignal = typeof wishlistSignalsTable.$inferSelect;
 export type InsertWishlistSignal = typeof wishlistSignalsTable.$inferInsert;
+
+export const orderEmailEventsTable = pgTable("order_email_events", {
+  id: serial("id").primaryKey(),
+  orderId: varchar("order_id")
+    .notNull()
+    .references(() => ordersTable.id, { onDelete: "cascade" }),
+  kind: varchar("kind", { length: 24 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull(),
+  toAddress: text("to_address"),
+  fromAddress: text("from_address"),
+  errorMessage: text("error_message"),
+  statusCode: integer("status_code"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type OrderEmailEvent = typeof orderEmailEventsTable.$inferSelect;
+export type InsertOrderEmailEvent = typeof orderEmailEventsTable.$inferInsert;

@@ -8,6 +8,7 @@ import {
   DollarSign,
   TrendingUp,
   AlertTriangle,
+  MailWarning,
 } from "lucide-react";
 
 export function AdminDashboard() {
@@ -38,7 +39,7 @@ export function AdminDashboard() {
         <div className="text-sm text-muted-foreground">Loading…</div>
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
             <Kpi
               icon={<Package className="w-4 h-4" />}
               label="Products"
@@ -68,6 +69,16 @@ export function AdminDashboard() {
                 stats.lowStockCount === 0
                   ? "All good"
                   : "Needs attention"
+              }
+            />
+            <Kpi
+              icon={<MailWarning className="w-4 h-4" />}
+              label="Emails failed 24h"
+              value={(stats.emailsFailed24h ?? 0).toLocaleString()}
+              sub={
+                (stats.emailsFailed24h ?? 0) === 0
+                  ? "All delivered"
+                  : "Check order details"
               }
             />
           </div>
