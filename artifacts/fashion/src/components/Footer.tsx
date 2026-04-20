@@ -52,7 +52,7 @@ export function Footer() {
               <button
                 type="button"
                 onClick={() => toast.info('Reach us at hello@shopthelook.page')}
-                className="hover:text-zinc-100 transition-colors text-left"
+                className="hover:text-zinc-100 transition-colors text-left min-h-[40px] inline-flex items-center"
               >
                 Contact
               </button>
@@ -101,7 +101,7 @@ function FooterLegalLink({ label }: { label: string }) {
     <button
       type="button"
       onClick={() => toast.info(`${label} page coming soon`)}
-      className="hover:text-zinc-100 transition-colors"
+      className="hover:text-zinc-100 transition-colors min-h-[40px] inline-flex items-center px-1"
     >
       {label}
     </button>

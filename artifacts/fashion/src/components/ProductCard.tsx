@@ -113,7 +113,7 @@ function ProductCardImpl({ product }: ProductCardProps) {
         />
         <button
           onClick={handleWishlist}
-          className={`absolute top-2.5 right-2.5 w-9 h-9 flex items-center justify-center rounded-full transition-all backdrop-blur z-10 ${
+          className={`absolute top-2.5 right-2.5 w-10 h-10 flex items-center justify-center rounded-full transition-all backdrop-blur z-10 ${
             wishlisted
               ? 'bg-primary text-primary-foreground'
               : 'bg-background/85 text-foreground hover:bg-background'
@@ -144,7 +144,7 @@ function ProductCardImpl({ product }: ProductCardProps) {
           </div>
           <button
             onClick={handleQuickAdd}
-            className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full border border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+            className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full border border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
             aria-label={`Add ${product.title} to cart`}
             data-testid={`button-quick-add-${product.id}`}
           >

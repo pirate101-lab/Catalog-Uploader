@@ -101,10 +101,20 @@ Pragmatic perf + correctness pass; no behaviour changes other than what's listed
 
 - **Image pipeline already optimal**: `ProductImage` (`src/components/ProductImage.tsx`) emits a real width-descriptor `srcSet` (400 / 800 / 1600 webp variants from R2) plus the caller-supplied `sizes`, sets `decoding="async"`, and toggles `loading`/`fetchPriority` based on `priority`. `ProductDetail.tsx` and `HeroSlider.tsx` issue an explicit `<link rel="preload" as="image">` for the LCP frame using the matching srcset/sizes, so no further work needed.
 - **Fonts**: `index.html` already preconnects to `fonts.googleapis.com` + `fonts.gstatic.com` (with `crossorigin`) and uses `display=swap` on the Google Fonts URL.
-- **Backend hot endpoints (in-memory catalog)** — measured locally against `:8080` with `curl -w time_total`:
-  - `GET /api/storefront/categories`: ~20 ms
-  - `GET /api/storefront/products?limit=24`: ~6 ms
-  - `GET /api/storefront/products?limit=24&category=Dresses&gender=women&sort=price-asc`: ~14 ms
-  - `GET /api/storefront/settings`: ~5 ms
+- **Backend hot endpoints — p95 benchmark**: 80 sequential requests per endpoint after a 5-request warm-up, measured against the local API server (`:8080`) with `node` + `performance.now()`. Target was p95 < 200 ms; actual results are an order of magnitude under that:
 
-  Catalog is read from JSON into memory at server boot and filtered/sorted in process, so no DB index work is needed for these paths. The DB-backed admin endpoints (`/admin/overview`, `/admin/orders`, `/admin/email-events`) already use `Promise.all` parallelism and indexed columns (`orders.created_at`, `order_email_events.created_at`, `reviews.product_id`).
+  | Endpoint | min | p50 | **p95** | max |
+  |---|---|---|---|---|
+  | `GET /api/storefront/products?limit=24` | 2.0 ms | 2.5 ms | **3.4 ms** | 3.7 ms |
+  | `GET /api/storefront/products?limit=24&category=Dresses&gender=women&sort=price-asc` | 4.3 ms | 5.0 ms | **7.9 ms** | 9.5 ms |
+  | `GET /api/storefront/products/:id/reviews?limit=20` | 1.4 ms | 1.9 ms | **2.5 ms** | 3.3 ms |
+
+  Catalog is read from JSON into memory at server boot and filtered/sorted in-process, so no DB index work is needed for the products paths. The reviews endpoint hits Postgres but reads `reviewsTable` via the `product_id` index plus the cached `productReviewSummaryTable` aggregate. The DB-backed admin endpoints (`/admin/overview`, `/admin/orders`, `/admin/email-events`) already use `Promise.all` parallelism and indexed columns (`orders.created_at`, `order_email_events.created_at`).
+
+- **Mobile tap targets**: bumped `ProductCard` wishlist + quick-add buttons from `w-9 h-9` (36 px) to `w-10 h-10` (40 px). Footer Contact + legal placeholder buttons gain `min-h-[40px]` so they meet the 40 px guideline without changing the visible label height.
+
+### Known residual issues (not addressed in this audit)
+
+- Terms / Privacy / Cookies and Contact still need real pages — placeholder toasts are a stopgap until the dedicated legal-pages task ships.
+- Newsletter subscribe form in the footer toasts success but does not yet POST to a backend endpoint (separate "newsletter capture wiring" task).
+- Search overlay's `initialQuery` `useEffect` deliberately omits `initialQuery` from deps; behaviour is intentional (snapshot at open) but lints with a comment override.
