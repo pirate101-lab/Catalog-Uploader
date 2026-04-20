@@ -522,7 +522,7 @@ export function HomePage() {
 
             {activeFilterCount > 0 && (
               <span
-                className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-widest text-foreground/80"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-widest text-foreground/80"
                 data-testid="home-bar-active-count"
               >
                 <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
