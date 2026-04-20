@@ -284,6 +284,11 @@ export function CheckoutPage() {
               <Field label="Email" error={form.formState.errors.email?.message}>
                 <Input
                   type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   {...form.register('email')}
                   data-testid="input-email"
                   className="rounded-lg h-12"
@@ -297,29 +302,71 @@ export function CheckoutPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="First name" error={form.formState.errors.firstName?.message}>
-                  <Input {...form.register('firstName')} data-testid="input-firstName" className="rounded-lg h-12" />
+                  <Input
+                    autoComplete="given-name"
+                    autoCapitalize="words"
+                    {...form.register('firstName')}
+                    data-testid="input-firstName"
+                    className="rounded-lg h-12"
+                  />
                 </Field>
                 <Field label="Last name" error={form.formState.errors.lastName?.message}>
-                  <Input {...form.register('lastName')} data-testid="input-lastName" className="rounded-lg h-12" />
+                  <Input
+                    autoComplete="family-name"
+                    autoCapitalize="words"
+                    {...form.register('lastName')}
+                    data-testid="input-lastName"
+                    className="rounded-lg h-12"
+                  />
                 </Field>
                 <Field
                   label="Address"
                   error={form.formState.errors.address?.message}
                   className="md:col-span-2"
                 >
-                  <Input {...form.register('address')} data-testid="input-address" className="rounded-lg h-12" />
+                  <Input
+                    autoComplete="street-address"
+                    autoCapitalize="words"
+                    {...form.register('address')}
+                    data-testid="input-address"
+                    className="rounded-lg h-12"
+                  />
                 </Field>
                 <Field label="City" error={form.formState.errors.city?.message}>
-                  <Input {...form.register('city')} data-testid="input-city" className="rounded-lg h-12" />
+                  <Input
+                    autoComplete="address-level2"
+                    autoCapitalize="words"
+                    {...form.register('city')}
+                    data-testid="input-city"
+                    className="rounded-lg h-12"
+                  />
                 </Field>
                 <Field label="State / Region" error={form.formState.errors.state?.message}>
-                  <Input {...form.register('state')} data-testid="input-state" className="rounded-lg h-12" />
+                  <Input
+                    autoComplete="address-level1"
+                    autoCapitalize="words"
+                    {...form.register('state')}
+                    data-testid="input-state"
+                    className="rounded-lg h-12"
+                  />
                 </Field>
                 <Field label="ZIP / Postal code" error={form.formState.errors.zip?.message}>
-                  <Input {...form.register('zip')} data-testid="input-zip" className="rounded-lg h-12" />
+                  <Input
+                    inputMode="numeric"
+                    autoComplete="postal-code"
+                    {...form.register('zip')}
+                    data-testid="input-zip"
+                    className="rounded-lg h-12"
+                  />
                 </Field>
                 <Field label="Country" error={form.formState.errors.country?.message}>
-                  <Input {...form.register('country')} data-testid="input-country" className="rounded-lg h-12" />
+                  <Input
+                    autoComplete="country-name"
+                    autoCapitalize="words"
+                    {...form.register('country')}
+                    data-testid="input-country"
+                    className="rounded-lg h-12"
+                  />
                 </Field>
               </div>
             </section>
