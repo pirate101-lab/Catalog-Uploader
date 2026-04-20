@@ -31,5 +31,15 @@ externalPort = 80
 localPort = 25245
 externalPort = 3000
 
+[[ports]]
+localPort = 25246
+externalPort = 3001
+
 [objectStorage]
 defaultBucketID = "replit-objstore-bf048e32-6857-4074-b037-656b7504e9f9"
+
+[userenv]
+
+[userenv.shared]
+R2_BUCKET = "velour-catalog"
+R2_PUBLIC_BASE_URL = "https://pub-4ad1632e283f4eecafd71b3d7d6c4318.r2.dev"

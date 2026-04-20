@@ -12,7 +12,7 @@ version = "1.0.0"
 [[services]]
 name = "web"
 paths = [ "/" ]
-localPort = 8080
+localPort = 25246
 
 [services.development]
 run = "pnpm --filter @workspace/fashion run dev"
@@ -29,3 +29,4 @@ to = "/index.html"
 [services.env]
 PORT = "25246"
 BASE_PATH = "/"
+API_PROXY_TARGET = "http://localhost:8080"

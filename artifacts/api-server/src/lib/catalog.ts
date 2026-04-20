@@ -24,15 +24,25 @@ export interface ProductRow {
   colors: { name: string; hex: string; image?: string }[];
 }
 
-const IMAGE_BASE_PATH = "/api/storage/public-objects/catalog/replit_lite";
+const PUBLIC_BASE = (process.env["R2_PUBLIC_BASE_URL"] ?? "").replace(/\/+$/, "");
+const KEY_PREFIX = "catalog/replit_lite";
 
 function rewriteImageUrl(relPath: string): string {
   const clean = relPath.replace(/^\/+/, "");
-  return `${IMAGE_BASE_PATH}/${clean}`;
+  // Defense in depth: refuse paths that could escape the catalog prefix.
+  if (clean.includes("..") || clean.includes("\\")) {
+    return `/image-coming-soon.svg`;
+  }
+  if (!PUBLIC_BASE) {
+    // Fallback if env not set; serves a placeholder so the page still renders.
+    return `/image-coming-soon.svg`;
+  }
+  return `${PUBLIC_BASE}/${KEY_PREFIX}/${clean}`;
 }
 
 function loadCatalog(): ProductRow[] {
-  const dataPath = resolve(__dirname, "../../data/catalog_lite.json");
+  // After esbuild bundling, __dirname === artifacts/api-server/dist, so the data dir is one level up.
+  const dataPath = resolve(__dirname, "../data/catalog_lite.json");
   const raw = JSON.parse(readFileSync(dataPath, "utf-8")) as CatalogProductRaw[];
   return raw.map((p) => ({
     id: p.id,
