@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Photo coming soon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f5f1e8"/>
+      <stop offset="1" stop-color="#e3dccc"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#bg)"/>
+  <g transform="translate(300 380)" fill="none" stroke="#5b3fa0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-72" y="-46" width="144" height="100" rx="6"/>
+    <path d="M-44 -46 l8 -16 h72 l8 16"/>
+    <circle cx="0" cy="14" r="26"/>
+    <circle cx="50" cy="-26" r="3" fill="#5b3fa0"/>
+  </g>
+  <text x="300" y="500" text-anchor="middle" font-family="'Playfair Display', serif" font-size="34" font-weight="700" fill="#1a1a1a">VELOUR</text>
+  <text x="300" y="540" text-anchor="middle" font-family="'Space Grotesk', sans-serif" font-size="14" letter-spacing="4" fill="#5b3fa0">PHOTO COMING SOON</text>
+</svg>
