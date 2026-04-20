@@ -48,7 +48,15 @@ export function Footer() {
         <div className="col-span-1 md:col-span-2 space-y-3">
           <h3 className="font-medium text-sm tracking-wider uppercase">Help</h3>
           <ul className="space-y-2 text-sm text-zinc-400">
-            <li><a href="#" className="hover:text-zinc-100 transition-colors">Contact</a></li>
+            <li>
+              <button
+                type="button"
+                onClick={() => toast.info('Reach us at hello@shopthelook.page')}
+                className="hover:text-zinc-100 transition-colors text-left"
+              >
+                Contact
+              </button>
+            </li>
           </ul>
         </div>
 
@@ -76,11 +84,26 @@ export function Footer() {
       <div className="container mx-auto px-4 mt-8 pt-6 border-t border-white/10 text-xs text-zinc-500 flex flex-col md:flex-row justify-between items-center gap-3">
         <p>&copy; {new Date().getFullYear()} VELOUR. All rights reserved.</p>
         <div className="flex space-x-6">
-          <a href="#" className="hover:text-zinc-100 transition-colors">Terms</a>
-          <a href="#" className="hover:text-zinc-100 transition-colors">Privacy</a>
-          <a href="#" className="hover:text-zinc-100 transition-colors">Cookies</a>
+          <FooterLegalLink label="Terms" />
+          <FooterLegalLink label="Privacy" />
+          <FooterLegalLink label="Cookies" />
         </div>
       </div>
     </footer>
+  );
+}
+
+// Placeholder for legal pages (Terms / Privacy / Cookies) until the
+// actual content is published. Replaces the `href="#"` anchors that
+// reload the SPA to the homepage when clicked.
+function FooterLegalLink({ label }: { label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => toast.info(`${label} page coming soon`)}
+      className="hover:text-zinc-100 transition-colors"
+    >
+      {label}
+    </button>
   );
 }

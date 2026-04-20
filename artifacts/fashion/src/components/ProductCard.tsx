@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Link } from 'wouter';
 import { ShoppingBag, Heart, Star, Info } from 'lucide-react';
 import type { Product } from '@/data/products';
@@ -59,7 +60,7 @@ function formatSold(n: number): string {
   return String(n);
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+function ProductCardImpl({ product }: ProductCardProps) {
   const { addItem } = useCart();
   const { has: inWishlist, toggle: toggleWishlist } = useWishlist();
   const wishlisted = inWishlist(product.id);
@@ -179,3 +180,8 @@ export function ProductCard({ product }: ProductCardProps) {
     </Link>
   );
 }
+
+// Grids of 24+ cards re-render on every filter/state change in Shop/Home.
+// Card markup is purely a function of the product object (and `onQuickView`,
+// which is not used here). Shallow-equal memoisation keeps the grid cheap.
+export const ProductCard = memo(ProductCardImpl, (prev, next) => prev.product === next.product);

@@ -88,3 +88,9 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 4. **Shipped / Delivered** — click **Shipped** and then **Delivered** on the same order; one email per transition.
 5. **Resend** — on the same admin order detail, hit the **Resend** button next to any kind. The corresponding template should arrive again, and the timestamp + status pill in the Emails card should refresh in place.
 6. **Failure surface** — temporarily unset `RESEND_API_KEY` (or send to an invalid address via the test endpoint) to confirm the red "one or more emails didn't send" banner appears with the provider error and that the latest event for the affected kind shows `failed` / `skipped`.
+
+## Site audit (Task #19)
+
+- **Storefront bundle**: admin pages in `App.tsx` are loaded via `React.lazy` + `Suspense` (`AdminFallback`). The eight admin chunks (`Dashboard`, `HeroAdmin`, `ProductsAdmin`, `OrdersAdmin`, `CustomersAdmin`, `ReviewsAdmin`, `EmailsAdmin`, `SettingsAdmin`) are excluded from the homepage bundle and resolve on first navigation under `/admin/*`.
+- **Grid re-render cost**: `ProductCard` is wrapped in `React.memo` with a custom comparator (`prev.product === next.product`). Filter state changes in `Shop.tsx` / `Home.tsx` no longer rerun every card body — only the new/changed cards render. Important: callers must keep product object identity stable across pages (already done — `useProducts.search()` returns fresh arrays only when results change).
+- **Footer dead links**: the four `href="#"` anchors (Contact, Terms, Privacy, Cookies) were replaced with buttons that show a placeholder toast (Contact → email address, legal → "coming soon"). This eliminates the "click → SPA bounces to homepage" bug and keeps the footer honest until the real legal pages ship.

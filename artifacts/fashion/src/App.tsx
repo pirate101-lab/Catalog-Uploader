@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Router, Route, Switch, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,14 +17,45 @@ import { ProductDetailPage } from "@/pages/ProductDetail";
 import { CheckoutPage } from "@/pages/Checkout";
 import { WishlistPage } from "@/pages/Wishlist";
 import NotFound from "@/pages/not-found";
-import { AdminDashboard } from "@/admin/Dashboard";
-import { HeroAdmin } from "@/admin/HeroAdmin";
-import { ProductsAdmin } from "@/admin/ProductsAdmin";
-import { OrdersAdmin, OrderDetailAdmin } from "@/admin/OrdersAdmin";
-import { CustomersAdmin } from "@/admin/CustomersAdmin";
-import { ReviewsAdmin } from "@/admin/ReviewsAdmin";
-import { EmailsAdmin } from "@/admin/EmailsAdmin";
-import { SettingsAdmin } from "@/admin/SettingsAdmin";
+
+// Admin pages are split into their own chunks so storefront visitors
+// (the overwhelming majority of traffic) never download the moderation
+// UIs. Each route resolves the lazy module on first navigation.
+const AdminDashboard = lazy(() =>
+  import("@/admin/Dashboard").then((m) => ({ default: m.AdminDashboard })),
+);
+const HeroAdmin = lazy(() =>
+  import("@/admin/HeroAdmin").then((m) => ({ default: m.HeroAdmin })),
+);
+const ProductsAdmin = lazy(() =>
+  import("@/admin/ProductsAdmin").then((m) => ({ default: m.ProductsAdmin })),
+);
+const OrdersAdmin = lazy(() =>
+  import("@/admin/OrdersAdmin").then((m) => ({ default: m.OrdersAdmin })),
+);
+const OrderDetailAdmin = lazy(() =>
+  import("@/admin/OrdersAdmin").then((m) => ({ default: m.OrderDetailAdmin })),
+);
+const CustomersAdmin = lazy(() =>
+  import("@/admin/CustomersAdmin").then((m) => ({ default: m.CustomersAdmin })),
+);
+const ReviewsAdmin = lazy(() =>
+  import("@/admin/ReviewsAdmin").then((m) => ({ default: m.ReviewsAdmin })),
+);
+const EmailsAdmin = lazy(() =>
+  import("@/admin/EmailsAdmin").then((m) => ({ default: m.EmailsAdmin })),
+);
+const SettingsAdmin = lazy(() =>
+  import("@/admin/SettingsAdmin").then((m) => ({ default: m.SettingsAdmin })),
+);
+
+function AdminFallback() {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center text-sm text-muted-foreground">
+      Loading admin…
+    </div>
+  );
+}
 
 const queryClient = new QueryClient();
 
@@ -62,18 +94,24 @@ function AppRoutes() {
       }
     >
       <Switch>
-        <Route path="/admin" component={AdminDashboard} />
-        <Route path="/admin/hero" component={HeroAdmin} />
-        <Route path="/admin/products" component={ProductsAdmin} />
-        <Route path="/admin/orders" component={OrdersAdmin} />
-        <Route path="/admin/orders/:id">
-          {(params) => <OrderDetailAdmin id={params.id} />}
+        <Route path="/admin/:rest*">
+          <Suspense fallback={<AdminFallback />}>
+            <Switch>
+              <Route path="/admin" component={AdminDashboard} />
+              <Route path="/admin/hero" component={HeroAdmin} />
+              <Route path="/admin/products" component={ProductsAdmin} />
+              <Route path="/admin/orders" component={OrdersAdmin} />
+              <Route path="/admin/orders/:id">
+                {(params) => <OrderDetailAdmin id={params.id} />}
+              </Route>
+              <Route path="/admin/customers" component={CustomersAdmin} />
+              <Route path="/admin/reviews" component={ReviewsAdmin} />
+              <Route path="/admin/emails" component={EmailsAdmin} />
+              <Route path="/admin/settings" component={SettingsAdmin} />
+              <Route path="/admin/:rest*" component={AdminDashboard} />
+            </Switch>
+          </Suspense>
         </Route>
-        <Route path="/admin/customers" component={CustomersAdmin} />
-        <Route path="/admin/reviews" component={ReviewsAdmin} />
-        <Route path="/admin/emails" component={EmailsAdmin} />
-        <Route path="/admin/settings" component={SettingsAdmin} />
-        <Route path="/admin/:rest*" component={AdminDashboard} />
         <Route>
           <StorefrontShell />
         </Route>
