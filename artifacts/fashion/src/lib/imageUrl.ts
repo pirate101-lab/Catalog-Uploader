@@ -5,10 +5,9 @@
 // VITE_STORAGE_BASE_URL when provided, otherwise we render the bundled
 // "PHOTO COMING SOON" placeholder.
 //
-// Catalog .webp assets are uploaded to R2 in three widths (suffixed
-// `_400` / `_800` / `_1600` before the extension); helpers below derive
-// those variant URLs from the "base" path returned by the API so we can
-// build a real responsive srcset.
+// Catalog .webp assets in R2 are stored as a single canonical file (no
+// per-width variants exist on the bucket today), so we render the base
+// URL as-is and skip building a `srcset`.
 
 const STORAGE_BASE = (import.meta.env.VITE_STORAGE_BASE_URL as string | undefined)?.replace(/\/$/, '');
 const BASE_URL = (import.meta.env.BASE_URL as string | undefined) ?? '/';
@@ -48,24 +47,19 @@ function isSizedAsset(url: string): boolean {
 
 export function imageUrl(
   path: string | undefined,
-  opts: { category: string; id: string; w?: number },
+  _opts: { category: string; id: string; w?: number },
 ): string {
   if (!path) return PLACEHOLDER_IMAGE;
   const base = resolveBase(path);
   if (!base) return PLACEHOLDER_IMAGE;
-  if (!isSizedAsset(base)) return base;
-  const width = pickWidth(opts.w ?? DEFAULT_WIDTH);
-  return withSize(base, width);
+  return base;
 }
 
 export function imageSrcSet(
-  path: string | undefined,
+  _path: string | undefined,
   _opts: { category: string; id: string },
 ): string | undefined {
-  if (!path) return undefined;
-  const base = resolveBase(path);
-  if (!base || !isSizedAsset(base)) return undefined;
-  return IMAGE_WIDTHS.map((w) => `${withSize(base, w)} ${w}w`).join(', ');
+  return undefined;
 }
 
 // Builds the inputs needed for a `<link rel="preload" as="image">` hint that
@@ -74,15 +68,14 @@ export function imageSrcSet(
 // usefully preload a non-srcset variant we won't actually render.
 export function imagePreload(
   path: string | undefined,
-  opts: { category: string; id: string; w?: number },
+  _opts: { category: string; id: string; w?: number },
 ): { href: string; imageSrcSet: string; type: string } | null {
   if (!path) return null;
   const base = resolveBase(path);
   if (!base || !isSizedAsset(base)) return null;
-  const width = pickWidth(opts.w ?? DEFAULT_WIDTH);
   return {
-    href: withSize(base, width),
-    imageSrcSet: IMAGE_WIDTHS.map((w) => `${withSize(base, w)} ${w}w`).join(', '),
+    href: base,
+    imageSrcSet: `${base} ${DEFAULT_WIDTH}w`,
     type: 'image/webp',
   };
 }
