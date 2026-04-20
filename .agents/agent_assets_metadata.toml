@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "AH-kZaGEdMwzFeAORF5_w"
+uri = "file://artifacts/fashion/public/opengraph.png"
+type = "image"
+title = "velour og banner"

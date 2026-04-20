@@ -17,7 +17,7 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, X, SlidersHorizontal } from 'lucide-react';
+import { ChevronRight, X, SlidersHorizontal, Search } from 'lucide-react';
 
 type SortKey = 'featured' | 'newest' | 'name-asc' | 'price-asc' | 'price-desc';
 const PAGE_SIZE = 24;
@@ -504,7 +504,34 @@ export function ShopPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => updateQuery(e.target.value)}
+                    placeholder="Search this collection"
+                    className="h-10 pl-9 pr-3 border border-border bg-background text-sm w-[220px] focus:outline-none focus:border-primary"
+                    data-testid="input-shop-search"
+                  />
+                </div>
+                <div className="hidden md:flex items-center border border-border h-10 text-xs uppercase tracking-widest">
+                  {(['all', 'women', 'men'] as const).map((g) => (
+                    <button
+                      key={g}
+                      onClick={() => updateGender(g)}
+                      className={`px-3 h-full border-r border-border last:border-r-0 transition-colors ${
+                        gender === g
+                          ? 'bg-foreground text-background'
+                          : 'hover:bg-foreground/5'
+                      }`}
+                      data-testid={`button-gender-${g}`}
+                    >
+                      {g === 'all' ? 'All' : g}
+                    </button>
+                  ))}
+                </div>
                 <button
                   onClick={() => setMobileFiltersOpen(true)}
                   className="lg:hidden inline-flex items-center gap-2 h-10 px-4 border border-border text-xs uppercase tracking-widest"
