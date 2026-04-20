@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, ArrowDown } from 'lucide-react';
+import { ArrowRight, ArrowDown } from 'lucide-react';
 
 export interface HeroSlide {
   image: string;
@@ -33,7 +33,6 @@ export function HeroSlider({ slides, intervalMs = 6000 }: Props) {
     },
     [slides.length],
   );
-  const jumpTo = (next: number) => setIndex(((next % slides.length) + slides.length) % slides.length);
 
   // Auto-advance on a steady cadence; only pause while the tab is hidden.
   // We deliberately do NOT pause on hover so the slider keeps rotating
@@ -144,74 +143,16 @@ export function HeroSlider({ slides, intervalMs = 6000 }: Props) {
               <Caption.Ctas>
                 <Link
                   href={slide.primaryCta.href}
-                  className="inline-flex items-center gap-2 bg-white text-black hover:bg-primary hover:text-primary-foreground px-9 h-14 rounded-full text-xs tracking-widest uppercase font-bold shadow-lg shadow-black/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+                  className="inline-flex items-center gap-1.5 bg-white text-black hover:bg-primary hover:text-primary-foreground px-5 h-9 rounded-full text-[10px] tracking-widest uppercase font-bold shadow-md shadow-black/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
                   data-testid="hero-cta-primary"
                 >
-                  {slide.primaryCta.label} <ArrowRight className="w-4 h-4" />
+                  {slide.primaryCta.label} <ArrowRight className="w-3 h-3" />
                 </Link>
-                {slide.secondaryCta && (
-                  <Link
-                    href={slide.secondaryCta.href}
-                    className="inline-flex items-center gap-2 text-white border border-white/50 hover:border-white hover:bg-white/10 backdrop-blur-sm px-8 h-14 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300"
-                    data-testid="hero-cta-secondary"
-                  >
-                    {slide.secondaryCta.label}
-                  </Link>
-                )}
               </Caption.Ctas>
             </motion.div>
           </AnimatePresence>
         </div>
       </div>
-
-      {/* Prev / Next arrows (visible on hover, always visible on touch). */}
-      {slides.length > 1 && (
-        <>
-          <button
-            onClick={() => advance(-1)}
-            aria-label="Previous slide"
-            className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full flex items-center justify-center text-white/80 hover:text-white border border-white/20 hover:border-white/60 backdrop-blur-sm bg-black/20 transition-all opacity-100 md:opacity-70 md:group-hover:opacity-100"
-            data-testid="hero-prev"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => advance(1)}
-            aria-label="Next slide"
-            className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full flex items-center justify-center text-white/80 hover:text-white border border-white/20 hover:border-white/60 backdrop-blur-sm bg-black/20 transition-all opacity-100 md:opacity-70 md:group-hover:opacity-100"
-            data-testid="hero-next"
-          >
-            <ArrowRight className="w-5 h-5" />
-          </button>
-        </>
-      )}
-
-      {/* Dot indicators */}
-      {slides.length > 1 && (
-        <div
-          className="absolute left-1/2 -translate-x-1/2 bottom-14 md:bottom-20 lg:bottom-24 z-20 flex items-center gap-3"
-          role="tablist"
-          aria-label="Hero slide selector"
-        >
-          {slides.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => jumpTo(i)}
-              role="tab"
-              aria-selected={i === index}
-              aria-label={`Go to slide ${i + 1}: ${s.headline}`}
-              className="group/dot p-2"
-              data-testid={`hero-dot-${i}`}
-            >
-              <span
-                className={`block h-[3px] transition-all duration-500 ${
-                  i === index ? 'w-12 bg-white' : 'w-6 bg-white/40 group-hover/dot:bg-white/70'
-                }`}
-              />
-            </button>
-          ))}
-        </div>
-      )}
 
       <button
         onClick={scrollToShop}

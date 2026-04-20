@@ -30,17 +30,18 @@ export function SecondaryNav() {
     <div className="border-b border-border bg-background/95 backdrop-blur-md">
       <div className="container mx-auto px-2 md:px-4">
         <ul
-          className="flex items-center gap-2 md:gap-1 lg:gap-2 overflow-x-auto whitespace-nowrap snap-x snap-mandatory no-scrollbar h-11"
+          className="flex items-center gap-2 md:gap-1 lg:gap-2 overflow-x-auto whitespace-nowrap no-scrollbar h-11"
           role="tablist"
         >
           {TOP_LEVEL.map((label) => {
             const isActive = label === active;
             const isSale = label === 'Sale';
             return (
-              <li key={label} className="snap-start">
+              <li key={label}>
                 <button
+                  type="button"
                   onClick={() => onClick(label)}
-                  className={`relative inline-flex items-center px-3 md:px-4 h-11 text-[12px] font-extrabold tracking-[0.16em] uppercase transition-colors ${
+                  className={`inline-flex items-center px-3 md:px-4 h-11 text-[12px] font-extrabold tracking-[0.16em] uppercase transition-colors touch-manipulation ${
                     isActive
                       ? 'text-foreground'
                       : isSale
@@ -49,10 +50,12 @@ export function SecondaryNav() {
                   }`}
                   data-testid={`secondary-nav-${label.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  {label}
-                  {isActive && (
-                    <span className="absolute left-3 right-3 md:left-4 md:right-4 bottom-0 h-[2px] bg-primary" />
-                  )}
+                  <span className="relative inline-block py-1">
+                    {label}
+                    {isActive && (
+                      <span className="absolute left-0 right-0 -bottom-0.5 h-[2px] bg-primary" />
+                    )}
+                  </span>
                 </button>
               </li>
             );

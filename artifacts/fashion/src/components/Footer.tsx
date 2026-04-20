@@ -12,8 +12,8 @@ export function Footer() {
 
   return (
     <footer className="bg-zinc-950 text-zinc-100 py-8 md:py-12">
-      <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10">
-        <div className="md:col-span-3 space-y-4">
+      <div className="container mx-auto px-4 grid grid-cols-2 md:grid-cols-12 gap-6 md:gap-10">
+        <div className="col-span-2 md:col-span-4 space-y-3">
           <Link href="/" className="inline-flex items-center gap-2.5">
             <svg viewBox="0 0 36 36" className="w-8 h-8" aria-hidden="true">
               <defs>
@@ -35,7 +35,7 @@ export function Footer() {
           </p>
         </div>
 
-        <div className="md:col-span-2 space-y-3">
+        <div className="col-span-1 md:col-span-2 space-y-3">
           <h3 className="font-medium text-sm tracking-wider uppercase">Shop</h3>
           <ul className="space-y-2 text-sm text-zinc-400">
             <li><Link href="/shop?sort=newest" className="hover:text-zinc-100 transition-colors">New Arrivals</Link></li>
@@ -45,41 +45,28 @@ export function Footer() {
           </ul>
         </div>
 
-        <div className="md:col-span-2 space-y-3">
+        <div className="col-span-1 md:col-span-2 space-y-3">
           <h3 className="font-medium text-sm tracking-wider uppercase">Help</h3>
           <ul className="space-y-2 text-sm text-zinc-400">
-            <li><a href="#" className="hover:text-zinc-100 transition-colors">FAQ</a></li>
-            <li><a href="#" className="hover:text-zinc-100 transition-colors">Shipping</a></li>
-            <li><a href="#" className="hover:text-zinc-100 transition-colors">Returns</a></li>
             <li><a href="#" className="hover:text-zinc-100 transition-colors">Contact</a></li>
           </ul>
         </div>
 
-        <div className="md:col-span-2 space-y-3">
-          <h3 className="font-medium text-sm tracking-wider uppercase">Follow Us</h3>
-          <ul className="space-y-2 text-sm text-zinc-400">
-            <li><a href="#" className="hover:text-zinc-100 transition-colors">Instagram</a></li>
-            <li><a href="#" className="hover:text-zinc-100 transition-colors">TikTok</a></li>
-            <li><a href="#" className="hover:text-zinc-100 transition-colors">Pinterest</a></li>
-            <li><a href="#" className="hover:text-zinc-100 transition-colors">YouTube</a></li>
-          </ul>
-        </div>
-
-        <div className="md:col-span-3 space-y-3">
+        <div className="col-span-2 md:col-span-4 space-y-3">
           <h3 className="font-medium text-sm tracking-wider uppercase">Newsletter</h3>
           <p className="text-sm text-zinc-400">
             Subscribe for early drops, exclusive deals, and behind-the-scenes from the studio.
           </p>
-          <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2">
+          <form onSubmit={handleSubscribe} className="flex flex-row gap-2">
             <Input
               type="email"
               placeholder="you@email.com"
               required
-              className="bg-white/5 border-white/15 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-primary rounded-lg h-10"
+              className="bg-white/5 border-white/15 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-primary rounded-lg h-10 flex-1 min-w-0"
             />
             <Button
               type="submit"
-              className="rounded-lg h-10 w-full sm:w-auto uppercase text-xs tracking-wider font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+              className="rounded-lg h-10 uppercase text-xs tracking-wider font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
             >
               Subscribe
             </Button>

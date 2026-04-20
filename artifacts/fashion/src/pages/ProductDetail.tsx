@@ -233,7 +233,7 @@ export function ProductDetailPage() {
   };
 
   return (
-    <div className="pt-28 pb-24 bg-background min-h-screen">
+    <div className="pt-20 md:pt-24 pb-12 md:pb-16 bg-background min-h-screen">
       {heroPreload && (
         <link
           rel="preload"
@@ -246,7 +246,7 @@ export function ProductDetailPage() {
         />
       )}
       <div className="container mx-auto px-4">
-        <nav className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground mb-8">
+        <nav className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground mb-4 md:mb-5">
           <Link href="/" className="hover:text-foreground">Home</Link>
           <ChevronRight className="w-3 h-3" />
           <Link href="/shop" className="hover:text-foreground">Shop</Link>
@@ -261,14 +261,14 @@ export function ProductDetailPage() {
           <span className="text-foreground line-clamp-1 max-w-[40ch]">{product.title}</span>
         </nav>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 lg:gap-16 items-start">
-          <div className="flex flex-col-reverse md:flex-row gap-4 w-full max-w-[560px] mx-auto md:mx-0 md:sticky md:top-28">
-            <div className="flex md:flex-col gap-3 md:max-h-[560px] overflow-x-auto md:overflow-y-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 lg:gap-10 items-start">
+          <div className="flex flex-col-reverse md:flex-row gap-3 w-full max-w-[360px] sm:max-w-[400px] md:max-w-[440px] mx-auto md:mx-0 md:sticky md:top-24">
+            <div className="flex md:flex-col gap-2 md:max-h-[440px] overflow-x-auto md:overflow-y-auto">
               {gallery.map((img, idx) => (
                 <button
                   key={img + idx}
                   onClick={() => setActiveImage(idx)}
-                  className={`flex-shrink-0 w-20 h-24 rounded-lg overflow-hidden border-2 transition-all ${
+                  className={`flex-shrink-0 w-16 h-20 rounded-lg overflow-hidden border-2 transition-all ${
                     activeImage === idx
                       ? 'border-primary'
                       : 'border-transparent hover:border-border'
@@ -281,12 +281,12 @@ export function ProductDetailPage() {
                     id={product.id}
                     alt=""
                     className="w-full h-full object-cover"
-                    width={200}
+                    width={160}
                   />
                 </button>
               ))}
             </div>
-            <div className="flex-1 min-w-0 bg-muted aspect-[3/4] relative overflow-hidden rounded-2xl ring-1 ring-border/40 shadow-sm">
+            <div className="flex-1 min-w-0 bg-muted aspect-[4/5] relative overflow-hidden rounded-2xl ring-1 ring-border/40 shadow-sm">
               <ProductImage
                 src={gallery[activeImage]}
                 category={product.category}
@@ -315,30 +315,30 @@ export function ProductDetailPage() {
           </div>
 
           <div className="flex flex-col">
-            <span className="text-primary text-xs font-bold tracking-widest uppercase mb-3">
+            <span className="text-primary text-xs font-bold tracking-widest uppercase mb-2">
               {product.category}
             </span>
-            <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-extrabold mb-4 leading-tight">
+            <h1 className="font-serif text-2xl md:text-3xl lg:text-4xl font-extrabold mb-2 leading-tight">
               {product.title}
             </h1>
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-3">
               <Stars rating={rating.average} />
               <span className="text-sm text-muted-foreground">
                 {rating.average.toFixed(1)} · {rating.count} reviews
               </span>
             </div>
-            <PriceTag amount={product.price} size="xl" className="mb-8 inline-block" />
+            <PriceTag amount={product.price} size="xl" className="mb-4 inline-block" />
 
-            <p className="text-sm text-muted-foreground leading-relaxed mb-8">{description}</p>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-5">{description}</p>
 
             {showSwatches && (
-              <div className="mb-8">
-                <div className="flex justify-between mb-4">
+              <div className="mb-5">
+                <div className="flex justify-between mb-2">
                   <span className="text-xs font-bold uppercase tracking-widest">
                     Color: <span className="text-muted-foreground ml-1 font-normal">{selectedColor}</span>
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2">
                   {product.colors.map((color) => (
                     <button
                       key={color.name}
@@ -346,7 +346,7 @@ export function ProductDetailPage() {
                         setSelectedColor(color.name);
                         setActiveImage(0);
                       }}
-                      className={`w-10 h-10 rounded-full border-2 transition-all ${
+                      className={`w-9 h-9 rounded-full border-2 transition-all ${
                         selectedColor === color.name
                           ? 'border-primary scale-110 shadow-md'
                           : 'border-transparent hover:scale-105'
@@ -366,43 +366,48 @@ export function ProductDetailPage() {
               </div>
             )}
 
-            <div className="mb-8">
-              <div className="flex justify-between mb-4">
+            <div className="mb-5">
+              <div className="flex justify-between mb-2">
                 <span className="text-xs font-bold uppercase tracking-widest">
                   Size: <span className="text-muted-foreground ml-1 font-normal">{selectedSize}</span>
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {product.sizes.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={`min-w-[3.5rem] h-12 px-4 text-sm font-medium border transition-all ${
-                      selectedSize === size
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border text-foreground hover:border-foreground'
-                    }`}
-                    data-testid={`size-${size}`}
-                  >
-                    {size}
-                  </button>
-                ))}
+                {product.sizes.map((size) => {
+                  const isShort = size.length <= 2;
+                  return (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      className={`${
+                        isShort ? 'w-11 h-11' : 'h-11 px-4 min-w-[3rem]'
+                      } rounded-full text-sm font-medium border transition-all flex items-center justify-center ${
+                        selectedSize === size
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border text-foreground hover:border-foreground'
+                      }`}
+                      data-testid={`size-${size}`}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <div className="flex items-center border border-border h-14 bg-background">
+            <div className="flex flex-row gap-3 mb-3">
+              <div className="flex items-center border border-border rounded-full h-12 bg-background">
                 <button
-                  className="w-14 h-full flex items-center justify-center text-muted-foreground hover:text-foreground"
+                  className="w-11 h-full flex items-center justify-center text-muted-foreground hover:text-foreground"
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                 >
                   <Minus className="w-4 h-4" />
                 </button>
-                <span className="w-12 text-center font-medium text-lg" data-testid="quantity">
+                <span className="w-10 text-center font-medium" data-testid="quantity">
                   {quantity}
                 </span>
                 <button
-                  className="w-14 h-full flex items-center justify-center text-muted-foreground hover:text-foreground"
+                  className="w-11 h-full flex items-center justify-center text-muted-foreground hover:text-foreground"
                   onClick={() => setQuantity(quantity + 1)}
                 >
                   <Plus className="w-4 h-4" />
@@ -410,23 +415,23 @@ export function ProductDetailPage() {
               </div>
               <Button
                 onClick={handleAddToCart}
-                className="flex-1 h-14 rounded-full text-xs tracking-widest uppercase font-bold"
+                className="flex-1 h-12 rounded-full text-xs tracking-widest uppercase font-bold"
                 data-testid="button-add-to-cart"
               >
-                <ShoppingBag className="w-4 h-4 mr-3" />
+                <ShoppingBag className="w-4 h-4 mr-2" />
                 Add to Cart
               </Button>
             </div>
             <Button
               variant="outline"
               onClick={handleBuyNow}
-              className="h-12 rounded-full text-xs tracking-widest uppercase font-bold"
+              className="h-11 rounded-full text-xs tracking-widest uppercase font-bold"
               data-testid="button-buy-now"
             >
               Buy Now
             </Button>
 
-            <ul className="mt-10 pt-8 border-t border-border dark:border-border/50 text-xs text-muted-foreground space-y-2">
+            <ul className="mt-6 pt-5 border-t border-border dark:border-border/50 text-xs text-muted-foreground space-y-1.5">
               {PRODUCT_DETAILS.map((d) => (
                 <li key={d}>· {d}</li>
               ))}
