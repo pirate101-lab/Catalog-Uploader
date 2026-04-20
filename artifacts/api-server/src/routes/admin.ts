@@ -11,6 +11,7 @@ import {
   productOverridesTable,
   ordersTable,
   orderEmailEventsTable,
+  reviewsTable,
   siteSettingsTable,
   wishlistSignalsTable,
 } from "@workspace/db";
@@ -19,6 +20,7 @@ import { invalidateOverrides } from "../lib/overrides";
 import { invalidateSiteSettings, getSiteSettings } from "../lib/siteSettings";
 import { getAllProducts } from "../lib/catalog";
 import { sendOrderStatusEmail, sendTestOrderEmail } from "../lib/email";
+import { deleteReviewById } from "../lib/reviewSummary";
 
 const router: IRouter = Router();
 
@@ -432,6 +434,48 @@ router.patch("/admin/orders/:id", async (req, res) => {
     void sendOrderStatusEmail(row, row.status, req.log);
   }
   res.json(row);
+});
+
+/* ---------------- Reviews moderation ----------------
+ * Admins can list and remove individual reviews. Deletion goes through
+ * `deleteReviewById` so the cached `product_review_summary` row for the
+ * affected product is refreshed in the same call — otherwise the
+ * storefront would keep showing the pre-deletion count/average.
+ */
+
+router.get("/admin/reviews", async (req: Request, res: Response) => {
+  const limit = Math.min(Number(req.query["limit"] ?? 100) || 100, 500);
+  const offset = Math.max(Number(req.query["offset"] ?? 0) || 0, 0);
+  const productIdRaw = req.query["productId"];
+  const productId =
+    typeof productIdRaw === "string" && productIdRaw.length > 0
+      ? productIdRaw
+      : null;
+  const where = productId
+    ? eq(reviewsTable.productId, productId)
+    : sql`TRUE`;
+  const rows = await db
+    .select()
+    .from(reviewsTable)
+    .where(where)
+    .orderBy(desc(reviewsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+  res.json({ rows, limit, offset });
+});
+
+router.delete("/admin/reviews/:id", async (req: Request, res: Response) => {
+  const id = Number(req.params["id"]);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const productId = await deleteReviewById(id);
+  if (!productId) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json({ success: true, productId });
 });
 
 /* ---------------- Customers (aggregated from orders) ---------------- */

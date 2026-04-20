@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, productReviewSummaryTable, reviewsTable } from "@workspace/db";
 
 export async function refreshProductReviewSummary(
@@ -30,6 +30,28 @@ export async function refreshProductReviewSummary(
         updatedAt: new Date(),
       },
     });
+}
+
+/**
+ * Delete a review and keep `product_review_summary` in sync.
+ *
+ * Returns the affected `productId` (or `null` if no row matched).
+ *
+ * Funnelling deletions through this helper guarantees that the cached
+ * count/average never drifts from `reviews`. Any future moderation path
+ * (admin UI, GDPR purge, etc.) should call this rather than issuing a
+ * raw `DELETE FROM reviews`.
+ */
+export async function deleteReviewById(
+  reviewId: number,
+): Promise<string | null> {
+  const [removed] = await db
+    .delete(reviewsTable)
+    .where(eq(reviewsTable.id, reviewId))
+    .returning({ productId: reviewsTable.productId });
+  if (!removed) return null;
+  await refreshProductReviewSummary(removed.productId);
+  return removed.productId;
 }
 
 export async function backfillProductReviewSummary(): Promise<number> {
