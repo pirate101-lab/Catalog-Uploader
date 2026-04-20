@@ -93,6 +93,8 @@ export function HeroAdmin() {
   );
 }
 
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+
 function SlideEditor({
   slide,
   onSaved,
@@ -108,6 +110,7 @@ function SlideEditor({
 }) {
   const [draft, setDraft] = useState<HeroSlide>(slide);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => setDraft(slide), [slide]);
 
@@ -124,6 +127,47 @@ function SlideEditor({
       toast.error((e as Error).message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onFilePicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please pick an image file");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error("Image is larger than 8 MB");
+      return;
+    }
+    const t = toast.loading("Uploading…");
+    setUploading(true);
+    try {
+      const { uploadURL, publicUrl } = await adminApi.requestUploadUrl(
+        file.name,
+      );
+      const put = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+      let merged: HeroSlide | null = null;
+      setDraft((prev) => {
+        merged = { ...prev, imageUrl: publicUrl };
+        return merged;
+      });
+      if (merged) {
+        await adminApi.updateHero(slide.id, merged);
+      }
+      toast.success("Image uploaded", { id: t });
+      onSaved();
+    } catch (err) {
+      toast.error((err as Error).message, { id: t });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -187,40 +231,22 @@ function SlideEditor({
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const t = toast.loading("Uploading…");
-                  try {
-                    const { uploadURL, publicUrl } =
-                      await adminApi.requestUploadUrl(file.name);
-                    const put = await fetch(uploadURL, {
-                      method: "PUT",
-                      headers: { "Content-Type": file.type },
-                      body: file,
-                    });
-                    if (!put.ok) throw new Error("Upload failed");
-                    set("imageUrl", publicUrl);
-                    toast.success("Uploaded", { id: t });
-                  } catch (err) {
-                    toast.error((err as Error).message, { id: t });
-                  } finally {
-                    e.target.value = "";
-                  }
-                }}
+                onChange={onFilePicked}
               />
               <Button
                 type="button"
                 variant="outline"
+                disabled={uploading}
                 onClick={() =>
-                  document
-                    .getElementById(`upload-${slide.id}`)
-                    ?.click()
+                  document.getElementById(`upload-${slide.id}`)?.click()
                 }
               >
-                Upload
+                {uploading ? "Uploading…" : "Upload"}
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Upload an image (max 8 MB) or paste a URL.
+            </p>
           </Field>
         </div>
         <div className="flex items-center justify-between pt-3 border-t">
