@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { z } from "zod";
 import {
   db,
   heroSlidesTable,
@@ -290,40 +291,59 @@ router.post(
 );
 
 // ── Reviews ────────────────────────────────────────────────────────────
-// Statuses that count as "the customer received it" for verified-buyer
-// gating. Mirrors the order lifecycle declared in `routes/admin.ts`
-// (`new | packed | shipped | delivered | cancelled`). We deliberately
-// exclude `new` (just submitted) and `cancelled`; `packed` is the first
-// fulfilment milestone, so reviews unlock from there.
-const PAID_ORDER_STATUSES = new Set([
-  "packed",
-  "shipped",
-  "delivered",
-]);
+// Only fully-completed orders qualify as buyer-verified. The orders
+// lifecycle (`new | packed | shipped | delivered | cancelled`, see
+// `routes/admin.ts`) treats `delivered` as the terminal completed state,
+// so that's the single status accepted here.
+const COMPLETED_ORDER_STATUSES = new Set(["delivered"]);
 
 interface OrderItemShape {
   productId?: string;
 }
 
-async function userHasPurchased(
+// Returns the id of the qualifying completed order containing the
+// product, or null if none exists. The order id is persisted on the
+// review row as a buyer-verification audit link.
+async function findQualifyingOrderId(
   email: string,
   productId: string,
-): Promise<boolean> {
+): Promise<string | null> {
   // `orders.email` is normalised at write time in `routes/checkout.ts`.
-  // Lowercasing the lookup key here defends against any legacy rows that
-  // pre-date that normalisation.
+  // Lowercasing the lookup defends against any legacy rows that pre-date
+  // that normalisation.
   const normalised = email.trim().toLowerCase();
   const rows = await db
-    .select({ items: ordersTable.items, status: ordersTable.status })
+    .select({
+      id: ordersTable.id,
+      items: ordersTable.items,
+      status: ordersTable.status,
+      createdAt: ordersTable.createdAt,
+    })
     .from(ordersTable)
-    .where(sql`lower(${ordersTable.email}) = ${normalised}`);
+    .where(sql`lower(${ordersTable.email}) = ${normalised}`)
+    .orderBy(desc(ordersTable.createdAt));
   for (const r of rows) {
-    if (!PAID_ORDER_STATUSES.has(r.status)) continue;
+    if (!COMPLETED_ORDER_STATUSES.has(r.status)) continue;
     const items = (Array.isArray(r.items) ? r.items : []) as OrderItemShape[];
-    if (items.some((it) => it && it.productId === productId)) return true;
+    if (items.some((it) => it && it.productId === productId)) return r.id;
   }
-  return false;
+  return null;
 }
+
+const reviewSubmissionSchema = z.object({
+  name: z.string().trim().min(1, "Please enter your name.").max(80),
+  rating: z
+    .number()
+    .int("Rating must be a whole number.")
+    .min(1, "Rating must be between 1 and 5.")
+    .max(5, "Rating must be between 1 and 5."),
+  title: z.string().trim().max(120).optional().nullable(),
+  body: z
+    .string()
+    .trim()
+    .min(4, "Review must be at least 4 characters.")
+    .max(4000, "Review must be 4000 characters or fewer."),
+});
 
 router.get(
   "/storefront/products/:id/reviews",
@@ -414,8 +434,8 @@ router.get(
       res.json({ canReview: false, reason: "already_reviewed" });
       return;
     }
-    const purchased = await userHasPurchased(email, productId);
-    if (!purchased) {
+    const orderId = await findQualifyingOrderId(email, productId);
+    if (!orderId) {
       res.json({ canReview: false, reason: "not_a_buyer" });
       return;
     }
@@ -449,34 +469,28 @@ router.post(
       return;
     }
 
-    const body = req.body ?? {};
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-    const rating = Number(body.rating);
-    const reviewBody =
-      typeof body.body === "string" ? body.body.trim() : "";
-    const title =
-      typeof body.title === "string" && body.title.trim().length > 0
-        ? body.title.trim().slice(0, 120)
-        : null;
+    const parsed = reviewSubmissionSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      res.status(400).json({
+        error: first?.message ?? "Invalid review submission.",
+        issues: parsed.error.issues,
+      });
+      return;
+    }
+    const {
+      name,
+      rating,
+      body: reviewBody,
+      title: rawTitle,
+    } = parsed.data;
+    const title = rawTitle && rawTitle.length > 0 ? rawTitle : null;
 
-    if (!name || name.length > 80) {
-      res.status(400).json({ error: "Please enter your name (max 80 characters)." });
-      return;
-    }
-    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-      res.status(400).json({ error: "Rating must be a whole number between 1 and 5." });
-      return;
-    }
-    if (reviewBody.length < 4 || reviewBody.length > 4000) {
-      res.status(400).json({ error: "Review must be between 4 and 4000 characters." });
-      return;
-    }
-
-    const purchased = await userHasPurchased(email, productId);
-    if (!purchased) {
+    const orderId = await findQualifyingOrderId(email, productId);
+    if (!orderId) {
       res.status(403).json({
         error:
-          "Only verified buyers can review this item. Once your order is fulfilled you'll be able to leave a review.",
+          "Only verified buyers can review this item. Once your order is delivered you'll be able to leave a review.",
       });
       return;
     }
@@ -501,6 +515,7 @@ router.post(
       await db.insert(reviewsTable).values({
         productId,
         userId: req.user.id,
+        orderId,
         email: email.toLowerCase(),
         name,
         rating,

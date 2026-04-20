@@ -135,6 +135,12 @@ export const reviewsTable = pgTable(
     id: serial("id").primaryKey(),
     productId: varchar("product_id").notNull(),
     userId: varchar("user_id"),
+    // FK to the qualifying order that unlocked this review (null for
+    // seeded rows). `set null` keeps the review if an order is later
+    // hard-deleted, but the verified link is removed.
+    orderId: varchar("order_id").references(() => ordersTable.id, {
+      onDelete: "set null",
+    }),
     email: text("email"),
     name: text("name").notNull(),
     rating: integer("rating").notNull(),
