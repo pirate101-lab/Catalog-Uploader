@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { AdminShell, AdminPageHeader } from "./AdminShell";
-import { adminApi, fmtCents, type DashboardStats } from "./api";
+import {
+  adminApi,
+  fmtCents,
+  type AdminOverview,
+  type DashboardStats,
+} from "./api";
 import {
   Package,
   ShoppingBag,
@@ -9,37 +14,73 @@ import {
   TrendingUp,
   AlertTriangle,
   MailWarning,
+  Calculator,
+  CalendarDays,
 } from "lucide-react";
+
+const FUNNEL_LABELS: Array<{ key: string; label: string; color: string }> = [
+  { key: "new", label: "Pending", color: "bg-amber-500" },
+  { key: "packed", label: "Packed", color: "bg-blue-500" },
+  { key: "shipped", label: "Shipped", color: "bg-violet-500" },
+  { key: "delivered", label: "Delivered", color: "bg-emerald-500" },
+  { key: "cancelled", label: "Cancelled", color: "bg-red-500" },
+];
 
 export function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    adminApi
-      .getStats()
-      .then((s) => !cancelled && setStats(s))
+    Promise.all([adminApi.getStats(), adminApi.getOverview()])
+      .then(([s, o]) => {
+        if (cancelled) return;
+        setStats(s);
+        setOverview(o);
+      })
       .catch((e) => !cancelled && setError(e.message));
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const funnelTotal = overview
+    ? Object.values(overview.funnel).reduce((a, b) => a + b, 0)
+    : 0;
+
   return (
     <AdminShell>
       <AdminPageHeader
-        title="Dashboard"
+        title="Overview"
         description="Activity across the storefront."
       />
-      {error && (
-        <div className="text-sm text-destructive mb-4">{error}</div>
-      )}
-      {!stats ? (
+      {error && <div className="text-sm text-destructive mb-4">{error}</div>}
+      {!stats || !overview ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
+          {/* Window KPIs — orders + revenue + AOV across today / week / month */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <WindowCard
+              title="Today"
+              icon={<CalendarDays className="w-4 h-4" />}
+              window={overview.today}
+            />
+            <WindowCard
+              title="Last 7 days"
+              icon={<TrendingUp className="w-4 h-4" />}
+              window={overview.week}
+            />
+            <WindowCard
+              title="Last 30 days"
+              icon={<DollarSign className="w-4 h-4" />}
+              window={overview.month}
+            />
+          </div>
+
+          {/* Secondary KPIs */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <Kpi
               icon={<Package className="w-4 h-4" />}
               label="Products"
@@ -52,23 +93,11 @@ export function AdminDashboard() {
               sub={`${stats.ordersWeek} this week`}
             />
             <Kpi
-              icon={<DollarSign className="w-4 h-4" />}
-              label="Revenue today"
-              value={fmtCents(stats.revenueTodayCents)}
-            />
-            <Kpi
-              icon={<TrendingUp className="w-4 h-4" />}
-              label="Revenue 7d"
-              value={fmtCents(stats.revenueWeekCents)}
-            />
-            <Kpi
               icon={<AlertTriangle className="w-4 h-4" />}
               label="Low stock"
               value={stats.lowStockCount.toLocaleString()}
               sub={
-                stats.lowStockCount === 0
-                  ? "All good"
-                  : "Needs attention"
+                stats.lowStockCount === 0 ? "All good" : "Needs attention"
               }
             />
             <Kpi
@@ -78,9 +107,74 @@ export function AdminDashboard() {
               sub={
                 (stats.emailsFailed24h ?? 0) === 0
                   ? "All delivered"
-                  : "Check order details"
+                  : "Check Emails tab"
               }
             />
+          </div>
+
+          {/* Funnel + Top sellers side-by-side on desktop */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <section className="border rounded-lg p-6">
+              <h2 className="text-xs uppercase tracking-widest font-bold mb-4 flex items-center gap-2">
+                <Calculator className="w-4 h-4" /> Order status funnel
+              </h2>
+              {funnelTotal === 0 ? (
+                <p className="text-sm text-muted-foreground">No orders yet.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {FUNNEL_LABELS.map(({ key, label, color }) => {
+                    const count = overview.funnel[key] ?? 0;
+                    const pct = funnelTotal > 0 ? (count / funnelTotal) * 100 : 0;
+                    return (
+                      <li key={key}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium">{label}</span>
+                          <span className="text-muted-foreground">
+                            {count} · {pct.toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${color} transition-all`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
+            <section className="border rounded-lg p-6">
+              <h2 className="text-xs uppercase tracking-widest font-bold mb-4">
+                Top 5 best sellers
+              </h2>
+              {overview.topSellers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No sales recorded yet.
+                </p>
+              ) : (
+                <ol className="space-y-2">
+                  {overview.topSellers.map((p, i) => (
+                    <li
+                      key={p.productId}
+                      className="flex items-center justify-between gap-3 text-sm"
+                    >
+                      <span className="flex items-center gap-3 min-w-0">
+                        <span className="text-muted-foreground tabular-nums w-5">
+                          {i + 1}.
+                        </span>
+                        <span className="truncate">{p.title}</span>
+                      </span>
+                      <span className="text-muted-foreground whitespace-nowrap">
+                        {p.qty} sold · {fmtCents(p.revenueCents)}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
           </div>
 
           {stats.lowStockProducts.length > 0 && (
@@ -105,52 +199,77 @@ export function AdminDashboard() {
             </section>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <section className="border rounded-lg p-6">
-              <h2 className="text-xs uppercase tracking-widest font-bold mb-4">
-                Top categories
-              </h2>
-              <ul className="space-y-2 text-sm">
-                {stats.topCategories.map((c) => (
-                  <li key={c.slug} className="flex justify-between">
-                    <span className="capitalize">{c.slug.replace(/-/g, " ")}</span>
-                    <span className="text-muted-foreground">{c.count}</span>
+          <section className="border rounded-lg p-6">
+            <h2 className="text-xs uppercase tracking-widest font-bold mb-4">
+              Recent orders
+            </h2>
+            {overview.recentOrders.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No orders yet. Submitted checkouts will show up here.
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {overview.recentOrders.map((o) => (
+                  <li
+                    key={o.id}
+                    className="py-2 text-sm flex justify-between gap-3"
+                  >
+                    <Link
+                      href={`/admin/orders/${o.id}`}
+                      className="hover:underline truncate"
+                    >
+                      {o.email}
+                    </Link>
+                    <span className="text-muted-foreground whitespace-nowrap">
+                      {fmtCents(o.totalCents)} · {o.status}
+                    </span>
                   </li>
                 ))}
-                {stats.topCategories.length === 0 && (
-                  <li className="text-muted-foreground">No data</li>
-                )}
               </ul>
-            </section>
-            <section className="border rounded-lg p-6">
-              <h2 className="text-xs uppercase tracking-widest font-bold mb-4">
-                Recent orders
-              </h2>
-              {stats.recentOrders.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No orders yet. Submitted checkouts will show up here.
-                </p>
-              ) : (
-                <ul className="divide-y">
-                  {stats.recentOrders.map((o) => (
-                    <li key={o.id} className="py-2 text-sm flex justify-between">
-                      <Link href={`/admin/orders/${o.id}`}>
-                        <span className="hover:underline cursor-pointer">
-                          {o.email}
-                        </span>
-                      </Link>
-                      <span className="text-muted-foreground">
-                        {fmtCents(o.totalCents)} · {o.status}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </div>
+            )}
+          </section>
         </>
       )}
     </AdminShell>
+  );
+}
+
+function WindowCard({
+  title,
+  icon,
+  window,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  window: { count: number; revenueCents: number; aovCents: number };
+}) {
+  return (
+    <div className="border rounded-lg p-5 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/30 dark:to-violet-950/30">
+      <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground mb-3">
+        {icon}
+        {title}
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            Orders
+          </div>
+          <div className="text-xl font-bold">{window.count.toLocaleString()}</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            Revenue
+          </div>
+          <div className="text-xl font-bold">{fmtCents(window.revenueCents)}</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            AOV
+          </div>
+          <div className="text-xl font-bold">{fmtCents(window.aovCents)}</div>
+        </div>
+      </div>
+    </div>
   );
 }
 

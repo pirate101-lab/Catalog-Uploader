@@ -21,6 +21,8 @@ import { HeroAdmin } from "@/admin/HeroAdmin";
 import { ProductsAdmin } from "@/admin/ProductsAdmin";
 import { OrdersAdmin, OrderDetailAdmin } from "@/admin/OrdersAdmin";
 import { CustomersAdmin } from "@/admin/CustomersAdmin";
+import { ReviewsAdmin } from "@/admin/ReviewsAdmin";
+import { EmailsAdmin } from "@/admin/EmailsAdmin";
 import { SettingsAdmin } from "@/admin/SettingsAdmin";
 
 const queryClient = new QueryClient();
@@ -68,6 +70,8 @@ function AppRoutes() {
           {(params) => <OrderDetailAdmin id={params.id} />}
         </Route>
         <Route path="/admin/customers" component={CustomersAdmin} />
+        <Route path="/admin/reviews" component={ReviewsAdmin} />
+        <Route path="/admin/emails" component={EmailsAdmin} />
         <Route path="/admin/settings" component={SettingsAdmin} />
         <Route path="/admin/:rest*" component={AdminDashboard} />
         <Route>

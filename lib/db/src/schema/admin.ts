@@ -89,6 +89,8 @@ export const siteSettingsTable = pgTable("site_settings", {
   emailFromAddress: text("email_from_address"),
   emailFromName: text("email_from_name"),
   emailReplyTo: text("email_reply_to"),
+  heroAutoAdvance: boolean("hero_auto_advance").notNull().default(true),
+  allowGuestReviews: boolean("allow_guest_reviews").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()

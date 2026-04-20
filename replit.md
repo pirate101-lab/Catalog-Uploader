@@ -67,6 +67,19 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 - Sender / Reply-To branding still comes from `siteSettingsTable` (`emailFromAddress`, `emailFromName`, `emailReplyTo`). When `RESEND_API_KEY` is unset, sends are recorded as `skipped` with an explanatory message rather than throwing — keeps checkout / admin actions working in environments without an email provider.
 - All four templates include a "Visit the shop" CTA button + footer link back to the storefront. The URL comes from `PUBLIC_SITE_URL` (preferred, set in production), falls back to `REPLIT_DEV_DOMAIN` for previews, and finally to `https://shopthelook.page`.
 
+## Admin dashboard
+
+- Pages live in `artifacts/fashion/src/admin/` and are routed in `App.tsx`. `AdminShell` provides the left-rail nav and the shared `requireAdmin` shell.
+- Tabs: **Overview** (Dashboard), **Hero Slides**, **Products**, **Orders**, **Customers**, **Reviews**, **Emails**, **Settings**.
+- Endpoints (all behind `requireAdmin`):
+  - `GET /api/admin/overview` — single-roundtrip aggregate: orders + revenue + AOV for today / 7d / 30d windows, full status funnel (`new | packed | shipped | delivered | cancelled`), top 5 best-selling products (qty + revenue, by unnesting `orders.items` JSONB), and the 10 most recent orders. Used by the Overview tab.
+  - `GET /api/admin/email-events?status=&limit=&offset=` — paginated tail of `order_email_events` for the Emails tab. Optional `status` filter (`sent | failed | skipped`).
+  - `GET /api/admin/reviews?productId=&limit=&offset=` and `DELETE /api/admin/reviews/:id` (existing) power the Reviews moderation tab.
+- New site settings columns (`siteSettingsTable` in `lib/db/src/schema/admin.ts`):
+  - `hero_auto_advance` (bool, default true) — surfaced in the storefront via `GET /storefront/settings.heroAutoAdvance`. The home page reads it and passes `intervalMs={0|6000}` to `<HeroSlider>` so disabling it stops the timer (arrow keys still navigate).
+  - `allow_guest_reviews` (bool, default false) — placeholder for a future moderation rule; persisted today, not yet enforced (reviews still require a signed-in buyer with a delivered order).
+- After schema edits run `pnpm --filter @workspace/db run push` so the new columns land before the API restarts.
+
 ### Testing the email pipeline end-to-end
 
 1. **Sender / config sanity** — in the admin under *Settings → Email*, click **Send test email** to confirm Resend accepts the From / Reply-To headers without placing a real order.

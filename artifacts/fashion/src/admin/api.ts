@@ -102,6 +102,55 @@ export interface SiteSettings {
   emailFromAddress: string | null;
   emailFromName: string | null;
   emailReplyTo: string | null;
+  heroAutoAdvance: boolean;
+  allowGuestReviews: boolean;
+}
+
+export interface OverviewWindow {
+  count: number;
+  revenueCents: number;
+  aovCents: number;
+}
+
+export interface AdminOverview {
+  today: OverviewWindow;
+  week: OverviewWindow;
+  month: OverviewWindow;
+  funnel: Record<string, number>;
+  topSellers: Array<{
+    productId: string;
+    title: string;
+    qty: number;
+    revenueCents: number;
+  }>;
+  recentOrders: OrderRow[];
+}
+
+export interface ReviewRow {
+  id: number;
+  productId: string;
+  userId: string | null;
+  orderId: string | null;
+  email: string | null;
+  name: string;
+  rating: number;
+  title: string | null;
+  body: string;
+  verifiedPurchase: boolean;
+  seeded: boolean;
+  createdAt: string;
+}
+
+export interface EmailEventRow {
+  id: number;
+  orderId: string;
+  kind: "received" | "confirmation" | "shipped" | "delivered";
+  status: "sent" | "failed" | "skipped";
+  toAddress: string | null;
+  fromAddress: string | null;
+  errorMessage: string | null;
+  statusCode: number | null;
+  createdAt: string;
 }
 
 export interface DashboardStats {
@@ -233,6 +282,39 @@ export const adminApi = {
 
   /* Stats */
   getStats: () => adminFetch<DashboardStats>("/admin/stats"),
+  getOverview: () => adminFetch<AdminOverview>("/admin/overview"),
+
+  /* Reviews moderation */
+  listReviews: (params?: { productId?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.productId) q.set("productId", params.productId);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset) q.set("offset", String(params.offset));
+    const qs = q.toString();
+    return adminFetch<{ rows: ReviewRow[]; limit: number; offset: number }>(
+      `/admin/reviews${qs ? `?${qs}` : ""}`,
+    );
+  },
+  deleteReview: (id: number) =>
+    adminFetch<{ success: true; productId: string }>(
+      `/admin/reviews/${id}`,
+      { method: "DELETE" },
+    ),
+
+  /* Email events log */
+  listEmailEvents: (params?: { status?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset !== undefined) q.set("offset", String(params.offset));
+    const qs = q.toString();
+    return adminFetch<{
+      rows: EmailEventRow[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>(`/admin/email-events${qs ? `?${qs}` : ""}`);
+  },
 
   /* Products — admin endpoint that includes hidden rows + override metadata */
   listProducts: (params: {

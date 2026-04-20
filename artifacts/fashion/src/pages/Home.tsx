@@ -110,6 +110,10 @@ export function HomePage() {
   const [, navigate] = useLocation();
   const queryString = useSearch();
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(FALLBACK_HERO_SLIDES);
+  // Hero auto-advance interval (ms). 0 disables the timer. Reads
+  // `heroAutoAdvance` from /storefront/settings so the admin toggle
+  // takes effect on the next page load without a redeploy.
+  const [heroIntervalMs, setHeroIntervalMs] = useState<number>(6000);
   const [items, setItems] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [pageLoading, setPageLoading] = useState(true);
@@ -137,6 +141,23 @@ export function HomePage() {
   }, [navigate]);
 
   // Hero slides
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/storefront/settings')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { heroAutoAdvance?: boolean } | null) => {
+        if (cancelled || !data) return;
+        // `heroAutoAdvance === false` disables the timer; default ON.
+        setHeroIntervalMs(data.heroAutoAdvance === false ? 0 : 6000);
+      })
+      .catch(() => {
+        /* keep default 6000ms */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     fetch('/api/storefront/hero')
@@ -485,7 +506,7 @@ export function HomePage() {
         />
       )}
 
-      <HeroSlider slides={decoratedSlides} />
+      <HeroSlider slides={decoratedSlides} intervalMs={heroIntervalMs} />
 
       {/* Horizontal browse bar — phones + tablets only. The desktop
           (lg+) layout keeps the full sidebar rail. */}

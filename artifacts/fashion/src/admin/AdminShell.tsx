@@ -10,6 +10,8 @@ import {
   Settings,
   LogOut,
   ShieldAlert,
+  Star,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +21,8 @@ const NAV: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = 
   { to: "/admin/products", label: "Products", icon: Package },
   { to: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { to: "/admin/customers", label: "Customers", icon: Users },
+  { to: "/admin/reviews", label: "Reviews", icon: Star },
+  { to: "/admin/emails", label: "Emails", icon: Mail },
   { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

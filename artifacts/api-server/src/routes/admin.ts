@@ -638,6 +638,8 @@ router.put("/admin/settings", async (req, res) => {
     "emailFromAddress",
     "emailFromName",
     "emailReplyTo",
+    "heroAutoAdvance",
+    "allowGuestReviews",
   ];
   const patch: Record<string, unknown> = {};
   for (const k of allowed) if (k in body) patch[k] = body[k];
@@ -843,6 +845,141 @@ router.get("/admin/stats", async (_req, res) => {
     topCategories,
     recentOrders,
     emailsFailed24h: Number(emailFailAgg?.count ?? 0),
+  });
+});
+
+/* ---------------- Dashboard Overview ----------------
+ * Single-roundtrip aggregation for the new admin Overview tab. Returns
+ * orders + revenue counts by window (today / week / month), AOV, status
+ * funnel counts, top 5 best-selling products (by qty across all
+ * non-cancelled orders), and the 10 most recent orders.
+ */
+
+router.get("/admin/overview", async (_req, res) => {
+  const now = new Date();
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const aggregate = async (since: Date) => {
+    const [row] = await db
+      .select({
+        count: sql<number>`COUNT(*)::int`,
+        revenue: sql<number>`COALESCE(SUM(${ordersTable.totalCents}), 0)::bigint`,
+      })
+      .from(ordersTable)
+      .where(
+        and(
+          gte(ordersTable.createdAt, since),
+          sql`${ordersTable.status} <> 'cancelled'`,
+        ),
+      );
+    const count = Number(row?.count ?? 0);
+    const revenue = Number(row?.revenue ?? 0);
+    return {
+      count,
+      revenueCents: revenue,
+      aovCents: count > 0 ? Math.round(revenue / count) : 0,
+    };
+  };
+
+  const [today, week, month] = await Promise.all([
+    aggregate(startOfDay),
+    aggregate(sevenDaysAgo),
+    aggregate(thirtyDaysAgo),
+  ]);
+
+  // Status funnel — counts grouped by status across the full lifetime so
+  // pending/packed/shipped/delivered/cancelled all appear even when zero.
+  const funnelRows = await db
+    .select({
+      status: ordersTable.status,
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(ordersTable)
+    .groupBy(ordersTable.status);
+  const funnel: Record<string, number> = {
+    new: 0,
+    packed: 0,
+    shipped: 0,
+    delivered: 0,
+    cancelled: 0,
+  };
+  for (const r of funnelRows) {
+    funnel[r.status] = Number(r.count);
+  }
+
+  // Top sellers — unnest the items JSONB array, count quantities per
+  // productId. Excludes cancelled orders. Title falls back to whatever
+  // was stored at order time so it survives catalog churn.
+  const topSellerRows = await db.execute<{
+    product_id: string;
+    title: string;
+    qty: number;
+    revenue: number;
+  }>(sql`
+    SELECT (item->>'productId') AS product_id,
+           MAX(item->>'title') AS title,
+           SUM((item->>'quantity')::int)::int AS qty,
+           SUM((item->>'quantity')::int * (item->>'unitPriceCents')::int)::bigint AS revenue
+    FROM ${ordersTable}, jsonb_array_elements(${ordersTable.items}) AS item
+    WHERE ${ordersTable.status} <> 'cancelled'
+      AND (item->>'productId') IS NOT NULL
+    GROUP BY (item->>'productId')
+    ORDER BY qty DESC
+    LIMIT 5
+  `);
+  const topSellers = (topSellerRows.rows ?? []).map((r) => ({
+    productId: r.product_id,
+    title: r.title ?? r.product_id,
+    qty: Number(r.qty),
+    revenueCents: Number(r.revenue),
+  }));
+
+  const recentOrders = await db
+    .select()
+    .from(ordersTable)
+    .orderBy(desc(ordersTable.createdAt))
+    .limit(10);
+
+  res.json({
+    today,
+    week,
+    month,
+    funnel,
+    topSellers,
+    recentOrders,
+  });
+});
+
+/* ---------------- Email events log ----------------
+ * Paginated list across all orders for the new Emails tab.
+ */
+router.get("/admin/email-events", async (req, res) => {
+  const limit = Math.min(Number(req.query["limit"] ?? 50) || 50, 200);
+  const offset = Math.max(Number(req.query["offset"] ?? 0) || 0, 0);
+  const status = typeof req.query["status"] === "string" ? req.query["status"] : "";
+  const where =
+    status === "sent" || status === "failed" || status === "skipped"
+      ? eq(orderEmailEventsTable.status, status)
+      : sql`TRUE`;
+  const rows = await db
+    .select()
+    .from(orderEmailEventsTable)
+    .where(where)
+    .orderBy(desc(orderEmailEventsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+  const [countRow] = await db
+    .select({ count: sql<number>`COUNT(*)::int` })
+    .from(orderEmailEventsTable)
+    .where(where);
+  res.json({
+    rows,
+    total: Number(countRow?.count ?? 0),
+    limit,
+    offset,
   });
 });
 

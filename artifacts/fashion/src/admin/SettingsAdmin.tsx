@@ -267,6 +267,37 @@ export function SettingsAdmin() {
             </div>
           </Section>
 
+          <Section title="Storefront behavior">
+            <div className="flex items-center gap-3">
+              <Switch
+                id="heroAuto"
+                checked={s.heroAutoAdvance}
+                onCheckedChange={(v) => set("heroAutoAdvance", !!v)}
+              />
+              <Label htmlFor="heroAuto">
+                Auto-advance hero slider
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground -mt-2">
+              When off, customers must use the keyboard arrows to change
+              hero slides.
+            </p>
+            <div className="flex items-center gap-3">
+              <Switch
+                id="guestReviews"
+                checked={s.allowGuestReviews}
+                onCheckedChange={(v) => set("allowGuestReviews", !!v)}
+              />
+              <Label htmlFor="guestReviews">
+                Allow guest reviews
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground -mt-2">
+              Reserved for a future review flow. Today, reviews still
+              require a signed-in buyer with a delivered order.
+            </p>
+          </Section>
+
           <Section title="Site state">
             <div className="flex items-center gap-3">
               <Switch

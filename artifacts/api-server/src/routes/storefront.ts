@@ -115,6 +115,7 @@ router.get("/storefront/settings", async (_req: Request, res: Response) => {
     currency: "USD",
     currencySymbol: s.currencySymbol,
     maintenanceMode: s.maintenanceMode,
+    heroAutoAdvance: s.heroAutoAdvance,
     stripePublishableKey: null,
     paymentsConfigured: false,
   });
