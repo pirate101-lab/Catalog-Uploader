@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, ArrowDown } from 'lucide-react';
 export interface HeroSlide {
   image: string;
   imageAlt: string;
-  kicker: string;
+  kicker?: string;
   headline: string;
   subline?: string;
   primaryCta: { label: string; href: string };
@@ -131,7 +131,7 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
                 exit: { transition: { staggerChildren: 0.05, staggerDirection: -1 } },
               }}
             >
-              <Caption.Kicker>{slide.kicker}</Caption.Kicker>
+              {slide.kicker && <Caption.Kicker>{slide.kicker}</Caption.Kicker>}
               <Caption.Headline>{slide.headline}</Caption.Headline>
               {slide.subline && <Caption.Subline>{slide.subline}</Caption.Subline>}
               <Caption.Ctas>

@@ -138,7 +138,13 @@ router.get("/storefront/products", (req: Request, res: Response) => {
 });
 
 router.get("/storefront/products/:id", (req: Request, res: Response) => {
-  const row = getProductById(req.params["id"]);
+  const idParam = req.params["id"];
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
+  if (!id) {
+    res.status(400).json({ error: "Missing id" });
+    return;
+  }
+  const row = getProductById(id);
   if (!row) {
     res.status(404).json({ error: "Product not found" });
     return;
