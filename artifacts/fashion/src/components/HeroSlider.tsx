@@ -122,8 +122,8 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
 
       {/* Stronger top/bottom scrim so the vibrant gradient headline always
           stays legible regardless of which hero photo is showing. */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/35 to-black/90 pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_hsl(245_80%_25%/0.35)_0%,_transparent_70%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/85 pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_hsl(245_60%_20%/0.18)_0%,_transparent_75%)] pointer-events-none" />
 
       {/* Captions */}
       <div className="relative z-10 h-full container mx-auto px-4 flex items-center">
@@ -236,8 +236,7 @@ const Caption = {
   Kicker: ({ children }: { children: React.ReactNode }) => (
     <motion.span
       variants={captionItem}
-      className="tracking-[0.32em] text-xs md:text-sm font-bold uppercase mb-6 hidden sm:block drop-shadow-md bg-clip-text text-transparent bg-[linear-gradient(90deg,_hsl(212_100%_72%)_0%,_hsl(162_72%_60%)_50%,_hsl(285_95%_78%)_100%)]"
-      style={{ WebkitTextFillColor: 'transparent' }}
+      className="tracking-[0.32em] text-xs md:text-sm font-bold uppercase mb-6 hidden sm:block text-white/85 drop-shadow-md"
     >
       {children}
     </motion.span>
@@ -245,8 +244,7 @@ const Caption = {
   Headline: ({ children }: { children: React.ReactNode }) => (
     <motion.h1
       variants={captionItem}
-      className="font-serif text-5xl md:text-7xl lg:text-8xl font-extrabold leading-[1.05] mb-6 drop-shadow-2xl bg-clip-text text-transparent bg-[linear-gradient(105deg,_hsl(212_100%_75%)_0%,_#ffffff_42%,_hsl(285_95%_82%)_70%,_hsl(245_100%_78%)_100%)]"
-      style={{ WebkitTextFillColor: 'transparent' }}
+      className="font-serif text-5xl md:text-7xl lg:text-8xl font-extrabold leading-[1.05] mb-6 text-white drop-shadow-2xl"
     >
       {children}
     </motion.h1>

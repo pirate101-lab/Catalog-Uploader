@@ -84,10 +84,10 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* ~2% vibrant-blue tint of the brand indigo so the canvas reads as a
-     modern boutique instead of clinical white. Cards/popovers stay
-     pure white below so product photos pop. */
-  --background: 230 70% 98%;
+  /* Slightly stronger vibrant-blue tint of the brand indigo so the
+     canvas reads as a modern boutique instead of clinical white.
+     Cards/popovers stay pure white below so product photos pop. */
+  --background: 228 88% 96.5%;
   --foreground: 240 16% 10%;
 
   --border: 230 35% 88%;

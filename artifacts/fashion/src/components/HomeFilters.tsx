@@ -7,12 +7,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { SortKey, GenderKey } from '@/lib/homeFilters';
+import type { SortKey } from '@/lib/homeFilters';
 import { PRICE_MAX } from '@/lib/homeFilters';
 
 interface Props {
-  gender: GenderKey;
-  onGenderChange: (g: GenderKey) => void;
   sizes: string[];
   onSizesChange: (s: string[]) => void;
   priceMin: number;
@@ -20,18 +18,9 @@ interface Props {
   onPriceChange: (min: number, max: number) => void;
   sort: SortKey;
   onSortChange: (s: SortKey) => void;
-  onClear: () => void;
 }
 
-const GENDERS: { value: GenderKey; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'women', label: 'Women' },
-  { value: 'men', label: 'Men' },
-];
-
 export function HomeFilters({
-  gender,
-  onGenderChange,
   sizes,
   onSizesChange,
   priceMin,
@@ -39,7 +28,6 @@ export function HomeFilters({
   onPriceChange,
   sort,
   onSortChange,
-  onClear,
 }: Props) {
   // Local draft for the price inputs so we only commit on blur / Enter and
   // don't refetch the grid on every keystroke.
@@ -62,39 +50,6 @@ export function HomeFilters({
 
   return (
     <div className="space-y-7">
-      <div>
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-foreground">
-          Gender
-        </h3>
-        <div className="flex flex-col gap-1.5">
-          {GENDERS.map((g) => (
-            <label
-              key={g.value}
-              className="flex items-center gap-2.5 cursor-pointer text-sm"
-            >
-              <input
-                type="radio"
-                name="home-gender"
-                value={g.value}
-                checked={gender === g.value}
-                onChange={() => onGenderChange(g.value)}
-                className="accent-primary"
-                data-testid={`home-filter-gender-${g.value}`}
-              />
-              <span
-                className={
-                  gender === g.value
-                    ? 'text-primary font-semibold'
-                    : 'text-foreground/80'
-                }
-              >
-                {g.label}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-
       <div>
         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-foreground">
           Size
@@ -186,13 +141,6 @@ export function HomeFilters({
         </Select>
       </div>
 
-      <button
-        onClick={onClear}
-        className="w-full h-10 border border-border text-xs uppercase tracking-widest font-semibold hover:border-foreground transition-colors"
-        data-testid="home-filter-clear"
-      >
-        Clear filters
-      </button>
     </div>
   );
 }

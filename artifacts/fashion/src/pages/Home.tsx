@@ -15,6 +15,7 @@ import {
   parseFilters,
   serializeFilters,
   shopHref,
+  type GenderKey,
   type HomeFilterState,
 } from '@/lib/homeFilters';
 import { imagePreload } from '@/lib/imageUrl';
@@ -326,8 +327,83 @@ export function HomePage() {
     return 'Browse the Collection';
   })();
 
+  // Count of filters that differ from defaults — surfaced in the rail
+  // header and on the mobile "Filters" trigger so the operator can see
+  // at a glance how filtered the grid currently is.
+  const activeFilterCount =
+    (filters.category !== DEFAULT_FILTERS.category ? 1 : 0) +
+    (filters.gender !== DEFAULT_FILTERS.gender ? 1 : 0) +
+    filters.sizes.length +
+    (filters.priceMin !== DEFAULT_FILTERS.priceMin ||
+    filters.priceMax !== DEFAULT_FILTERS.priceMax
+      ? 1
+      : 0) +
+    (filters.sort !== DEFAULT_FILTERS.sort ? 1 : 0);
+
+  const GENDER_OPTIONS: { value: GenderKey; label: string }[] = [
+    { value: 'women', label: 'Women' },
+    { value: 'men', label: 'Men' },
+    { value: 'all', label: 'All' },
+  ];
+
   const sidebarContent = (
-    <div className="space-y-10">
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-bold uppercase tracking-[0.25em] text-foreground">
+          Filters
+          {activeFilterCount > 0 && (
+            <span className="ml-2 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+              {activeFilterCount}
+            </span>
+          )}
+        </h2>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={() => {
+              clearFilters();
+              setMobileFiltersOpen(false);
+            }}
+            className="text-[11px] uppercase tracking-widest text-primary hover:underline"
+            data-testid="home-rail-clear"
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-foreground">
+          Shop for
+        </h3>
+        <div
+          role="radiogroup"
+          aria-label="Shop for"
+          className="grid grid-cols-3 rounded-full border border-border overflow-hidden bg-background"
+        >
+          {GENDER_OPTIONS.map((g) => {
+            const active = filters.gender === g.value;
+            return (
+              <button
+                key={g.value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => updateFilters({ gender: g.value })}
+                className={`h-10 text-xs font-semibold uppercase tracking-widest transition-colors ${
+                  active
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-foreground/80 hover:text-foreground'
+                }`}
+                data-testid={`home-rail-gender-${g.value}`}
+              >
+                {g.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <CategoryRail
         active={filters.category}
         onChange={(label) => {
@@ -336,8 +412,6 @@ export function HomePage() {
         }}
       />
       <HomeFilters
-        gender={filters.gender}
-        onGenderChange={(g) => updateFilters({ gender: g })}
         sizes={filters.sizes}
         onSizesChange={(s) => updateFilters({ sizes: s })}
         priceMin={filters.priceMin}
@@ -345,10 +419,6 @@ export function HomePage() {
         onPriceChange={(min, max) => updateFilters({ priceMin: min, priceMax: max })}
         sort={filters.sort}
         onSortChange={(s) => updateFilters({ sort: s })}
-        onClear={() => {
-          clearFilters();
-          setMobileFiltersOpen(false);
-        }}
       />
     </div>
   );
@@ -404,6 +474,11 @@ export function HomePage() {
                 data-testid="home-filters-open"
               >
                 <SlidersHorizontal className="w-4 h-4" /> Filters
+                {activeFilterCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                    {activeFilterCount}
+                  </span>
+                )}
               </button>
               <Link
                 href={shopHref(filters)}
