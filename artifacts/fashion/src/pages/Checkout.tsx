@@ -334,7 +334,20 @@ export function CheckoutPage() {
                   Loading payment options…
                 </p>
               ) : !settings?.paymentsConfigured ? (
-                <PaymentsNotConfiguredNotice />
+                <NoPaymentSubmit
+                  form={form}
+                  items={items}
+                  totalLabel={`Place Order — ${fmt(totalCents, currencySymbol)}`}
+                  onSuccess={(res) => {
+                    setOrderId(res.orderId);
+                    setSubmitted(true);
+                    clearCart();
+                    window.scrollTo({
+                      top: 0,
+                      behavior: 'instant' as ScrollBehavior,
+                    });
+                  }}
+                />
               ) : intentError ? (
                 <p className="text-sm text-destructive flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -434,17 +447,79 @@ export function CheckoutPage() {
   );
 }
 
-function PaymentsNotConfiguredNotice() {
+function NoPaymentSubmit({
+  form,
+  items,
+  totalLabel,
+  onSuccess,
+}: {
+  form: ReturnType<typeof useForm<CheckoutForm>>;
+  items: CartItem[];
+  totalLabel: string;
+  onSuccess: (res: { orderId: string }) => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const placeOrder = async () => {
+    setError(null);
+    const valid = await form.trigger();
+    if (!valid) {
+      setError('Please complete your contact and shipping details above.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const data = form.getValues();
+      const res = await fetch('/api/checkout/submit', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          items: buildItemPayload(items),
+          customer: data,
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          (body && (body.message || body.error)) ||
+            `Could not place order (HTTP ${res.status}).`,
+        );
+      }
+      onSuccess({ orderId: body.orderId });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not place order.');
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <div className="border border-destructive/40 bg-destructive/5 p-5 text-sm flex items-start gap-3">
-      <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-      <div>
-        <p className="font-medium mb-1">Payments are not yet enabled</p>
-        <p className="text-muted-foreground">
-          The store owner needs to add Stripe API keys in the admin dashboard
-          (Settings → Payments) before checkout can accept real cards.
-        </p>
+    <div className="space-y-4">
+      <div className="border border-amber-500/40 bg-amber-500/5 p-5 text-sm flex items-start gap-3">
+        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+        <div>
+          <p className="font-medium mb-1">Card payments aren't enabled yet</p>
+          <p className="text-muted-foreground">
+            You can still place your order — the store team will reach out to
+            arrange payment and shipping.
+          </p>
+        </div>
       </div>
+      {error ? (
+        <p className="text-sm text-destructive flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          {error}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        onClick={placeOrder}
+        disabled={submitting}
+        className="w-full h-14 rounded-none text-xs tracking-widest uppercase font-bold"
+        data-testid="button-place-order"
+      >
+        {submitting ? 'Placing…' : totalLabel}
+      </Button>
     </div>
   );
 }
