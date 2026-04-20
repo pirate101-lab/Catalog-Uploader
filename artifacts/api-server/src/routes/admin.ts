@@ -436,11 +436,11 @@ router.patch("/admin/orders/:id", async (req, res) => {
     // Fire-and-forget so a slow/failing email provider does not block the
     // admin UI. Errors are logged + recorded inside the helpers.
     //
-    // Confirmation only fires on the *first* admin action — i.e. the
-    // `new → packed` transition — so flipping a packed order back to
-    // new and forward again won't blast the customer with duplicate
-    // confirmations. Resending intentionally goes through the dedicated
-    // /resend-email endpoint instead.
+    // Confirmation fires only on the `new → packed` transition. Other
+    // moves into `packed` (e.g. shipped → packed correction, or a
+    // packed → new → packed flip) are treated as admin-side bookkeeping
+    // and do NOT auto-resend — staff should use the dedicated
+    // /resend-email endpoint if they intentionally want another copy.
     if (existing.status === "new" && row.status === "packed") {
       void sendOrderConfirmationEmail(row, req.log);
     } else if (row.status === "shipped" || row.status === "delivered") {

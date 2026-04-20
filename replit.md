@@ -66,3 +66,12 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 - Admin order detail (`/admin/orders/:id`) shows one row per kind via `EmailEventsCard` with status pill, error detail, and a per-kind **Resend** button that calls `POST /api/admin/orders/:id/resend-email { kind }`. A red "one or more emails didn't send" banner appears at the top when any event for that order is `failed` or `skipped` so staff don't have to scan the list.
 - Sender / Reply-To branding still comes from `siteSettingsTable` (`emailFromAddress`, `emailFromName`, `emailReplyTo`). When `RESEND_API_KEY` is unset, sends are recorded as `skipped` with an explanatory message rather than throwing — keeps checkout / admin actions working in environments without an email provider.
 - All four templates include a "Visit the shop" CTA button + footer link back to the storefront. The URL comes from `PUBLIC_SITE_URL` (preferred, set in production), falls back to `REPLIT_DEV_DOMAIN` for previews, and finally to `https://shopthelook.page`.
+
+### Testing the email pipeline end-to-end
+
+1. **Sender / config sanity** — in the admin under *Settings → Email*, click **Send test email** to confirm Resend accepts the From / Reply-To headers without placing a real order.
+2. **Received** — submit any checkout from the storefront (`POST /api/checkout/submit`). Inbox should receive *"We received your order #XXXXXXXX"* within seconds.
+3. **Confirmation** — open the resulting order in `/admin/orders/:id` and click the **Packed** status button. Inbox should receive *"Your order #XXXXXXXX is confirmed"*.
+4. **Shipped / Delivered** — click **Shipped** and then **Delivered** on the same order; one email per transition.
+5. **Resend** — on the same admin order detail, hit the **Resend** button next to any kind. The corresponding template should arrive again, and the timestamp + status pill in the Emails card should refresh in place.
+6. **Failure surface** — temporarily unset `RESEND_API_KEY` (or send to an invalid address via the test endpoint) to confirm the red "one or more emails didn't send" banner appears with the provider error and that the latest event for the affected kind shows `failed` / `skipped`.
