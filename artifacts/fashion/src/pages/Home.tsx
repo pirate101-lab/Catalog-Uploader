@@ -189,6 +189,9 @@ export function HomePage() {
     const myVersion = filterVersionRef.current;
     setPageLoading(true);
     setItems([]);
+    // A pending Load More from the previous filter set can no longer
+    // affect this view (its myVersion is stale), so clear the spinner.
+    setLoadingMore(false);
     search({
       category: effectiveCategory,
       gender: filters.gender === 'all' ? undefined : filters.gender,
