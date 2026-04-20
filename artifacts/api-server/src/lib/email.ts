@@ -212,7 +212,27 @@ async function sendOrderEmail(
   const settings = await getSiteSettings();
   const storeName = settings.storeName ?? "Store";
   const currencySymbol = settings.currencySymbol ?? "$";
-  const from = process.env["ORDER_EMAIL_FROM"] ?? "orders@resend.dev";
+
+  const settingsFromAddress = settings.emailFromAddress?.trim() || "";
+  const settingsFromName = settings.emailFromName?.trim() || "";
+  const envFrom = process.env["ORDER_EMAIL_FROM"]?.trim() || "";
+
+  let from: string;
+  if (settingsFromAddress) {
+    const name = settingsFromName || storeName;
+    from = name ? `${name} <${settingsFromAddress}>` : settingsFromAddress;
+  } else if (envFrom) {
+    // Preserve back-compat: ORDER_EMAIL_FROM may already be a fully
+    // formatted sender like "Brand <email@x.com>". Only wrap if it looks
+    // like a bare address.
+    from = /[<>]/.test(envFrom) ? envFrom : `${storeName} <${envFrom}>`;
+  } else {
+    from = `${storeName} <orders@resend.dev>`;
+  }
+  const replyTo =
+    settings.emailReplyTo && settings.emailReplyTo.trim()
+      ? settings.emailReplyTo.trim()
+      : null;
 
   const { subject, html, text } = renderOrderEmail(
     order,
@@ -222,19 +242,21 @@ async function sendOrderEmail(
   );
 
   try {
+    const payload: Record<string, unknown> = {
+      from,
+      to: order.email,
+      subject,
+      html,
+      text,
+    };
+    if (replyTo) payload["reply_to"] = replyTo;
     const response = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        from,
-        to: order.email,
-        subject,
-        html,
-        text,
-      }),
+      body: JSON.stringify(payload),
     });
     if (!response.ok) {
       const body = await response.text();

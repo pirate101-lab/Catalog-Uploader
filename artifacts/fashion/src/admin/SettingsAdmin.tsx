@@ -18,8 +18,18 @@ export function SettingsAdmin() {
   const set = <K extends keyof SiteSettings>(k: K, v: SiteSettings[K]) =>
     setS((prev) => (prev ? { ...prev, [k]: v } : prev));
 
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const fromAddrInvalid =
+    !!s?.emailFromAddress && s.emailFromAddress.trim().length > 0 && !emailRe.test(s.emailFromAddress.trim());
+  const replyToInvalid =
+    !!s?.emailReplyTo && s.emailReplyTo.trim().length > 0 && !emailRe.test(s.emailReplyTo.trim());
+
   const save = async () => {
     if (!s) return;
+    if (fromAddrInvalid || replyToInvalid) {
+      toast.error("Please enter valid email addresses.");
+      return;
+    }
     setSaving(true);
     try {
       const next = await adminApi.updateSettings(s);
@@ -105,6 +115,48 @@ export function SettingsAdmin() {
                   )
                 }
               />
+            </Field>
+          </Section>
+
+          <Section title="Order email branding">
+            <p className="text-xs text-muted-foreground -mt-2">
+              Used for order confirmation, shipped, and delivered emails.
+              Leave the address blank to fall back to the platform default.
+            </p>
+            <Field label="From name">
+              <Input
+                value={s.emailFromName ?? ""}
+                placeholder={s.storeName}
+                onChange={(e) => set("emailFromName", e.target.value)}
+              />
+            </Field>
+            <Field label="From email">
+              <Input
+                type="email"
+                value={s.emailFromAddress ?? ""}
+                placeholder="orders@yourbrand.com"
+                onChange={(e) => set("emailFromAddress", e.target.value)}
+                aria-invalid={fromAddrInvalid || undefined}
+              />
+              {fromAddrInvalid ? (
+                <p className="text-xs text-destructive mt-1">
+                  Enter a valid email address.
+                </p>
+              ) : null}
+            </Field>
+            <Field label="Reply-to (optional)">
+              <Input
+                type="email"
+                value={s.emailReplyTo ?? ""}
+                placeholder="support@yourbrand.com"
+                onChange={(e) => set("emailReplyTo", e.target.value)}
+                aria-invalid={replyToInvalid || undefined}
+              />
+              {replyToInvalid ? (
+                <p className="text-xs text-destructive mt-1">
+                  Enter a valid email address.
+                </p>
+              ) : null}
             </Field>
           </Section>
 

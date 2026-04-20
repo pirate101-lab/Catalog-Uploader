@@ -79,6 +79,9 @@ export interface SiteSettings {
   maintenanceMode: boolean;
   storeName: string;
   tagline: string | null;
+  emailFromAddress: string | null;
+  emailFromName: string | null;
+  emailReplyTo: string | null;
 }
 
 export interface DashboardStats {

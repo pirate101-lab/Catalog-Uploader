@@ -456,6 +456,8 @@ router.get("/admin/settings", async (_req, res) => {
   res.json(settings);
 });
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 router.put("/admin/settings", async (req, res) => {
   const body = req.body ?? {};
   const allowed = [
@@ -467,9 +469,34 @@ router.put("/admin/settings", async (req, res) => {
     "maintenanceMode",
     "storeName",
     "tagline",
+    "emailFromAddress",
+    "emailFromName",
+    "emailReplyTo",
   ];
   const patch: Record<string, unknown> = {};
   for (const k of allowed) if (k in body) patch[k] = body[k];
+
+  const normEmail = (v: unknown): string | null => {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    return s.length === 0 ? null : s;
+  };
+  if ("emailFromAddress" in patch) patch["emailFromAddress"] = normEmail(patch["emailFromAddress"]);
+  if ("emailReplyTo" in patch) patch["emailReplyTo"] = normEmail(patch["emailReplyTo"]);
+  if ("emailFromName" in patch) {
+    const v = patch["emailFromName"];
+    patch["emailFromName"] =
+      v === null || v === undefined || String(v).trim() === ""
+        ? null
+        : String(v).trim();
+  }
+  for (const k of ["emailFromAddress", "emailReplyTo"] as const) {
+    const v = patch[k];
+    if (typeof v === "string" && !EMAIL_RE.test(v)) {
+      res.status(400).json({ error: `Invalid email for ${k}` });
+      return;
+    }
+  }
   await db
     .insert(siteSettingsTable)
     .values({ id: 1, ...(patch as object) })
