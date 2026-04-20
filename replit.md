@@ -34,8 +34,9 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ## Catalog images (Cloudflare R2)
 
-- 18,302 women's webp images uploaded to R2 bucket `velour-catalog` under prefix `catalog/replit_lite/images/<category>/<id>.webp`, plus 2,361 men's webp images under `catalog/replit_lite_men/images/<category>/<id>.webp`. Both have the same 3 width variants (`_400`, `_800`, `_1600`).
+- 18,302 women's webp images and 2,361 men's webp images on R2 bucket `velour-catalog` under `catalog/replit_lite/images/<category>/<id>` and `catalog/replit_lite_men/images/<category>/<id>` respectively. Both catalogs have the 3 sized variants `_400.webp`, `_800.webp`, `_1600.webp`. Women's also still has the unsuffixed `<id>.webp` from the original import (unused by the storefront — see follow-up task to delete).
 - Re-upload the men's set: `pnpm --filter @workspace/api-server exec node scripts/upload-r2.mjs catalog/replit_lite_men/images catalog/replit_lite_men/images` (script accepts an optional R2 prefix as second arg, or `R2_PREFIX` env override).
+- R2-to-R2 backfill (no local files needed): `pnpm --filter @workspace/api-server exec node scripts/upload-r2.mjs r2:catalog/replit_lite/images`. Uses a single LIST to build an existence index so reruns finish in seconds. This is how the women's `_400/_800/_1600` variants were generated for Task #21.
 - Public CDN base: `R2_PUBLIC_BASE_URL=https://pub-4ad1632e283f4eecafd71b3d7d6c4318.r2.dev` (managed public access).
 - API server rewrites image paths to absolute R2 URLs in `artifacts/api-server/src/lib/catalog.ts` (no client-side env needed).
 - Re-upload script: `pnpm --filter @workspace/api-server exec node scripts/upload-r2.mjs <source-dir>` (idempotent, skip-if-exists, concurrency 80, immutable cache).
@@ -112,23 +113,6 @@ Pragmatic perf + correctness pass; no behaviour changes other than what's listed
   Catalog is read from JSON into memory at server boot and filtered/sorted in-process, so no DB index work is needed for the products paths. The reviews endpoint hits Postgres but reads `reviewsTable` via the `product_id` index plus the cached `productReviewSummaryTable` aggregate. The DB-backed admin endpoints (`/admin/overview`, `/admin/orders`, `/admin/email-events`) already use `Promise.all` parallelism and indexed columns (`orders.created_at`, `order_email_events.created_at`).
 
 - **Mobile tap targets**: bumped `ProductCard` wishlist + quick-add buttons from `w-9 h-9` (36 px) to `w-10 h-10` (40 px). Footer Contact + legal placeholder buttons gain `min-h-[40px]` so they meet the 40 px guideline without changing the visible label height.
-
-### Women's catalog images on R2 (Task #20)
-
-The two catalogs were uploaded with **different conventions**:
-
-| Catalog | R2 prefix | Variants on bucket |
-|---|---|---|
-| Men   | `catalog/replit_lite_men/...`  | `_400.webp`, `_800.webp`, `_1600.webp` only |
-| Women | `catalog/replit_lite/...`      | unsuffixed `<id>.webp` only |
-
-Before #20, `imageUrl.ts` always rewrote `.webp → _<width>.webp`, so every
-women's image 404'd and the onError handler swapped in the placeholder
-(visible site-wide as "PHOTO COMING SOON" tiles). The fix branches in
-`hasSizedVariants(url)` — only URLs containing `/replit_lite_men/` get the
-width rewrite + 3-width srcset; women URLs are served as the canonical
-`.webp` with no srcset. A future task can backfill `_400/_800/_1600.webp`
-derivatives for women's images on R2 and let us drop the branch.
 
 ### Known residual issues (not addressed in this audit)
 
