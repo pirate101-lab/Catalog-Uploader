@@ -12,13 +12,19 @@ import type { Product } from '@/data/products';
 interface ApiHeroSlide {
   id: number;
   imageUrl: string | null;
-  kicker: string | null;
-  headline: string;
-  subline: string | null;
-  primaryLabel: string | null;
-  primaryHref: string | null;
-  secondaryLabel: string | null;
-  secondaryHref: string | null;
+  /** Older shape (admin-managed). */
+  kicker?: string | null;
+  headline?: string;
+  subline?: string | null;
+  primaryLabel?: string | null;
+  primaryHref?: string | null;
+  secondaryLabel?: string | null;
+  secondaryHref?: string | null;
+  /** Current API shape returned by /api/storefront/hero. */
+  title?: string;
+  subtitle?: string | null;
+  ctaLabel?: string | null;
+  ctaHref?: string | null;
 }
 
 const FALLBACK_HERO_SLIDES: HeroSlide[] = [
@@ -105,20 +111,36 @@ export function HomePage() {
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((rows: ApiHeroSlide[]) => {
         if (cancelled || !Array.isArray(rows) || rows.length === 0) return;
+        const base = (import.meta.env.BASE_URL as string | undefined) ?? '/';
+        const resolveImg = (raw: string | null, i: number): string => {
+          if (!raw) return FALLBACK_HERO_SLIDES[i % FALLBACK_HERO_SLIDES.length]!.image;
+          // Treat root-relative `/foo.jpg` as bundled assets so they go
+          // through the artifact's base path correctly in the iframe.
+          if (raw.startsWith('/') && !raw.startsWith('//')) {
+            return `${base.replace(/\/$/, '')}${raw}`;
+          }
+          return raw;
+        };
         setHeroSlides(
-          rows.map((r, i) => ({
-            image: r.imageUrl || FALLBACK_HERO_SLIDES[i % FALLBACK_HERO_SLIDES.length]!.image,
-            imageAlt: r.headline,
-            kicker: r.kicker ?? undefined,
-            headline: r.headline,
-            subline: r.subline ?? undefined,
-            primaryCta: r.primaryLabel
-              ? { label: r.primaryLabel, href: r.primaryHref ?? '/shop' }
-              : { label: 'Shop now', href: '/shop' },
-            secondaryCta: r.secondaryLabel
-              ? { label: r.secondaryLabel, href: r.secondaryHref ?? '/shop' }
-              : undefined,
-          })),
+          rows.map((r, i) => {
+            const fallback = FALLBACK_HERO_SLIDES[i % FALLBACK_HERO_SLIDES.length]!;
+            const headline = (r.headline ?? r.title ?? '').trim() || fallback.headline;
+            const subline = (r.subline ?? r.subtitle ?? '') || fallback.subline;
+            const kicker = r.kicker ?? fallback.kicker;
+            const primaryLabel = r.primaryLabel ?? r.ctaLabel ?? fallback.primaryCta.label;
+            const primaryHref = r.primaryHref ?? r.ctaHref ?? fallback.primaryCta.href;
+            return {
+              image: resolveImg(r.imageUrl, i),
+              imageAlt: headline,
+              kicker: kicker ?? undefined,
+              headline,
+              subline: subline ?? undefined,
+              primaryCta: { label: primaryLabel, href: primaryHref },
+              secondaryCta: r.secondaryLabel
+                ? { label: r.secondaryLabel, href: r.secondaryHref ?? '/shop' }
+                : fallback.secondaryCta,
+            };
+          }),
         );
       })
       .catch(() => {
@@ -165,16 +187,60 @@ export function HomePage() {
     document.getElementById('home-browse')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [railLabel]);
 
+  // The 24 best-looking pieces for the featured grid: filter out anything
+  // missing an image so the 6×4 grid never has a blank tile, then take 24.
+  const featuredGrid = featured
+    .filter((p) => Boolean(p.image))
+    .slice(0, 24);
+
   return (
     <>
       <HeroSlider slides={heroSlides} />
+
+      <section className="pt-16 md:pt-24 pb-4 bg-background" id="featured-now">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-[0.3em] text-primary mb-3 block">
+                The Edit
+              </span>
+              <h2 className="font-serif text-3xl md:text-4xl font-extrabold text-foreground">
+                Featured Now
+              </h2>
+              <p className="text-sm text-muted-foreground mt-2 max-w-xl">
+                Twenty-four pieces our stylists are pulling first this week.
+              </p>
+            </div>
+            <Link
+              href="/shop"
+              className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-primary hover:underline self-start md:self-auto"
+            >
+              Shop all <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {featuredLoading && featuredGrid.length === 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <ProductCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
+              {featuredGrid.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       <section id="home-browse" className="py-16 md:py-24 bg-background">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
             <div>
               <span className="text-xs font-bold uppercase tracking-[0.3em] text-primary mb-3 block">
-                The Edit
+                Shop by Category
               </span>
               <h2 className="font-serif text-3xl md:text-4xl font-extrabold text-foreground">
                 {railLabel === 'All' ? 'Browse the collection' : railLabel}

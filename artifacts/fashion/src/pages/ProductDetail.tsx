@@ -227,9 +227,9 @@ export function ProductDetailPage() {
           <span className="text-foreground line-clamp-1 max-w-[40ch]">{product.title}</span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
-          <div className="flex flex-col-reverse md:flex-row gap-4">
-            <div className="flex md:flex-col gap-3 md:max-h-[640px] overflow-x-auto md:overflow-y-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 lg:gap-16 items-start">
+          <div className="flex flex-col-reverse md:flex-row gap-4 w-full max-w-[560px] mx-auto md:mx-0 md:sticky md:top-28">
+            <div className="flex md:flex-col gap-3 md:max-h-[560px] overflow-x-auto md:overflow-y-auto">
               {gallery.map((img, idx) => (
                 <button
                   key={img + idx}
@@ -252,15 +252,15 @@ export function ProductDetailPage() {
                 </button>
               ))}
             </div>
-            <div className="flex-1 bg-muted aspect-[3/4] relative">
+            <div className="flex-1 min-w-0 bg-muted aspect-[3/4] relative overflow-hidden">
               <ProductImage
                 src={gallery[activeImage]}
                 category={product.category}
                 id={product.id}
                 alt={product.imageAlt}
-                className="w-full h-full object-cover"
-                loading="eager"
-                width={900}
+                className="absolute inset-0 w-full h-full object-cover"
+                priority
+                sizes="(min-width: 1024px) 480px, (min-width: 768px) 45vw, 100vw"
               />
               <button
                 onClick={() => {

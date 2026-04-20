@@ -161,7 +161,11 @@ export function Header() {
         )}
       </header>
 
-      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <SearchOverlay
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        initialQuery={headerQuery}
+      />
       <WishlistDrawer open={wishOpen} onClose={() => setWishOpen(false)} />
     </>
   );

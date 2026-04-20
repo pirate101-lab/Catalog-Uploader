@@ -136,16 +136,6 @@ export function ProductCard({ product }: ProductCardProps) {
       </div>
 
       <div className="flex flex-col flex-grow pt-3 gap-2">
-        {/* Sale + Local badge row — always shown */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-            🎁 Sale
-          </span>
-          <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-600/80 dark:border-emerald-600/40">
-            Local
-          </span>
-        </div>
-
         {/* Title — own block, up to 2 lines */}
         <h3
           className="text-[13px] text-foreground line-clamp-2 leading-snug min-h-[2.4em]"

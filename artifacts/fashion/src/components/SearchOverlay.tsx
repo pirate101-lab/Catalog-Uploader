@@ -8,9 +8,11 @@ import type { Product } from '@/data/products';
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Pre-fill the input when the overlay opens (e.g. from the header bar). */
+  initialQuery?: string;
 }
 
-export function SearchOverlay({ open, onClose }: Props) {
+export function SearchOverlay({ open, onClose, initialQuery = '' }: Props) {
   const { search } = useProducts();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -29,8 +31,18 @@ export function SearchOverlay({ open, onClose }: Props) {
       setResults([]);
       return;
     }
-    const t = setTimeout(() => document.getElementById('velour-search-input')?.focus(), 50);
+    // Seed the overlay with whatever the user already typed in the header bar.
+    setQuery(initialQuery);
+    setDebouncedQuery(initialQuery);
+    const t = setTimeout(() => {
+      const input = document.getElementById('velour-search-input') as HTMLInputElement | null;
+      input?.focus();
+      // Place caret at the end so the user can keep typing.
+      const len = input?.value.length ?? 0;
+      input?.setSelectionRange(len, len);
+    }, 50);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {

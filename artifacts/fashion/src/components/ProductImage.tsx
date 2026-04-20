@@ -7,8 +7,13 @@ interface ProductImageProps {
   id: string;
   alt: string;
   className?: string;
+  /** Display width hint for srcset / DPR scaling. Omit to skip srcset. */
   width?: number;
+  /** sizes attr passed straight through. */
+  sizes?: string;
   loading?: 'lazy' | 'eager';
+  /** When true, marks the image as high priority for the browser. */
+  priority?: boolean;
 }
 
 export function ProductImage({
@@ -17,8 +22,10 @@ export function ProductImage({
   id,
   alt,
   className,
-  width = 600,
+  width,
+  sizes,
   loading = 'lazy',
+  priority = false,
 }: ProductImageProps) {
   const initial = imageUrl(src, { category, id, w: width });
   const [url, setUrl] = useState(initial);
@@ -27,19 +34,23 @@ export function ProductImage({
     setUrl(imageUrl(src, { category, id, w: width }));
   }, [src, category, id, width]);
 
-  // While catalog photos haven't been wired up yet, render an empty neutral
-  // box (no fallback graphic, no shimmer) so the UI stays calm. Once storage
-  // is configured the real photos light up automatically.
   if (!isStorageConfigured() || !src) {
     return <div aria-label={alt} className={className} />;
   }
 
+  // Our R2 catalog ships a single resolution per asset, so DPR-based srcset
+  // hints just nudge browsers to upscale less aggressively on retina screens.
+  const srcSet = width ? `${url} 1x, ${url} 2x` : undefined;
+
   return (
     <img
       src={url}
+      srcSet={srcSet}
+      sizes={sizes}
       alt={alt}
-      loading={loading}
+      loading={priority ? 'eager' : loading}
       decoding="async"
+      fetchPriority={priority ? 'high' : 'auto'}
       className={className}
       onError={() => {
         const fb = fallbackImage(category, id, width);
