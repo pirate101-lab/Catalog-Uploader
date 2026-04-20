@@ -17,6 +17,7 @@ import { requireAdmin } from "../middlewares/adminGuard";
 import { invalidateOverrides } from "../lib/overrides";
 import { invalidateSiteSettings, getSiteSettings } from "../lib/siteSettings";
 import { getAllProducts } from "../lib/catalog";
+import { sendOrderStatusEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -336,6 +337,14 @@ router.patch("/admin/orders/:id", async (req, res) => {
     res.status(400).json({ error: "Invalid status" });
     return;
   }
+  const [existing] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   const [row] = await db
     .update(ordersTable)
     .set({ status })
@@ -344,6 +353,14 @@ router.patch("/admin/orders/:id", async (req, res) => {
   if (!row) {
     res.status(404).json({ error: "Not found" });
     return;
+  }
+  if (
+    existing.status !== row.status &&
+    (row.status === "shipped" || row.status === "delivered")
+  ) {
+    // Fire-and-forget so a slow/failing email provider does not block the
+    // admin UI. Errors are logged inside the helper.
+    void sendOrderStatusEmail(row, row.status, req.log);
   }
   res.json(row);
 });
