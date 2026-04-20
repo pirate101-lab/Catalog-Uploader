@@ -420,12 +420,12 @@ export function CheckoutPage() {
             </div>
             <div className="border-t border-border mt-5 pt-5 flex justify-between items-center">
               <span className="text-xs uppercase tracking-widest font-bold">Total</span>
-              <span
-                className="font-bold text-2xl text-price whitespace-nowrap leading-none"
-                data-testid="order-total"
-              >
-                {fmt(totalCents, currencySymbol)}
-              </span>
+              <PriceTag
+                amount={totalCents / 100}
+                currencySymbol={currencySymbol}
+                size="xl"
+                className="inline-block"
+              />
             </div>
           </aside>
         </div>

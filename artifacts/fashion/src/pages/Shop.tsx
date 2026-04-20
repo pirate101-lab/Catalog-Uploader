@@ -78,6 +78,7 @@ function readUrlFilters(search: string): {
   q: string;
   gender: GenderKey;
   sizes: string[];
+  colors: string[];
   priceMin: number;
   priceMax: number;
   sort: SortKey;
@@ -92,6 +93,10 @@ function readUrlFilters(search: string): {
     .split(',')
     .map((s) => s.trim().toUpperCase())
     .filter((s) => SIZE_SET.has(s));
+  const colors = (p.get('colors') ?? '')
+    .split(',')
+    .map((c) => c.trim())
+    .filter(Boolean);
   const clamp = (raw: string | null, fallback: number) => {
     if (raw === null || raw === '') return fallback;
     const n = Number(raw);
@@ -105,6 +110,7 @@ function readUrlFilters(search: string): {
     q: p.get('q') ?? '',
     gender,
     sizes,
+    colors,
     priceMin,
     priceMax,
     sort,
@@ -211,7 +217,7 @@ export function ShopPage() {
   const [railLabel, setRailLabel] = useState<string>(initial.category || 'All');
   const [sort, setSort] = useState<SortKey>(initial.sort);
   const [selectedSizes, setSelectedSizes] = useState<string[]>(initial.sizes);
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [selectedColors, setSelectedColors] = useState<string[]>(initial.colors);
   const [priceRange, setPriceRange] = useState<[number, number]>([
     initial.priceMin,
     initial.priceMax,
@@ -230,6 +236,7 @@ export function ShopPage() {
       q?: string;
       gender?: GenderKey;
       sizes?: string[];
+      colors?: string[];
       priceMin?: number;
       priceMax?: number;
       sort?: SortKey;
@@ -238,6 +245,7 @@ export function ShopPage() {
       const qv = overrides.q ?? query;
       const gv = overrides.gender ?? gender;
       const sv = overrides.sizes ?? selectedSizes;
+      const cv = overrides.colors ?? selectedColors;
       const pmin = overrides.priceMin ?? priceRange[0];
       const pmax = overrides.priceMax ?? priceRange[1];
       const sortV = overrides.sort ?? sort;
@@ -246,13 +254,14 @@ export function ShopPage() {
       if (qv.trim()) params.set('q', qv.trim());
       if (gv !== 'all') params.set('gender', gv);
       if (sv.length > 0) params.set('sizes', sv.join(','));
+      if (cv.length > 0) params.set('colors', cv.join(','));
       if (pmin !== 0) params.set('priceMin', String(pmin));
       if (pmax !== PRICE_MAX) params.set('priceMax', String(pmax));
       if (sortV !== 'featured') params.set('sort', sortV);
       const qs = params.toString();
       navigate(qs ? `/shop?${qs}` : '/shop', { replace: true });
     },
-    [railLabel, query, gender, selectedSizes, priceRange, sort, navigate],
+    [railLabel, query, gender, selectedSizes, selectedColors, priceRange, sort, navigate],
   );
 
   // Server-driven page state
@@ -271,6 +280,7 @@ export function ShopPage() {
     setQuery(next.q);
     setGender(next.gender);
     setSelectedSizes(next.sizes);
+    setSelectedColors(next.colors);
     setPriceRange([next.priceMin, next.priceMax]);
     setSort(next.sort);
   }, [location]);
@@ -410,8 +420,13 @@ export function ShopPage() {
     setSelectedSizes(next);
     writeUrl({ sizes: next });
   };
-  const toggleColor = (color: string) =>
-    setSelectedColors((c) => (c.includes(color) ? c.filter((x) => x !== color) : [...c, color]));
+  const toggleColor = (color: string) => {
+    const next = selectedColors.includes(color)
+      ? selectedColors.filter((x) => x !== color)
+      : [...selectedColors, color];
+    setSelectedColors(next);
+    writeUrl({ colors: next });
+  };
 
   const updateRail = (label: string) => {
     setRailLabel(label);
