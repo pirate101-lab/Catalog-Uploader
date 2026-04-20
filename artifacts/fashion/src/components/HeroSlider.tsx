@@ -6,6 +6,10 @@ import { ArrowLeft, ArrowRight, ArrowDown } from 'lucide-react';
 export interface HeroSlide {
   image: string;
   imageAlt: string;
+  /** Optional responsive srcset for the slide image. When provided the
+   *  <img> uses it (and `sizes`) so it can reuse the LCP preload. */
+  imageSrcSet?: string;
+  imageSizes?: string;
   kicker?: string;
   headline: string;
   subline?: string;
@@ -104,6 +108,8 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
         >
           <img
             src={slide.image}
+            srcSet={slide.imageSrcSet}
+            sizes={slide.imageSizes ?? (slide.imageSrcSet ? '100vw' : undefined)}
             alt={slide.imageAlt}
             className="w-full h-full object-cover object-center"
             draggable={false}

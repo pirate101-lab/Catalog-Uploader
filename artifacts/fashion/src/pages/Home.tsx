@@ -219,30 +219,47 @@ export function HomePage() {
 
   // LCP hint for the first hero slide. For sized .webp variants we can
   // emit the full responsive imageSrcSet; for static JPGs (the default
-  // bundled heroes) we emit a plain href preload.
+  // bundled heroes) we emit a plain href preload. The actual <link> is
+  // emitted in JSX below — React 19 hoists it into <head> so the browser
+  // sees it alongside the initial markup.
   const firstHero = heroSlides[0];
   const heroPreload = firstHero
     ? imagePreload(firstHero.image, { category: 'hero', id: 'hero-0' })
     : null;
-  useEffect(() => {
-    if (!firstHero) return;
-    const link = document.createElement('link');
-    link.rel = 'preload';
-    link.as = 'image';
-    (link as HTMLLinkElement & { fetchPriority?: string }).fetchPriority = 'high';
-    if (heroPreload) {
-      link.href = heroPreload.href;
-      link.setAttribute('imagesrcset', heroPreload.imageSrcSet);
-      link.setAttribute('imagesizes', '100vw');
-      link.type = heroPreload.type;
-    } else {
-      link.href = firstHero.image;
-    }
-    document.head.appendChild(link);
-    return () => {
-      document.head.removeChild(link);
+
+  // Carry active filters through to /shop on every hero CTA. Slides use
+  // root-relative `/shop` hrefs, so we rewrite those to include the
+  // current filter set; absolute or non-shop hrefs are left alone.
+  const decoratedSlides = useMemo<HeroSlide[]>(() => {
+    const decorate = (href: string): string => {
+      if (!href.startsWith('/shop')) return href;
+      const [, slideQs = ''] = href.split('?');
+      const slideParams = new URLSearchParams(slideQs);
+      const merged = serializeFilters(filters);
+      // Slide-level params win over homepage filters so an editor-set
+      // hero CTA (e.g. "?sort=newest") still does what they intended.
+      for (const [k, v] of slideParams) merged.set(k, v);
+      const qs = merged.toString();
+      return qs ? `/shop?${qs}` : '/shop';
     };
-  }, [firstHero, heroPreload]);
+    return heroSlides.map((s, i) => {
+      const next: HeroSlide = {
+        ...s,
+        primaryCta: { ...s.primaryCta, href: decorate(s.primaryCta.href) },
+        secondaryCta: s.secondaryCta
+          ? { ...s.secondaryCta, href: decorate(s.secondaryCta.href) }
+          : undefined,
+      };
+      // Only the first slide gets srcset hints (it's the LCP target and
+      // the only one we preload); decorating other slides would force
+      // the browser to also chew through their srcset on first paint.
+      if (i === 0 && heroPreload) {
+        next.imageSrcSet = heroPreload.imageSrcSet;
+        next.imageSizes = '100vw';
+      }
+      return next;
+    });
+  }, [heroSlides, filters, heroPreload]);
 
   const hasActiveFilters =
     filters.category !== DEFAULT_FILTERS.category ||
@@ -288,11 +305,10 @@ export function HomePage() {
 
   return (
     <>
-      {/* React 19 hoists <link> into <head>; this kicks off the LCP fetch
-          alongside the initial markup so the browser doesn't wait for
-          React to mount the <img>. The useEffect above is a safety net
-          for browsers/runtimes that don't hoist (and lets us also set
-          fetchPriority="high"). */}
+      {/* React 19 hoists <link> into <head>; this kicks off the LCP
+          fetch alongside the initial markup so the browser doesn't wait
+          for React to mount the <img>. The first hero slide also carries
+          the matching srcSet/sizes so the <img> reuses this preload. */}
       {firstHero && heroPreload && (
         <link
           rel="preload"
@@ -313,7 +329,7 @@ export function HomePage() {
         />
       )}
 
-      <HeroSlider slides={heroSlides} />
+      <HeroSlider slides={decoratedSlides} />
 
       <section id="home-browse" className="py-12 md:py-20 bg-background">
         <div className="container mx-auto px-4">
