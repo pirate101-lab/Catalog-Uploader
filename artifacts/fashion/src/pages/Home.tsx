@@ -7,7 +7,8 @@ import { HomeFilters } from '@/components/HomeFilters';
 import { ProductCardSkeleton } from '@/components/ProductCardSkeleton';
 import { Button } from '@/components/ui/button';
 import { useProducts } from '@/context/ProductsContext';
-import { RAIL_GROUPS } from '@/data/taxonomy';
+import { RAIL_GROUPS, RAIL_LEAFS } from '@/data/taxonomy';
+import type { SortKey } from '@/lib/homeFilters';
 import { ArrowRight, SlidersHorizontal, X } from 'lucide-react';
 import {
   DEFAULT_FILTERS,
@@ -346,6 +347,41 @@ export function HomePage() {
     { value: 'all', label: 'All' },
   ];
 
+  // Sheet content for the phone/tablet drawer — gender + categories
+  // already live inline in the horizontal bar, so the sheet only carries
+  // the remaining facets (size, price, sort).
+  const sheetContent = (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-bold uppercase tracking-[0.25em] text-foreground">
+          More filters
+        </h2>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={() => {
+              clearFilters();
+              setMobileFiltersOpen(false);
+            }}
+            className="text-[11px] uppercase tracking-widest text-primary hover:underline"
+            data-testid="home-sheet-clear"
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+      <HomeFilters
+        sizes={filters.sizes}
+        onSizesChange={(s) => updateFilters({ sizes: s })}
+        priceMin={filters.priceMin}
+        priceMax={filters.priceMax}
+        onPriceChange={(min, max) => updateFilters({ priceMin: min, priceMax: max })}
+        sort={filters.sort}
+        onSortChange={(s) => updateFilters({ sort: s })}
+      />
+    </div>
+  );
+
   const sidebarContent = (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -455,7 +491,8 @@ export function HomePage() {
           (lg+) layout keeps the full sidebar rail. */}
       <div className="lg:hidden sticky top-16 md:top-[68px] z-30 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-4 py-3 flex flex-col gap-3">
-          <div className="flex items-center gap-2">
+          {/* Row 1 — gender pills + active-count summary + Clear all + sort + Filters */}
+          <div className="flex items-center gap-2 flex-wrap">
             <div
               role="radiogroup"
               aria-label="Shop for"
@@ -482,47 +519,96 @@ export function HomePage() {
                 );
               })}
             </div>
-            <button
-              onClick={() => setMobileFiltersOpen(true)}
-              className="ml-auto inline-flex items-center gap-2 h-11 px-4 rounded-full border border-border text-[11px] uppercase tracking-widest"
-              data-testid="home-bar-filters-open"
-            >
-              <SlidersHorizontal className="w-4 h-4" /> Filters
-              {activeFilterCount > 0 && (
+
+            {activeFilterCount > 0 && (
+              <span
+                className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-widest text-foreground/80"
+                data-testid="home-bar-active-count"
+              >
                 <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
                   {activeFilterCount}
                 </span>
-              )}
-            </button>
-          </div>
-          <div className="-mx-4 overflow-x-auto">
-            <div className="px-4 flex items-center gap-2 whitespace-nowrap">
-              {(['All', ...RAIL_GROUPS.map((g) => g.label)] as string[]).map((label) => {
-                // Resolve the active state through the rail hierarchy so a
-                // selected leaf (e.g. "T-Shirts") still highlights its parent
-                // group ("Tops") in the chip bar.
-                const parentForActive = (() => {
-                  if (filters.category === label) return label;
-                  const grp = RAIL_GROUPS.find((g) => g.items?.includes(filters.category));
-                  return grp?.label;
-                })();
-                const active = parentForActive === label;
-                return (
-                  <button
-                    key={label}
-                    onClick={() => updateFilters({ category: label })}
-                    className={`shrink-0 h-11 px-4 rounded-full border text-[11px] font-semibold uppercase tracking-widest transition-colors ${
-                      active
-                        ? 'bg-foreground text-background border-foreground'
-                        : 'border-border text-foreground/80 hover:text-foreground'
-                    }`}
-                    data-testid={`home-bar-cat-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+                active
+              </span>
+            )}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-[11px] uppercase tracking-widest text-primary hover:underline h-11 px-2"
+                data-testid="home-bar-clear"
+              >
+                Clear all
+              </button>
+            )}
+
+            <div className="ml-auto flex items-center gap-2">
+              <label className="relative">
+                <span className="sr-only">Sort products</span>
+                <select
+                  value={filters.sort}
+                  onChange={(e) => updateFilters({ sort: e.target.value as SortKey })}
+                  className="h-11 pl-3 pr-8 rounded-full border border-border bg-background text-[11px] font-semibold uppercase tracking-widest appearance-none"
+                  data-testid="home-bar-sort"
+                >
+                  <option value="featured">Sort: Featured</option>
+                  <option value="newest">Sort: Newest</option>
+                  <option value="name-asc">Sort: A → Z</option>
+                  <option value="price-asc">Sort: Price ↑</option>
+                  <option value="price-desc">Sort: Price ↓</option>
+                </select>
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-foreground/60 text-[10px]">▾</span>
+              </label>
+              <button
+                onClick={() => setMobileFiltersOpen(true)}
+                className="inline-flex items-center gap-2 h-11 px-4 rounded-full border border-border text-[11px] uppercase tracking-widest"
+                data-testid="home-bar-filters-open"
+              >
+                <SlidersHorizontal className="w-4 h-4" /> Filters
+                {activeFilterCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
             </div>
+          </div>
+
+          {/* Row 2 — horizontally scrolling category chips with edge fade */}
+          <div className="relative -mx-4">
+            <div className="overflow-x-auto px-4">
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                {([...RAIL_LEAFS, ...RAIL_GROUPS.map((g) => g.label)] as string[]).map((label) => {
+                  // Resolve active through rail hierarchy so a selected leaf
+                  // (e.g. "T-Shirts") still highlights its parent group chip.
+                  const parentForActive = (() => {
+                    if (filters.category === label) return label;
+                    const grp = RAIL_GROUPS.find((g) => g.items?.includes(filters.category));
+                    return grp?.label;
+                  })();
+                  const active = parentForActive === label;
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => updateFilters({ category: label })}
+                      className={`shrink-0 h-11 px-4 rounded-full border text-[11px] font-semibold uppercase tracking-widest transition-colors ${
+                        active
+                          ? 'bg-foreground text-background border-foreground'
+                          : 'border-border text-foreground/80 hover:text-foreground'
+                      }`}
+                      data-testid={`home-bar-cat-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {/* Right-edge fade hints there's more to scroll */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute top-0 right-0 h-full w-10 bg-gradient-to-l from-background via-background/70 to-transparent"
+            />
           </div>
         </div>
       </div>
@@ -636,7 +722,7 @@ export function HomePage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            {sidebarContent}
+            {sheetContent}
             <Button
               className="w-full h-12 rounded-full text-xs uppercase tracking-widest mt-8"
               onClick={() => setMobileFiltersOpen(false)}
