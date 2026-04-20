@@ -499,7 +499,7 @@ export function HomePage() {
             </div>
             {sidebarContent}
             <Button
-              className="w-full h-12 rounded-none text-xs uppercase tracking-widest mt-8"
+              className="w-full h-12 rounded-full text-xs uppercase tracking-widest mt-8"
               onClick={() => setMobileFiltersOpen(false)}
             >
               View {total.toLocaleString()} results

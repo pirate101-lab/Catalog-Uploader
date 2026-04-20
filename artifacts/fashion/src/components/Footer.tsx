@@ -75,11 +75,11 @@ export function Footer() {
               type="email"
               placeholder="you@email.com"
               required
-              className="bg-background/10 border-background/20 text-background placeholder:text-background/40 focus-visible:ring-primary rounded-none h-10"
+              className="bg-background/10 border-background/20 text-background placeholder:text-background/40 focus-visible:ring-primary rounded-lg h-10"
             />
             <Button
               type="submit"
-              className="rounded-none h-10 w-full sm:w-auto uppercase text-xs tracking-wider font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+              className="rounded-lg h-10 w-full sm:w-auto uppercase text-xs tracking-wider font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Subscribe
             </Button>

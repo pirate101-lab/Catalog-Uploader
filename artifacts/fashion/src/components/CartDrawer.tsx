@@ -33,7 +33,7 @@ export function CartDrawer() {
               <p className="text-lg font-light">Your cart is empty.</p>
               <Button 
                 variant="default" 
-                className="mt-4 rounded-none px-8 text-xs tracking-widest uppercase font-bold"
+                className="mt-4 rounded-full px-8 text-xs tracking-widest uppercase font-bold"
                 onClick={() => setIsCartOpen(false)}
               >
                 Continue Shopping
@@ -101,7 +101,7 @@ export function CartDrawer() {
             </div>
             <p className="text-xs text-muted-foreground mb-6">Shipping and taxes calculated at checkout.</p>
             <Button 
-              className="w-full h-14 rounded-none text-sm tracking-widest uppercase font-bold shadow-lg hover:shadow-xl transition-all"
+              className="w-full h-14 rounded-full text-sm tracking-widest uppercase font-bold shadow-lg hover:shadow-xl transition-all"
               onClick={handleCheckout}
               data-testid="button-checkout"
             >

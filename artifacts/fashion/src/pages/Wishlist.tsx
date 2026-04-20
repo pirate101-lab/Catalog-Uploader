@@ -60,7 +60,7 @@ export function WishlistPage() {
           {items.length > 0 && (
             <Button
               variant="outline"
-              className="rounded-none text-xs uppercase tracking-widest"
+              className="rounded-full text-xs uppercase tracking-widest"
               onClick={clear}
               data-testid="button-clear-wishlist"
             >

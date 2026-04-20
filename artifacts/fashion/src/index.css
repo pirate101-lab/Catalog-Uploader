@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800;9..144,900&display=swap');
+/* Fonts are loaded once via <link> in index.html with preconnect hints,
+   so we don't @import them here — the duplicate request was costing
+   ~120ms on first paint. */
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -82,29 +84,32 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 0 0% 100%;
-  --foreground: 240 14% 9%;
+  /* ~2% vibrant-blue tint of the brand indigo so the canvas reads as a
+     modern boutique instead of clinical white. Cards/popovers stay
+     pure white below so product photos pop. */
+  --background: 230 70% 98%;
+  --foreground: 240 16% 10%;
 
-  --border: 240 10% 86%;
-  --input: 240 10% 86%;
-  --ring: 245 75% 56%;
+  --border: 230 35% 88%;
+  --input: 230 35% 88%;
+  --ring: 245 80% 58%;
 
   --card: 0 0% 100%;
-  --card-foreground: 240 14% 9%;
-  --card-border: 240 10% 86%;
+  --card-foreground: 240 16% 10%;
+  --card-border: 230 30% 90%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 240 14% 9%;
-  --popover-border: 240 10% 86%;
+  --popover-foreground: 240 16% 10%;
+  --popover-border: 230 30% 90%;
 
-  --primary: 245 75% 56%;
+  --primary: 245 80% 58%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 240 24% 96%;
+  --secondary: 230 55% 96%;
   --secondary-foreground: 240 18% 14%;
 
-  --muted: 240 18% 96%;
-  --muted-foreground: 240 10% 38%;
+  --muted: 230 50% 96%;
+  --muted-foreground: 240 12% 38%;
 
   --accent: 162 72% 40%;
   --accent-foreground: 0 0% 100%;
@@ -117,13 +122,13 @@
   --price-foreground: 0 0% 100%;
 
   --sidebar: 0 0% 100%;
-  --sidebar-foreground: 240 14% 9%;
-  --sidebar-border: 240 10% 86%;
-  --sidebar-primary: 245 75% 56%;
+  --sidebar-foreground: 240 16% 10%;
+  --sidebar-border: 230 30% 90%;
+  --sidebar-primary: 245 80% 58%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 240 24% 96%;
-  --sidebar-accent-foreground: 240 14% 9%;
-  --sidebar-ring: 245 75% 56%;
+  --sidebar-accent: 230 55% 96%;
+  --sidebar-accent-foreground: 240 16% 10%;
+  --sidebar-ring: 245 80% 58%;
 
   --chart-1: 245 75% 56%;
   --chart-2: 162 72% 40%;
@@ -134,7 +139,9 @@
   --app-font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   --app-font-serif: 'Fraunces', 'Playfair Display', Georgia, serif;
   --app-font-mono: Menlo, monospace;
-  --radius: 0.75rem;
+  /* Slightly larger global radius so shadcn buttons (rounded-md = radius-2)
+     read as friendly rounded shapes rather than rectangles. */
+  --radius: 1rem;
 
   --shadow-2xs: 0px 2px 4px -1px hsl(260 30% 10% / 0.04);
   --shadow-xs: 0px 4px 8px -2px hsl(260 30% 10% / 0.05);

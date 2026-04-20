@@ -120,7 +120,10 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
         </motion.div>
       </AnimatePresence>
 
-      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/25 to-black/85 pointer-events-none" />
+      {/* Stronger top/bottom scrim so the vibrant gradient headline always
+          stays legible regardless of which hero photo is showing. */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/35 to-black/90 pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_hsl(245_80%_25%/0.35)_0%,_transparent_70%)] pointer-events-none" />
 
       {/* Captions */}
       <div className="relative z-10 h-full container mx-auto px-4 flex items-center">
@@ -169,7 +172,7 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
           <button
             onClick={() => advance(-1)}
             aria-label="Previous slide"
-            className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-20 w-12 h-12 flex items-center justify-center text-white/80 hover:text-white border border-white/20 hover:border-white/60 backdrop-blur-sm bg-black/20 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
+            className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full flex items-center justify-center text-white/80 hover:text-white border border-white/20 hover:border-white/60 backdrop-blur-sm bg-black/20 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
             data-testid="hero-prev"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -177,7 +180,7 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
           <button
             onClick={() => advance(1)}
             aria-label="Next slide"
-            className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 w-12 h-12 flex items-center justify-center text-white/80 hover:text-white border border-white/20 hover:border-white/60 backdrop-blur-sm bg-black/20 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
+            className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full flex items-center justify-center text-white/80 hover:text-white border border-white/20 hover:border-white/60 backdrop-blur-sm bg-black/20 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
             data-testid="hero-next"
           >
             <ArrowRight className="w-5 h-5" />
@@ -241,7 +244,8 @@ const Caption = {
   Headline: ({ children }: { children: React.ReactNode }) => (
     <motion.h1
       variants={captionItem}
-      className="font-serif text-5xl md:text-7xl lg:text-8xl text-white font-extrabold leading-[1.05] mb-6 drop-shadow-2xl"
+      className="font-serif text-5xl md:text-7xl lg:text-8xl font-extrabold leading-[1.05] mb-6 drop-shadow-2xl bg-clip-text text-transparent bg-[linear-gradient(105deg,_hsl(212_100%_75%)_0%,_#ffffff_42%,_hsl(285_95%_82%)_70%,_hsl(245_100%_78%)_100%)]"
+      style={{ WebkitTextFillColor: 'transparent' }}
     >
       {children}
     </motion.h1>

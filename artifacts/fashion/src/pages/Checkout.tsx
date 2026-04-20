@@ -234,7 +234,7 @@ export function CheckoutPage() {
           </p>
           <Button
             onClick={() => navigate('/shop')}
-            className="rounded-none px-12 h-14 text-xs tracking-widest uppercase font-bold"
+            className="rounded-full px-12 h-14 text-xs tracking-widest uppercase font-bold"
           >
             Continue Shopping
           </Button>
@@ -255,7 +255,7 @@ export function CheckoutPage() {
           </p>
           <Link
             href="/shop"
-            className="inline-block bg-primary text-white rounded-none px-12 h-14 leading-[3.5rem] text-xs tracking-widest uppercase font-bold"
+            className="inline-block bg-primary text-white rounded-full px-12 h-14 leading-[3.5rem] text-xs tracking-widest uppercase font-bold"
           >
             Browse the Shop
           </Link>
@@ -286,7 +286,7 @@ export function CheckoutPage() {
                   type="email"
                   {...form.register('email')}
                   data-testid="input-email"
-                  className="rounded-none h-12"
+                  className="rounded-lg h-12"
                 />
               </Field>
             </section>
@@ -297,29 +297,29 @@ export function CheckoutPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="First name" error={form.formState.errors.firstName?.message}>
-                  <Input {...form.register('firstName')} data-testid="input-firstName" className="rounded-none h-12" />
+                  <Input {...form.register('firstName')} data-testid="input-firstName" className="rounded-lg h-12" />
                 </Field>
                 <Field label="Last name" error={form.formState.errors.lastName?.message}>
-                  <Input {...form.register('lastName')} data-testid="input-lastName" className="rounded-none h-12" />
+                  <Input {...form.register('lastName')} data-testid="input-lastName" className="rounded-lg h-12" />
                 </Field>
                 <Field
                   label="Address"
                   error={form.formState.errors.address?.message}
                   className="md:col-span-2"
                 >
-                  <Input {...form.register('address')} data-testid="input-address" className="rounded-none h-12" />
+                  <Input {...form.register('address')} data-testid="input-address" className="rounded-lg h-12" />
                 </Field>
                 <Field label="City" error={form.formState.errors.city?.message}>
-                  <Input {...form.register('city')} data-testid="input-city" className="rounded-none h-12" />
+                  <Input {...form.register('city')} data-testid="input-city" className="rounded-lg h-12" />
                 </Field>
                 <Field label="State / Region" error={form.formState.errors.state?.message}>
-                  <Input {...form.register('state')} data-testid="input-state" className="rounded-none h-12" />
+                  <Input {...form.register('state')} data-testid="input-state" className="rounded-lg h-12" />
                 </Field>
                 <Field label="ZIP / Postal code" error={form.formState.errors.zip?.message}>
-                  <Input {...form.register('zip')} data-testid="input-zip" className="rounded-none h-12" />
+                  <Input {...form.register('zip')} data-testid="input-zip" className="rounded-lg h-12" />
                 </Field>
                 <Field label="Country" error={form.formState.errors.country?.message}>
-                  <Input {...form.register('country')} data-testid="input-country" className="rounded-none h-12" />
+                  <Input {...form.register('country')} data-testid="input-country" className="rounded-lg h-12" />
                 </Field>
               </div>
             </section>
@@ -515,7 +515,7 @@ function NoPaymentSubmit({
         type="button"
         onClick={placeOrder}
         disabled={submitting}
-        className="w-full h-14 rounded-none text-xs tracking-widest uppercase font-bold"
+        className="w-full h-14 rounded-full text-xs tracking-widest uppercase font-bold"
         data-testid="button-place-order"
       >
         {submitting ? 'Placing…' : totalLabel}
@@ -637,7 +637,7 @@ function StripePaymentForm({
         type="button"
         onClick={handlePay}
         disabled={submitting || !stripe || !elements}
-        className="w-full h-14 rounded-none text-xs tracking-widest uppercase font-bold"
+        className="w-full h-14 rounded-full text-xs tracking-widest uppercase font-bold"
         data-testid="button-place-order"
       >
         {submitting ? 'Processing…' : totalLabel}

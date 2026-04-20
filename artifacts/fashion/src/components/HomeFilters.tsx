@@ -173,7 +173,7 @@ export function HomeFilters({
           Sort
         </h3>
         <Select value={sort} onValueChange={(v) => onSortChange(v as SortKey)}>
-          <SelectTrigger className="w-full rounded-none h-9" data-testid="home-filter-sort">
+          <SelectTrigger className="w-full rounded-lg h-9" data-testid="home-filter-sort">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

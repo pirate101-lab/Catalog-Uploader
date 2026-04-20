@@ -62,7 +62,7 @@ export function ProductModal({ product, isOpen, onClose }: ProductModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl p-0 overflow-hidden bg-background border-border rounded-none shadow-2xl gap-0">
+      <DialogContent className="max-w-5xl p-0 overflow-hidden bg-background border-border rounded-2xl shadow-2xl gap-0">
         <DialogTitle className="sr-only">{product.title}</DialogTitle>
         <div className="grid grid-cols-1 md:grid-cols-2 h-full max-h-[90vh]">
           <div className="bg-muted aspect-square md:aspect-auto md:h-[90vh] relative">
@@ -166,7 +166,7 @@ export function ProductModal({ product, isOpen, onClose }: ProductModalProps) {
 
               <Button
                 onClick={handleAddToCart}
-                className="flex-1 h-14 rounded-none text-xs tracking-widest uppercase font-bold shadow-lg hover:shadow-xl transition-all"
+                className="flex-1 h-14 rounded-full text-xs tracking-widest uppercase font-bold shadow-lg hover:shadow-xl transition-all"
                 data-testid="modal-add-to-cart"
               >
                 <ShoppingBag className="w-4 h-4 mr-3" />

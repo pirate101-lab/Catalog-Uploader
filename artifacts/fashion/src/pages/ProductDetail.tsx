@@ -394,7 +394,7 @@ export function ProductDetailPage() {
               </div>
               <Button
                 onClick={handleAddToCart}
-                className="flex-1 h-14 rounded-none text-xs tracking-widest uppercase font-bold"
+                className="flex-1 h-14 rounded-full text-xs tracking-widest uppercase font-bold"
                 data-testid="button-add-to-cart"
               >
                 <ShoppingBag className="w-4 h-4 mr-3" />
@@ -404,7 +404,7 @@ export function ProductDetailPage() {
             <Button
               variant="outline"
               onClick={handleBuyNow}
-              className="h-12 rounded-none text-xs tracking-widest uppercase font-bold"
+              className="h-12 rounded-full text-xs tracking-widest uppercase font-bold"
               data-testid="button-buy-now"
             >
               Buy Now
@@ -527,7 +527,7 @@ export function ProductDetailPage() {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="w-full h-12 rounded-none text-xs tracking-widest uppercase font-bold"
+                className="w-full h-12 rounded-full text-xs tracking-widest uppercase font-bold"
                 data-testid="button-submit-review"
               >
                 {submitting ? 'Submitting…' : 'Submit Review'}

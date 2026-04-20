@@ -198,7 +198,7 @@ function FilterPanel(props: FilterPanelProps) {
 
       <Button
         variant="outline"
-        className="w-full rounded-none text-xs uppercase tracking-widest"
+        className="w-full rounded-full text-xs uppercase tracking-widest"
         onClick={clearFilters}
         data-testid="button-clear-filters"
       >
@@ -540,7 +540,7 @@ export function ShopPage() {
                   <SlidersHorizontal className="w-4 h-4" /> Filter
                 </button>
                 <Select value={sort} onValueChange={(v) => updateSort(v as SortKey)}>
-                  <SelectTrigger className="w-[180px] rounded-none h-10" data-testid="select-sort">
+                  <SelectTrigger className="w-[180px] rounded-lg h-10" data-testid="select-sort">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -664,7 +664,7 @@ export function ShopPage() {
               clearFilters={clearFilters}
             />
             <Button
-              className="w-full h-12 rounded-none text-xs uppercase tracking-widest"
+              className="w-full h-12 rounded-full text-xs uppercase tracking-widest"
               onClick={() => setMobileFiltersOpen(false)}
             >
               View {refined.length.toLocaleString()} results
