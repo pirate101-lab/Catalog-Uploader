@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ALL_SIZES, type Product } from '@/data/products';
+import type { GenderKey } from '@/lib/homeFilters';
 import { useProducts } from '@/context/ProductsContext';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductCardSkeleton } from '@/components/ProductCardSkeleton';
@@ -67,6 +68,47 @@ function useQueryParam(key: string): string {
   void location;
   const params = new URLSearchParams(search);
   return params.get(key) ?? '';
+}
+
+const SORT_KEYS: SortKey[] = ['featured', 'newest', 'name-asc', 'price-asc', 'price-desc'];
+const SIZE_SET = new Set(ALL_SIZES);
+
+function readUrlFilters(search: string): {
+  category: string;
+  q: string;
+  gender: GenderKey;
+  sizes: string[];
+  priceMin: number;
+  priceMax: number;
+  sort: SortKey;
+} {
+  const p = new URLSearchParams(search);
+  const genderRaw = p.get('gender');
+  const gender: GenderKey =
+    genderRaw === 'women' || genderRaw === 'men' ? genderRaw : 'all';
+  const sortRaw = p.get('sort') as SortKey | null;
+  const sort: SortKey = sortRaw && SORT_KEYS.includes(sortRaw) ? sortRaw : 'featured';
+  const sizes = (p.get('sizes') ?? '')
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => SIZE_SET.has(s));
+  const clamp = (raw: string | null, fallback: number) => {
+    if (raw === null || raw === '') return fallback;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(PRICE_MAX, Math.max(0, n));
+  };
+  const priceMin = clamp(p.get('priceMin'), 0);
+  const priceMax = Math.max(priceMin, clamp(p.get('priceMax'), PRICE_MAX));
+  return {
+    category: p.get('category') ?? '',
+    q: p.get('q') ?? '',
+    gender,
+    sizes,
+    priceMin,
+    priceMax,
+    sort,
+  };
 }
 
 interface FilterPanelProps {
@@ -162,15 +204,20 @@ function FilterPanel(props: FilterPanelProps) {
 
 export function ShopPage() {
   const { search } = useProducts();
-  const initialCategory = useQueryParam('category');
-  const initialQuery = useQueryParam('q');
+  const initial = readUrlFilters(
+    typeof window !== 'undefined' ? window.location.search : '',
+  );
 
-  const [railLabel, setRailLabel] = useState<string>(initialCategory || 'All');
-  const [sort, setSort] = useState<SortKey>('featured');
-  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
+  const [railLabel, setRailLabel] = useState<string>(initial.category || 'All');
+  const [sort, setSort] = useState<SortKey>(initial.sort);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>(initial.sizes);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, PRICE_MAX]);
-  const [query, setQuery] = useState(initialQuery);
+  const [priceRange, setPriceRange] = useState<[number, number]>([
+    initial.priceMin,
+    initial.priceMax,
+  ]);
+  const [gender, setGender] = useState<GenderKey>(initial.gender);
+  const [query, setQuery] = useState(initial.q);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [location] = useLocation();
@@ -182,12 +229,17 @@ export function ShopPage() {
   const [pageLoading, setPageLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
+  // Re-sync filter state when the URL changes (e.g., user clicks a homepage
+  // CTA that points to /shop?gender=men&sizes=M, or uses browser back/forward).
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const cat = params.get('category');
-    setRailLabel(cat || 'All');
-    setQuery(params.get('q') ?? '');
+    const next = readUrlFilters(window.location.search);
+    setRailLabel(next.category || 'All');
+    setQuery(next.q);
+    setGender(next.gender);
+    setSelectedSizes(next.sizes);
+    setPriceRange([next.priceMin, next.priceMax]);
+    setSort(next.sort);
   }, [location]);
 
   const effectiveCategory = RAIL_TO_CATEGORY[railLabel] ?? 'All';
@@ -202,6 +254,10 @@ export function ShopPage() {
     search({
       q: query.trim() || undefined,
       category: effectiveCategory,
+      gender: gender === 'all' ? undefined : gender,
+      sizes: selectedSizes.length > 0 ? selectedSizes : undefined,
+      priceMin: priceRange[0] > 0 ? priceRange[0] : undefined,
+      priceMax: priceRange[1] < PRICE_MAX ? priceRange[1] : undefined,
       sort,
       limit: PAGE_SIZE,
       offset: 0,
@@ -222,7 +278,7 @@ export function ShopPage() {
     return () => {
       cancelled = true;
     };
-  }, [effectiveCategory, query, sort, search]);
+  }, [effectiveCategory, query, sort, search, gender, selectedSizes, priceRange]);
 
   // Infinite scroll: when sentinel hits viewport, load the next page.
   // Each filter combination gets its own version token so a slow page
@@ -230,7 +286,7 @@ export function ShopPage() {
   const filterVersionRef = useRef(0);
   useEffect(() => {
     filterVersionRef.current += 1;
-  }, [effectiveCategory, query, sort]);
+  }, [effectiveCategory, query, sort, gender, selectedSizes, priceRange]);
 
   useEffect(() => {
     const node = sentinelRef.current;
@@ -244,6 +300,10 @@ export function ShopPage() {
           search({
             q: query.trim() || undefined,
             category: effectiveCategory,
+            gender: gender === 'all' ? undefined : gender,
+            sizes: selectedSizes.length > 0 ? selectedSizes : undefined,
+            priceMin: priceRange[0] > 0 ? priceRange[0] : undefined,
+            priceMax: priceRange[1] < PRICE_MAX ? priceRange[1] : undefined,
             sort,
             limit: PAGE_SIZE,
             offset,
@@ -268,7 +328,18 @@ export function ShopPage() {
     );
     obs.observe(node);
     return () => obs.disconnect();
-  }, [hasMore, pageLoading, offset, effectiveCategory, query, sort, search]);
+  }, [
+    hasMore,
+    pageLoading,
+    offset,
+    effectiveCategory,
+    query,
+    sort,
+    search,
+    gender,
+    selectedSizes,
+    priceRange,
+  ]);
 
   // Client-side refinements (size/color/price) operate on whatever is loaded.
   // Top colors are derived from currently-loaded items (best effort).

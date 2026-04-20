@@ -1,18 +1,28 @@
-import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'wouter';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useSearch } from 'wouter';
 import { ProductCard } from '@/components/ProductCard';
 import { HeroSlider, type HeroSlide } from '@/components/HeroSlider';
 import { CategoryRail } from '@/components/CategoryRail';
+import { HomeFilters } from '@/components/HomeFilters';
 import { ProductCardSkeleton } from '@/components/ProductCardSkeleton';
+import { Button } from '@/components/ui/button';
 import { useProducts } from '@/context/ProductsContext';
 import { RAIL_GROUPS } from '@/data/taxonomy';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, SlidersHorizontal, X } from 'lucide-react';
+import {
+  DEFAULT_FILTERS,
+  PRICE_MAX,
+  parseFilters,
+  serializeFilters,
+  shopHref,
+  type HomeFilterState,
+} from '@/lib/homeFilters';
+import { imagePreload } from '@/lib/imageUrl';
 import type { Product } from '@/data/products';
 
 interface ApiHeroSlide {
   id: number;
   imageUrl: string | null;
-  /** Older shape (admin-managed). */
   kicker?: string | null;
   headline?: string;
   subline?: string | null;
@@ -20,7 +30,6 @@ interface ApiHeroSlide {
   primaryHref?: string | null;
   secondaryLabel?: string | null;
   secondaryHref?: string | null;
-  /** Current API shape returned by /api/storefront/hero. */
   title?: string;
   subtitle?: string | null;
   ctaLabel?: string | null;
@@ -67,8 +76,7 @@ const FALLBACK_HERO_SLIDES: HeroSlide[] = [
 ];
 
 // Same fine→coarse mapping as the Shop page so the rail filters the
-// preview grid sensibly. Kept inline here to avoid a new shared module
-// just for this preview shell.
+// preview grid sensibly.
 const RAIL_TO_CATEGORY: Record<string, string> = {
   All: 'All',
   'Plus Size': 'All',
@@ -93,18 +101,36 @@ for (const g of RAIL_GROUPS) {
   }
 }
 
-const PREVIEW_COUNT = 12;
+const PAGE_SIZE = 24;
 
 export function HomePage() {
-  const { featured, loading: featuredLoading, search } = useProducts();
-  const [railLabel, setRailLabel] = useState<string>('All');
+  const { search } = useProducts();
   const [, navigate] = useLocation();
+  const queryString = useSearch();
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(FALLBACK_HERO_SLIDES);
-  const [previewSlice, setPreviewSlice] = useState<Product[]>([]);
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const [items, setItems] = useState<Product[]>([]);
+  const [total, setTotal] = useState(0);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // Pull hero slides from the admin-managed API; fall back to bundled
-  // images if the API is unreachable or has no slides configured yet.
+  // URL-driven filter state. parseFilters tolerates missing/garbage params
+  // so the homepage always renders even with a stray refresh.
+  const filters = useMemo<HomeFilterState>(() => parseFilters(queryString), [queryString]);
+
+  const updateFilters = useCallback(
+    (patch: Partial<HomeFilterState>) => {
+      const next = { ...filters, ...patch };
+      const qs = serializeFilters(next).toString();
+      navigate(qs ? `/?${qs}` : '/', { replace: true });
+    },
+    [filters, navigate],
+  );
+
+  const clearFilters = useCallback(() => {
+    navigate('/', { replace: true });
+  }, [navigate]);
+
+  // Hero slides
   useEffect(() => {
     let cancelled = false;
     fetch('/api/storefront/hero')
@@ -114,8 +140,6 @@ export function HomePage() {
         const base = (import.meta.env.BASE_URL as string | undefined) ?? '/';
         const resolveImg = (raw: string | null, i: number): string => {
           if (!raw) return FALLBACK_HERO_SLIDES[i % FALLBACK_HERO_SLIDES.length]!.image;
-          // Treat root-relative `/foo.jpg` as bundled assets so they go
-          // through the artifact's base path correctly in the iframe.
           if (raw.startsWith('/') && !raw.startsWith('//')) {
             return `${base.replace(/\/$/, '')}${raw}`;
           }
@@ -151,148 +175,255 @@ export function HomePage() {
     };
   }, []);
 
-  const effectiveCategory = RAIL_TO_CATEGORY[railLabel] ?? 'All';
+  // The rail uses the user-facing label; map it to the storage category.
+  const effectiveCategory = RAIL_TO_CATEGORY[filters.category] ?? filters.category ?? 'All';
 
-  // For "All" we reuse the featured slice the context already loaded.
-  // For specific rail labels we fetch a fresh slice from the API.
+  // Refetch the grid whenever the URL filters change.
   useEffect(() => {
-    if (effectiveCategory === 'All') {
-      setPreviewSlice(featured.slice(0, PREVIEW_COUNT));
-      setPreviewLoading(false);
-      return;
-    }
     let cancelled = false;
-    setPreviewLoading(true);
-    search({ category: effectiveCategory, limit: PREVIEW_COUNT, sort: 'featured' })
+    setPageLoading(true);
+    search({
+      category: effectiveCategory,
+      gender: filters.gender === 'all' ? undefined : filters.gender,
+      sizes: filters.sizes.length > 0 ? filters.sizes : undefined,
+      priceMin: filters.priceMin > 0 ? filters.priceMin : undefined,
+      priceMax: filters.priceMax < PRICE_MAX ? filters.priceMax : undefined,
+      sort: filters.sort,
+      limit: PAGE_SIZE,
+      offset: 0,
+    })
       .then((r) => {
         if (cancelled) return;
-        setPreviewSlice(r.products);
-        setPreviewLoading(false);
+        setItems(r.products);
+        setTotal(r.total);
+        setPageLoading(false);
       })
       .catch(() => {
         if (cancelled) return;
-        setPreviewLoading(false);
+        setItems([]);
+        setTotal(0);
+        setPageLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [effectiveCategory, featured, search]);
+  }, [
+    effectiveCategory,
+    filters.gender,
+    filters.sizes,
+    filters.priceMin,
+    filters.priceMax,
+    filters.sort,
+    search,
+  ]);
 
-  const loading = effectiveCategory === 'All' ? featuredLoading : previewLoading;
-
-  // Tiny scroll affordance: keep the browse section in view when the user
-  // changes the rail label so the result swap is obvious.
+  // LCP hint for the first hero slide. For sized .webp variants we can
+  // emit the full responsive imageSrcSet; for static JPGs (the default
+  // bundled heroes) we emit a plain href preload.
+  const firstHero = heroSlides[0];
+  const heroPreload = firstHero
+    ? imagePreload(firstHero.image, { category: 'hero', id: 'hero-0' })
+    : null;
   useEffect(() => {
-    if (railLabel === 'All') return;
-    document.getElementById('home-browse')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [railLabel]);
+    if (!firstHero) return;
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'image';
+    (link as HTMLLinkElement & { fetchPriority?: string }).fetchPriority = 'high';
+    if (heroPreload) {
+      link.href = heroPreload.href;
+      link.setAttribute('imagesrcset', heroPreload.imageSrcSet);
+      link.setAttribute('imagesizes', '100vw');
+      link.type = heroPreload.type;
+    } else {
+      link.href = firstHero.image;
+    }
+    document.head.appendChild(link);
+    return () => {
+      document.head.removeChild(link);
+    };
+  }, [firstHero, heroPreload]);
 
-  // The 24 best-looking pieces for the featured grid: filter out anything
-  // missing an image so the 6×4 grid never has a blank tile, then take 24.
-  const featuredGrid = featured
-    .filter((p) => Boolean(p.image))
-    .slice(0, 24);
+  const hasActiveFilters =
+    filters.category !== DEFAULT_FILTERS.category ||
+    filters.gender !== DEFAULT_FILTERS.gender ||
+    filters.sizes.length > 0 ||
+    filters.priceMin !== DEFAULT_FILTERS.priceMin ||
+    filters.priceMax !== DEFAULT_FILTERS.priceMax ||
+    filters.sort !== DEFAULT_FILTERS.sort;
+
+  const headline = (() => {
+    if (filters.category && filters.category !== 'All') return filters.category;
+    if (filters.gender === 'men') return "Men's Edit";
+    if (filters.gender === 'women') return "Women's Edit";
+    return 'Browse the Collection';
+  })();
+
+  const sidebarContent = (
+    <div className="space-y-10">
+      <CategoryRail
+        active={filters.category}
+        onChange={(label) => {
+          updateFilters({ category: label });
+          setMobileFiltersOpen(false);
+        }}
+      />
+      <HomeFilters
+        gender={filters.gender}
+        onGenderChange={(g) => updateFilters({ gender: g })}
+        sizes={filters.sizes}
+        onSizesChange={(s) => updateFilters({ sizes: s })}
+        priceMin={filters.priceMin}
+        priceMax={filters.priceMax}
+        onPriceChange={(min, max) => updateFilters({ priceMin: min, priceMax: max })}
+        sort={filters.sort}
+        onSortChange={(s) => updateFilters({ sort: s })}
+        onClear={() => {
+          clearFilters();
+          setMobileFiltersOpen(false);
+        }}
+      />
+    </div>
+  );
 
   return (
     <>
+      {/* React 19 hoists <link> into <head>; this kicks off the LCP fetch
+          alongside the initial markup so the browser doesn't wait for
+          React to mount the <img>. The useEffect above is a safety net
+          for browsers/runtimes that don't hoist (and lets us also set
+          fetchPriority="high"). */}
+      {firstHero && heroPreload && (
+        <link
+          rel="preload"
+          as="image"
+          href={heroPreload.href}
+          imageSrcSet={heroPreload.imageSrcSet}
+          imageSizes="100vw"
+          type={heroPreload.type}
+          fetchPriority="high"
+        />
+      )}
+      {firstHero && !heroPreload && (
+        <link
+          rel="preload"
+          as="image"
+          href={firstHero.image}
+          fetchPriority="high"
+        />
+      )}
+
       <HeroSlider slides={heroSlides} />
 
-      <section className="pt-16 md:pt-24 pb-4 bg-background" id="featured-now">
+      <section id="home-browse" className="py-12 md:py-20 bg-background">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
             <div>
               <span className="text-xs font-bold uppercase tracking-[0.3em] text-primary mb-3 block">
                 The Edit
               </span>
               <h2 className="font-serif text-3xl md:text-4xl font-extrabold text-foreground">
-                Featured Now
+                {headline}
               </h2>
-              <p className="text-sm text-muted-foreground mt-2 max-w-xl">
-                Twenty-four pieces our stylists are pulling first this week.
+              <p className="text-sm text-muted-foreground mt-2">
+                {pageLoading && items.length === 0
+                  ? 'Loading the collection…'
+                  : `${total.toLocaleString()} pieces available`}
               </p>
             </div>
-            <Link
-              href="/shop"
-              className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-primary hover:underline self-start md:self-auto"
-            >
-              Shop all <ArrowRight className="w-4 h-4" />
-            </Link>
+            <div className="flex items-center gap-3 self-start md:self-auto">
+              <button
+                onClick={() => setMobileFiltersOpen(true)}
+                className="lg:hidden inline-flex items-center gap-2 h-10 px-4 border border-border text-xs uppercase tracking-widest"
+                data-testid="home-filters-open"
+              >
+                <SlidersHorizontal className="w-4 h-4" /> Filters
+              </button>
+              <Link
+                href={shopHref(filters)}
+                className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-primary hover:underline"
+                data-testid="home-view-all"
+              >
+                View all <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
 
-          {featuredLoading && featuredGrid.length === 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <ProductCardSkeleton key={i} />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
-              {featuredGrid.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section id="home-browse" className="py-16 md:py-24 bg-background">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-[0.3em] text-primary mb-3 block">
-                Shop by Category
-              </span>
-              <h2 className="font-serif text-3xl md:text-4xl font-extrabold text-foreground">
-                {railLabel === 'All' ? 'Browse the collection' : railLabel}
-              </h2>
-            </div>
-            <button
-              onClick={() =>
-                navigate(railLabel === 'All' ? '/shop' : `/shop?category=${encodeURIComponent(railLabel)}`)
-              }
-              className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-primary hover:underline"
-            >
-              View all <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-10">
-            <aside className="hidden lg:block lg:max-h-[560px] lg:overflow-y-auto pr-2">
-              <CategoryRail active={railLabel} onChange={setRailLabel} />
+          <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-10">
+            <aside className="hidden lg:block lg:sticky lg:top-32 lg:self-start lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto pr-2">
+              {sidebarContent}
             </aside>
 
             <div>
-              {loading ? (
+              {pageLoading && items.length === 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
-                  {Array.from({ length: PREVIEW_COUNT }).map((_, i) => (
+                  {Array.from({ length: 12 }).map((_, i) => (
                     <ProductCardSkeleton key={i} />
                   ))}
                 </div>
-              ) : previewSlice.length === 0 ? (
-                <p className="text-center py-20 text-muted-foreground">
-                  No pieces in this category yet.
-                </p>
+              ) : items.length === 0 ? (
+                <div className="text-center py-24 text-muted-foreground">
+                  <p className="mb-4">No pieces match these filters.</p>
+                  {hasActiveFilters && (
+                    <button
+                      onClick={clearFilters}
+                      className="text-xs uppercase tracking-widest text-primary hover:underline"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
-                  {previewSlice.map((product) => (
+                  {items.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
                 </div>
               )}
 
-              <div className="flex justify-center mt-12">
-                <Link
-                  href="/shop"
-                  className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-12 h-14 text-xs tracking-widest uppercase font-bold shadow-lg hover:shadow-xl transition-all"
-                  data-testid="link-shop-collection"
-                >
-                  Shop the Full Collection <ArrowRight className="w-4 h-4" />
-                </Link>
-              </div>
+              {items.length > 0 && (
+                <div className="flex justify-center mt-12">
+                  <Link
+                    href={shopHref(filters)}
+                    className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-12 h-14 text-xs tracking-widest uppercase font-bold shadow-lg hover:shadow-xl transition-all"
+                    data-testid="link-shop-collection"
+                  >
+                    Shop the Full Collection <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </section>
+
+      {mobileFiltersOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMobileFiltersOpen(false)}
+          />
+          <div className="absolute left-0 top-0 bottom-0 w-[88%] max-w-sm bg-background overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-serif text-xl font-extrabold">Filters</h2>
+              <button
+                onClick={() => setMobileFiltersOpen(false)}
+                aria-label="Close filters"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {sidebarContent}
+            <Button
+              className="w-full h-12 rounded-none text-xs uppercase tracking-widest mt-8"
+              onClick={() => setMobileFiltersOpen(false)}
+            >
+              View {total.toLocaleString()} results
+            </Button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -51,6 +51,10 @@ export function rowToProduct(r: ApiProductRow): Product {
 export interface SearchOptions {
   q?: string;
   category?: string;
+  gender?: 'men' | 'women';
+  sizes?: string[];
+  priceMin?: number;
+  priceMax?: number;
   sort?: 'featured' | 'newest' | 'name-asc' | 'price-asc' | 'price-desc';
   limit?: number;
   offset?: number;
@@ -68,6 +72,10 @@ export async function searchProducts(opts: SearchOptions = {}): Promise<SearchRe
   const params = new URLSearchParams();
   if (opts.q) params.set('q', opts.q);
   if (opts.category && opts.category !== 'All') params.set('category', opts.category);
+  if (opts.gender) params.set('gender', opts.gender);
+  if (opts.sizes && opts.sizes.length > 0) params.set('sizes', opts.sizes.join(','));
+  if (typeof opts.priceMin === 'number') params.set('priceMin', String(opts.priceMin));
+  if (typeof opts.priceMax === 'number') params.set('priceMax', String(opts.priceMax));
   if (opts.sort) params.set('sort', opts.sort);
   params.set('limit', String(opts.limit ?? 24));
   params.set('offset', String(opts.offset ?? 0));

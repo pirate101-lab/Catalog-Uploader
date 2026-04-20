@@ -10,26 +10,45 @@ function parseGender(v: unknown): "men" | "women" | undefined {
   return undefined;
 }
 
-function searchAndSort(
-  rows: ProductRow[],
-  q: string | undefined,
-  category: string | undefined,
-  gender: "men" | "women" | undefined,
-  sort: string,
-): ProductRow[] {
+interface SearchFilters {
+  q?: string;
+  category?: string;
+  gender?: "men" | "women";
+  sort: string;
+  sizes?: string[];
+  priceMin?: number;
+  priceMax?: number;
+}
+
+function searchAndSort(rows: ProductRow[], f: SearchFilters): ProductRow[] {
   let result = rows;
-  if (gender) {
-    result = result.filter((p) => p.gender === gender);
+  if (f.gender) {
+    result = result.filter((p) => p.gender === f.gender);
   }
-  if (category && category !== "All") {
-    const c = category.toLowerCase();
+  if (f.category && f.category !== "All") {
+    const c = f.category.toLowerCase();
     result = result.filter((p) => (p.category ?? "").toLowerCase() === c);
   }
-  if (q) {
-    const needle = q.toLowerCase();
+  if (f.q) {
+    const needle = f.q.toLowerCase();
     result = result.filter((p) => p.title.toLowerCase().includes(needle));
   }
-  switch (sort) {
+  if (f.sizes && f.sizes.length > 0) {
+    const wanted = new Set(f.sizes.map((s) => s.toUpperCase()));
+    result = result.filter((p) => {
+      const sizes = (p.sizes ?? []) as string[];
+      return sizes.some((s) => wanted.has(String(s).toUpperCase()));
+    });
+  }
+  if (typeof f.priceMin === "number") {
+    const min = f.priceMin;
+    result = result.filter((p) => Number(p.price) >= min);
+  }
+  if (typeof f.priceMax === "number") {
+    const max = f.priceMax;
+    result = result.filter((p) => Number(p.price) <= max);
+  }
+  switch (f.sort) {
     case "price-asc":
       result = [...result].sort((a, b) => Number(a.price) - Number(b.price));
       break;
@@ -126,6 +145,12 @@ router.get("/storefront/stats", (_req: Request, res: Response) => {
   res.json({ products: all.length, women: byGender.women, men: byGender.men });
 });
 
+function parseNumber(v: unknown): number | undefined {
+  if (v === undefined || v === null || v === "") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 router.get("/storefront/products", (req: Request, res: Response) => {
   const q = (req.query["q"] as string | undefined)?.trim();
   const category = req.query["category"] as string | undefined;
@@ -134,6 +159,12 @@ router.get("/storefront/products", (req: Request, res: Response) => {
   const sort = (req.query["sort"] as string | undefined) ?? "featured";
   const limit = Math.min(Number(req.query["limit"] ?? 24), 100);
   const offset = Math.max(Number(req.query["offset"] ?? 0), 0);
+  const sizesParam = (req.query["sizes"] as string | undefined)?.trim();
+  const sizes = sizesParam
+    ? sizesParam.split(",").map((s) => s.trim()).filter(Boolean)
+    : undefined;
+  const priceMin = parseNumber(req.query["priceMin"]);
+  const priceMax = parseNumber(req.query["priceMax"]);
 
   const all = getAllProducts();
 
@@ -148,7 +179,15 @@ router.get("/storefront/products", (req: Request, res: Response) => {
     return;
   }
 
-  const filtered = searchAndSort(all, q, category, gender, sort);
+  const filtered = searchAndSort(all, {
+    q,
+    category,
+    gender,
+    sort,
+    sizes,
+    priceMin,
+    priceMax,
+  });
   const rows = filtered.slice(offset, offset + limit);
   res.json({ rows, total: filtered.length, limit, offset });
 });
