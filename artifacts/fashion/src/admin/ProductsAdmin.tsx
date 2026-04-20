@@ -5,7 +5,7 @@ import {
   type ProductOverride,
   type ProductRow,
 } from "./api";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -25,9 +25,15 @@ type BulkAction = {
   label: string;
   patch: Partial<ProductOverride>;
   description: string;
+  destructive?: boolean;
+  /** Base-form verb for the warning line, e.g. "hide". */
+  destructiveVerb?: string;
+  /** Word the operator must type to confirm large destructive actions. */
+  confirmWord?: string;
 };
 
 const PAGE = 50;
+const TYPED_CONFIRM_THRESHOLD = 25;
 
 export function ProductsAdmin() {
   const [q, setQ] = useState("");
@@ -40,6 +46,7 @@ export function ProductsAdmin() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pendingAction, setPendingAction] = useState<BulkAction | null>(null);
+  const [confirmInput, setConfirmInput] = useState("");
 
   useEffect(() => {
     adminApi.listOverrides().then((arr) => {
@@ -91,14 +98,25 @@ export function ProductsAdmin() {
       toast.error("Select rows first");
       return;
     }
+    setConfirmInput("");
     setPendingAction(action);
   };
 
+  const requiresTypedConfirm =
+    !!pendingAction?.destructive &&
+    !!pendingAction.confirmWord &&
+    selected.size > TYPED_CONFIRM_THRESHOLD;
+  const typedConfirmOk =
+    !requiresTypedConfirm ||
+    confirmInput.trim().toUpperCase() === pendingAction?.confirmWord;
+
   const confirmBulk = async () => {
     if (!pendingAction) return;
+    if (!typedConfirmOk) return;
     const count = selected.size;
     const action = pendingAction;
     setPendingAction(null);
+    setConfirmInput("");
     await adminApi.bulkOverride([...selected], action.patch);
     toast.success(`${action.label}: updated ${count} product${count === 1 ? "" : "s"}`);
     setSelected(new Set());
@@ -146,6 +164,9 @@ export function ProductsAdmin() {
                 patch: { hidden: true },
                 description:
                   "These products will be hidden from the storefront and removed from search results until you show them again.",
+                destructive: true,
+                destructiveVerb: "hide",
+                confirmWord: "HIDE",
               })
             }
             disabled={selected.size === 0}
@@ -360,7 +381,10 @@ export function ProductsAdmin() {
       <AlertDialog
         open={pendingAction !== null}
         onOpenChange={(open) => {
-          if (!open) setPendingAction(null);
+          if (!open) {
+            setPendingAction(null);
+            setConfirmInput("");
+          }
         }}
       >
         <AlertDialogContent>
@@ -377,9 +401,51 @@ export function ProductsAdmin() {
               selected product{selected.size === 1 ? "" : "s"}.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {pendingAction?.destructive && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              <p className="font-semibold">
+                This will {pendingAction.destructiveVerb ?? "affect"}{" "}
+                {selected.size.toLocaleString()} product
+                {selected.size === 1 ? "" : "s"} from your storefront.
+              </p>
+              <p className="mt-1 text-destructive/80">
+                Customers will no longer see them until you bring them back.
+              </p>
+            </div>
+          )}
+          {requiresTypedConfirm && (
+            <div className="space-y-2">
+              <label
+                htmlFor="bulk-confirm-input"
+                className="text-sm text-muted-foreground"
+              >
+                Type{" "}
+                <span className="font-mono font-semibold text-foreground">
+                  {pendingAction?.confirmWord}
+                </span>{" "}
+                to confirm.
+              </label>
+              <Input
+                id="bulk-confirm-input"
+                autoFocus
+                autoComplete="off"
+                value={confirmInput}
+                onChange={(e) => setConfirmInput(e.target.value)}
+                placeholder={pendingAction?.confirmWord}
+              />
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulk}>
+            <AlertDialogAction
+              onClick={confirmBulk}
+              disabled={!typedConfirmOk}
+              className={
+                pendingAction?.destructive
+                  ? buttonVariants({ variant: "destructive" })
+                  : undefined
+              }
+            >
               {pendingAction?.label}
             </AlertDialogAction>
           </AlertDialogFooter>
