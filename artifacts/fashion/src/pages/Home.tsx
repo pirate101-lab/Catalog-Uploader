@@ -103,7 +103,19 @@ for (const g of RAIL_GROUPS) {
   }
 }
 
-const PAGE_SIZE = 24;
+// Homepage shows the "TikTok Verified" merch bucket as the featured
+// grid, 40 items at a time, daily-rotated by today's UTC date so every
+// visitor sees the same lineup until midnight.
+const PAGE_SIZE = 40;
+const FEATURED_BUCKET = 'tiktok_verified' as const;
+
+function todaySeedUTC(): string {
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 export function HomePage() {
   const { search } = useProducts();
@@ -221,7 +233,13 @@ export function HomePage() {
       sizes: filters.sizes.length > 0 ? filters.sizes : undefined,
       priceMin: filters.priceMin > 0 ? filters.priceMin : undefined,
       priceMax: filters.priceMax < PRICE_MAX ? filters.priceMax : undefined,
+      // Sort is intentionally ignored when daily-rotation is active; the
+      // shuffle IS the order. Other filters (size, price, category, gender)
+      // still narrow the pool BEFORE the shuffle, so they keep working.
       sort: filters.sort,
+      bucket: FEATURED_BUCKET,
+      dailyRotate: true,
+      seed: todaySeedUTC(),
       limit: PAGE_SIZE,
       offset: 0,
     })
@@ -263,6 +281,9 @@ export function HomePage() {
         priceMin: filters.priceMin > 0 ? filters.priceMin : undefined,
         priceMax: filters.priceMax < PRICE_MAX ? filters.priceMax : undefined,
         sort: filters.sort,
+        bucket: FEATURED_BUCKET,
+        dailyRotate: true,
+        seed: todaySeedUTC(),
         limit: PAGE_SIZE,
         offset: items.length,
       });

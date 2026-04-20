@@ -10,7 +10,12 @@ import {
   wishlistSignalsTable,
 } from "@workspace/db";
 import { refreshProductReviewSummary } from "../lib/reviewSummary";
-import { getAllProducts, getProductById, type ProductRow } from "../lib/catalog";
+import {
+  getAllProducts,
+  getProductById,
+  type BucketKey,
+  type ProductRow,
+} from "../lib/catalog";
 import { getOverridesMap } from "../lib/overrides";
 import { getSiteSettings } from "../lib/siteSettings";
 
@@ -30,6 +35,53 @@ interface SearchFilters {
   priceMin?: number;
   priceMax?: number;
   featuredOnly?: boolean;
+  bucket?: BucketKey;
+  dailyRotate?: boolean;
+  seed?: string;
+}
+
+const VALID_BUCKETS: ReadonlySet<string> = new Set([
+  "new_in",
+  "collection",
+  "tiktok_verified",
+  "trending",
+]);
+
+// Mulberry32 — small, fast, deterministic PRNG. Seeded from the daily
+// date string so the homepage's "TikTok featured" grid stays consistent
+// for every visitor on a given day, then rotates at midnight UTC.
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seedFromString(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+// Fisher–Yates shuffle using the seeded PRNG. Returns a NEW array;
+// the caller's input is untouched so the cached catalog isn't mutated.
+function seededShuffle<T>(rows: readonly T[], seed: string): T[] {
+  const out = rows.slice();
+  const rand = mulberry32(seedFromString(seed));
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    const tmp = out[i]!;
+    out[i] = out[j]!;
+    out[j] = tmp;
+  }
+  return out;
 }
 
 interface DecoratedRow extends ProductRow {
@@ -80,6 +132,19 @@ function searchAndSort(rows: DecoratedRow[], f: SearchFilters): DecoratedRow[] {
     result = result.filter((p) => Number(p.price) <= max);
   }
   if (f.featuredOnly) result = result.filter((p) => p.featured);
+  if (f.bucket) {
+    const bk = f.bucket;
+    result = result.filter((p) => p.buckets.includes(bk));
+  }
+  // Daily rotate intentionally short-circuits the sort: the shuffle IS
+  // the order, otherwise the rotated lineup would just be re-sorted
+  // back into a stable shape. The seed is required: the homepage always
+  // passes today's YYYY-MM-DD so every visitor sees the same grid until
+  // midnight UTC. Callers that need a deterministic sort instead of a
+  // rotation should simply omit `dailyRotate`.
+  if (f.dailyRotate && f.seed) {
+    return seededShuffle(result, f.seed);
+  }
   switch (f.sort) {
     case "price-asc":
       result = [...result].sort((a, b) => Number(a.price) - Number(b.price));
@@ -231,6 +296,18 @@ router.get("/storefront/products", async (req: Request, res: Response) => {
   const priceMin = parseNumber(req.query["priceMin"]);
   const priceMax = parseNumber(req.query["priceMax"]);
   const featuredOnly = req.query["featured"] === "true";
+  const bucketRaw = (req.query["bucket"] as string | undefined)?.trim();
+  const bucket =
+    bucketRaw && VALID_BUCKETS.has(bucketRaw)
+      ? (bucketRaw as BucketKey)
+      : undefined;
+  const dailyRotate = req.query["dailyRotate"] === "true";
+  const seedRaw = (req.query["seed"] as string | undefined)?.trim();
+  // Bound the seed to a small alnum/dash slug so a hostile client can't
+  // pin the cache key with arbitrary garbage (each unique seed forces
+  // a fresh shuffle). YYYY-MM-DD is the expected shape.
+  const seed =
+    seedRaw && /^[A-Za-z0-9_-]{1,32}$/.test(seedRaw) ? seedRaw : undefined;
 
   const decorated = await decorate(getAllProducts());
 
@@ -254,6 +331,9 @@ router.get("/storefront/products", async (req: Request, res: Response) => {
     priceMin,
     priceMax,
     featuredOnly,
+    bucket,
+    dailyRotate,
+    seed,
   });
   const rows = filtered.slice(offset, offset + limit);
   res.json({ rows, total: filtered.length, limit, offset });

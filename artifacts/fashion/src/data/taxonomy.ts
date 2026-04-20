@@ -17,9 +17,17 @@ export const TOP_LEVEL: string[] = [
   'Collection',
   'TikTok Verified',
   'Trending',
-  'Brands',
-  'Sale',
 ];
+
+// Maps a TOP_LEVEL nav label to the synthesised merch bucket the
+// API understands. 'Category' has no bucket — it just opens /shop.
+export const TOP_LEVEL_BUCKETS: Record<string, string | null> = {
+  Category: null,
+  'New In': 'new_in',
+  Collection: 'collection',
+  'TikTok Verified': 'tiktok_verified',
+  Trending: 'trending',
+};
 
 /**
  * Standalone leaf entries shown above the grouped categories in the rail.

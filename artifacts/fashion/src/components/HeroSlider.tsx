@@ -143,7 +143,7 @@ export function HeroSlider({ slides, intervalMs = 6000 }: Props) {
               <Caption.Ctas>
                 <Link
                   href={slide.primaryCta.href}
-                  className="inline-flex items-center gap-1.5 bg-white text-black hover:bg-primary hover:text-primary-foreground px-5 h-9 rounded-full text-[10px] tracking-widest uppercase font-bold shadow-md shadow-black/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
+                  className="inline-flex items-center gap-1 bg-white text-black hover:bg-primary hover:text-primary-foreground px-2.5 h-9 rounded-full text-[10px] tracking-widest uppercase font-bold whitespace-nowrap shadow-md shadow-black/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
                   data-testid="hero-cta-primary"
                 >
                   {slide.primaryCta.label} <ArrowRight className="w-3 h-3" />

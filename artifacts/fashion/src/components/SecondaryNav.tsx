@@ -1,29 +1,35 @@
 import { useLocation } from 'wouter';
-import { TOP_LEVEL } from '@/data/taxonomy';
+import { TOP_LEVEL, TOP_LEVEL_BUCKETS } from '@/data/taxonomy';
 
 /**
  * Trendsi-style horizontal top-level category bar that sits directly under
- * the main header. Highlights the active entry derived from the current
- * URL's `?category=` (or "Category" by default on the Shop page).
+ * the main header. The four merch tabs (New In, Collection, TikTok
+ * Verified, Trending) navigate to /shop with `?bucket=...`; "Category"
+ * opens the unfiltered /shop view. Active highlight is derived from the
+ * current URL's `?bucket=` param.
  */
 export function SecondaryNav() {
   const [location, navigate] = useLocation();
   const search = typeof window !== 'undefined' ? window.location.search : '';
   const params = new URLSearchParams(search);
-  const activeCategory = params.get('category');
+  const activeBucket = params.get('bucket');
   const onShop = location.startsWith('/shop');
-  const active = activeCategory ?? (onShop ? 'Category' : null);
+  // Reverse-lookup the nav label for the active bucket.
+  const activeLabel = (() => {
+    if (!activeBucket) return onShop ? 'Category' : null;
+    for (const [label, bk] of Object.entries(TOP_LEVEL_BUCKETS)) {
+      if (bk === activeBucket) return label;
+    }
+    return null;
+  })();
 
   const onClick = (label: string) => {
-    if (label === 'Category') {
+    const bucket = TOP_LEVEL_BUCKETS[label];
+    if (!bucket) {
       navigate('/shop');
       return;
     }
-    if (label === 'Sale') {
-      navigate('/shop?category=Sale');
-      return;
-    }
-    navigate(`/shop?category=${encodeURIComponent(label)}`);
+    navigate(`/shop?bucket=${encodeURIComponent(bucket)}`);
   };
 
   return (
@@ -34,8 +40,7 @@ export function SecondaryNav() {
           role="tablist"
         >
           {TOP_LEVEL.map((label) => {
-            const isActive = label === active;
-            const isSale = label === 'Sale';
+            const isActive = label === activeLabel;
             return (
               <li key={label}>
                 <button
@@ -44,9 +49,7 @@ export function SecondaryNav() {
                   className={`inline-flex items-center px-3 md:px-4 h-11 text-[12px] font-extrabold tracking-[0.16em] uppercase transition-colors touch-manipulation ${
                     isActive
                       ? 'text-foreground'
-                      : isSale
-                        ? 'text-primary hover:text-primary/80'
-                        : 'text-foreground/85 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground'
+                      : 'text-foreground/85 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground'
                   }`}
                   data-testid={`secondary-nav-${label.toLowerCase().replace(/\s+/g, '-')}`}
                 >

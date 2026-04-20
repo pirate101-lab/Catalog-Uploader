@@ -48,6 +48,12 @@ export function rowToProduct(r: ApiProductRow): Product {
   };
 }
 
+export type BucketKey =
+  | 'new_in'
+  | 'collection'
+  | 'tiktok_verified'
+  | 'trending';
+
 export interface SearchOptions {
   q?: string;
   category?: string;
@@ -58,6 +64,12 @@ export interface SearchOptions {
   sort?: 'featured' | 'newest' | 'name-asc' | 'price-asc' | 'price-desc';
   limit?: number;
   offset?: number;
+  /** Restrict to products in this synthetic merch bucket. */
+  bucket?: BucketKey;
+  /** When true with a `seed`, returns rows in seeded-random order. */
+  dailyRotate?: boolean;
+  /** Seed for `dailyRotate` — by convention YYYY-MM-DD UTC. */
+  seed?: string;
   signal?: AbortSignal;
 }
 
@@ -77,6 +89,9 @@ export async function searchProducts(opts: SearchOptions = {}): Promise<SearchRe
   if (typeof opts.priceMin === 'number') params.set('priceMin', String(opts.priceMin));
   if (typeof opts.priceMax === 'number') params.set('priceMax', String(opts.priceMax));
   if (opts.sort) params.set('sort', opts.sort);
+  if (opts.bucket) params.set('bucket', opts.bucket);
+  if (opts.dailyRotate) params.set('dailyRotate', 'true');
+  if (opts.seed) params.set('seed', opts.seed);
   params.set('limit', String(opts.limit ?? 24));
   params.set('offset', String(opts.offset ?? 0));
   const res = await fetch(`${BASE}/api/storefront/products?${params}`, {

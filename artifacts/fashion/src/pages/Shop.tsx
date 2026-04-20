@@ -20,8 +20,21 @@ import { Button } from '@/components/ui/button';
 import { ChevronRight, X, SlidersHorizontal, Search } from 'lucide-react';
 
 type SortKey = 'featured' | 'newest' | 'name-asc' | 'price-asc' | 'price-desc';
+type BucketKey = 'new_in' | 'collection' | 'tiktok_verified' | 'trending';
 const PAGE_SIZE = 24;
 const PRICE_MAX = 250;
+const VALID_BUCKETS: ReadonlySet<string> = new Set([
+  'new_in',
+  'collection',
+  'tiktok_verified',
+  'trending',
+]);
+const BUCKET_LABELS: Record<BucketKey, string> = {
+  new_in: 'New In',
+  collection: 'Collection',
+  tiktok_verified: 'TikTok Verified',
+  trending: 'Trending',
+};
 
 const RAIL_TO_CATEGORY: Record<string, string> = {
   All: 'All',
@@ -82,6 +95,7 @@ function readUrlFilters(search: string): {
   priceMin: number;
   priceMax: number;
   sort: SortKey;
+  bucket: BucketKey | null;
 } {
   const p = new URLSearchParams(search);
   const genderRaw = p.get('gender');
@@ -105,6 +119,9 @@ function readUrlFilters(search: string): {
   };
   const priceMin = clamp(p.get('priceMin'), 0);
   const priceMax = Math.max(priceMin, clamp(p.get('priceMax'), PRICE_MAX));
+  const bucketRaw = p.get('bucket');
+  const bucket: BucketKey | null =
+    bucketRaw && VALID_BUCKETS.has(bucketRaw) ? (bucketRaw as BucketKey) : null;
   return {
     category: p.get('category') ?? '',
     q: p.get('q') ?? '',
@@ -114,6 +131,7 @@ function readUrlFilters(search: string): {
     priceMin,
     priceMax,
     sort,
+    bucket,
   };
 }
 
@@ -215,6 +233,7 @@ export function ShopPage() {
   );
 
   const [railLabel, setRailLabel] = useState<string>(initial.category || 'All');
+  const [bucket, setBucket] = useState<BucketKey | null>(initial.bucket);
   const [sort, setSort] = useState<SortKey>(initial.sort);
   const [selectedSizes, setSelectedSizes] = useState<string[]>(initial.sizes);
   const [selectedColors, setSelectedColors] = useState<string[]>(initial.colors);
@@ -240,6 +259,7 @@ export function ShopPage() {
       priceMin?: number;
       priceMax?: number;
       sort?: SortKey;
+      bucket?: BucketKey | null;
     }) => {
       const cat = overrides.category ?? railLabel;
       const qv = overrides.q ?? query;
@@ -249,6 +269,7 @@ export function ShopPage() {
       const pmin = overrides.priceMin ?? priceRange[0];
       const pmax = overrides.priceMax ?? priceRange[1];
       const sortV = overrides.sort ?? sort;
+      const bk = overrides.bucket === undefined ? bucket : overrides.bucket;
       const params = new URLSearchParams();
       if (cat && cat !== 'All') params.set('category', cat);
       if (qv.trim()) params.set('q', qv.trim());
@@ -258,10 +279,11 @@ export function ShopPage() {
       if (pmin !== 0) params.set('priceMin', String(pmin));
       if (pmax !== PRICE_MAX) params.set('priceMax', String(pmax));
       if (sortV !== 'featured') params.set('sort', sortV);
+      if (bk) params.set('bucket', bk);
       const qs = params.toString();
       navigate(qs ? `/shop?${qs}` : '/shop', { replace: true });
     },
-    [railLabel, query, gender, selectedSizes, selectedColors, priceRange, sort, navigate],
+    [railLabel, query, gender, selectedSizes, selectedColors, priceRange, sort, bucket, navigate],
   );
 
   // Server-driven page state
@@ -283,6 +305,7 @@ export function ShopPage() {
     setSelectedColors(next.colors);
     setPriceRange([next.priceMin, next.priceMax]);
     setSort(next.sort);
+    setBucket(next.bucket);
   }, [location]);
 
   const effectiveCategory = RAIL_TO_CATEGORY[railLabel] ?? 'All';
@@ -302,6 +325,7 @@ export function ShopPage() {
       priceMin: priceRange[0] > 0 ? priceRange[0] : undefined,
       priceMax: priceRange[1] < PRICE_MAX ? priceRange[1] : undefined,
       sort,
+      bucket: bucket ?? undefined,
       limit: PAGE_SIZE,
       offset: 0,
     })
@@ -321,7 +345,7 @@ export function ShopPage() {
     return () => {
       cancelled = true;
     };
-  }, [effectiveCategory, query, sort, search, gender, selectedSizes, priceRange]);
+  }, [effectiveCategory, query, sort, search, gender, selectedSizes, priceRange, bucket]);
 
   // Infinite scroll: when sentinel hits viewport, load the next page.
   // Each filter combination gets its own version token so a slow page
@@ -329,7 +353,7 @@ export function ShopPage() {
   const filterVersionRef = useRef(0);
   useEffect(() => {
     filterVersionRef.current += 1;
-  }, [effectiveCategory, query, sort, gender, selectedSizes, priceRange]);
+  }, [effectiveCategory, query, sort, gender, selectedSizes, priceRange, bucket]);
 
   useEffect(() => {
     const node = sentinelRef.current;
@@ -348,6 +372,7 @@ export function ShopPage() {
             priceMin: priceRange[0] > 0 ? priceRange[0] : undefined,
             priceMax: priceRange[1] < PRICE_MAX ? priceRange[1] : undefined,
             sort,
+            bucket: bucket ?? undefined,
             limit: PAGE_SIZE,
             offset,
           })
@@ -382,6 +407,7 @@ export function ShopPage() {
     gender,
     selectedSizes,
     priceRange,
+    bucket,
   ]);
 
   // Client-side refinements (size/color/price) operate on whatever is loaded.
@@ -456,6 +482,7 @@ export function ShopPage() {
     setSelectedColors([]);
     setPriceRange([0, PRICE_MAX]);
     setQuery('');
+    setBucket(null);
     navigate('/shop', { replace: true });
   };
 
@@ -495,7 +522,11 @@ export function ShopPage() {
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
               <div>
                 <h1 className="font-serif text-3xl md:text-4xl font-extrabold text-foreground mb-1">
-                  {railLabel === 'All' ? 'Shop All' : railLabel}
+                  {bucket
+                    ? BUCKET_LABELS[bucket]
+                    : railLabel === 'All'
+                      ? 'Shop All'
+                      : railLabel}
                 </h1>
                 <p className="text-muted-foreground text-sm">
                   {initialLoading
@@ -556,6 +587,7 @@ export function ShopPage() {
 
             {(query ||
               railLabel !== 'All' ||
+              bucket !== null ||
               selectedSizes.length > 0 ||
               selectedColors.length > 0 ||
               priceRange[0] !== 0 ||
@@ -564,6 +596,15 @@ export function ShopPage() {
                 <span className="text-xs uppercase tracking-widest text-muted-foreground mr-1">
                   Active filters:
                 </span>
+                {bucket && (
+                  <FilterChip
+                    label={BUCKET_LABELS[bucket]}
+                    onClear={() => {
+                      setBucket(null);
+                      writeUrl({ bucket: null });
+                    }}
+                  />
+                )}
                 {query && <FilterChip label={`Search: ${query}`} onClear={() => updateQuery('')} />}
                 {railLabel !== 'All' && (
                   <FilterChip label={railLabel} onClear={() => updateRail('All')} />
