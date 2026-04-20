@@ -68,6 +68,25 @@ export function imageSrcSet(
   return IMAGE_WIDTHS.map((w) => `${withSize(base, w)} ${w}w`).join(', ');
 }
 
+// Builds the inputs needed for a `<link rel="preload" as="image">` hint that
+// mirrors what <ProductImage> will request. Returns null when the asset is
+// not a sized .webp (e.g. external/legacy images) since the browser can't
+// usefully preload a non-srcset variant we won't actually render.
+export function imagePreload(
+  path: string | undefined,
+  opts: { category: string; id: string; w?: number },
+): { href: string; imageSrcSet: string; type: string } | null {
+  if (!path) return null;
+  const base = resolveBase(path);
+  if (!base || !isSizedAsset(base)) return null;
+  const width = pickWidth(opts.w ?? DEFAULT_WIDTH);
+  return {
+    href: withSize(base, width),
+    imageSrcSet: IMAGE_WIDTHS.map((w) => `${withSize(base, w)} ${w}w`).join(', '),
+    type: 'image/webp',
+  };
+}
+
 // Kept for backwards compatibility with <ProductImage>'s onError handler.
 export function fallbackImage(_category: string, _id: string, _w = 600): string {
   return PLACEHOLDER_IMAGE;

@@ -18,7 +18,9 @@ import {
 import { getProductDescription, PRODUCT_DETAILS } from '@/lib/productDescriptions';
 import { getGalleryImages } from '@/lib/productImages';
 import { ProductImage } from '@/components/ProductImage';
-import { imageUrl } from '@/lib/imageUrl';
+import { imageUrl, imagePreload } from '@/lib/imageUrl';
+
+const HERO_IMAGE_SIZES = '(min-width: 1024px) 480px, (min-width: 768px) 45vw, 100vw';
 
 function Stars({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
   const px = size === 'md' ? 'w-5 h-5' : 'w-4 h-4';
@@ -144,6 +146,10 @@ export function ProductDetailPage() {
   const rating = { average: reviewData.average, count: reviewData.count };
   const description = getProductDescription(product);
   const wishlisted = inWishlist(product.id);
+  const heroPreload = imagePreload(gallery[activeImage], {
+    category: product.category,
+    id: product.id,
+  });
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,6 +217,17 @@ export function ProductDetailPage() {
 
   return (
     <div className="pt-28 pb-24 bg-background min-h-screen">
+      {heroPreload && (
+        <link
+          rel="preload"
+          as="image"
+          href={heroPreload.href}
+          imageSrcSet={heroPreload.imageSrcSet}
+          imageSizes={HERO_IMAGE_SIZES}
+          type={heroPreload.type}
+          fetchPriority="high"
+        />
+      )}
       <div className="container mx-auto px-4">
         <nav className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground mb-8">
           <Link href="/" className="hover:text-foreground">Home</Link>
@@ -260,7 +277,7 @@ export function ProductDetailPage() {
                 alt={product.imageAlt}
                 className="absolute inset-0 w-full h-full object-cover"
                 priority
-                sizes="(min-width: 1024px) 480px, (min-width: 768px) 45vw, 100vw"
+                sizes={HERO_IMAGE_SIZES}
               />
               <button
                 onClick={() => {
