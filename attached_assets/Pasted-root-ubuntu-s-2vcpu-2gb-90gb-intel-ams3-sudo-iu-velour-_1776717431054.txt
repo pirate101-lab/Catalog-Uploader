@@ -1,0 +1,136 @@
+root@ubuntu-s-2vcpu-2gb-90gb-intel-ams3:~# sudo -iu velour bash <<'EOF'
+set -e
+cd ~/velour
+git pull --ff-only
+pnpm install --frozen-lockfile=false
+set -a; . ./.env; set +a
+export NODE_OPTIONS="--max-old-space-size=1280"
+pnpm --filter @workspace/api-server build
+sync && echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null
+pnpm --filter @workspace/fashion build
+pnpm --filter @workspace/db push
+pm2 restart velour-api velour-web
+pm2 save
+EOF
+remote: Enumerating objects: 307, done.
+remote: Counting objects: 100% (307/307), done.
+remote: Compressing objects: 100% (67/67), done.
+remote: Total 266 (delta 210), reused 255 (delta 199), pack-reused 0 (from 0)
+Receiving objects: 100% (266/266), 81.14 KiB | 2.46 MiB/s, done.
+Resolving deltas: 100% (210/210), completed with 36 local objects.
+From https://github.com/pirate101-lab/Catalog-Uploader
+   da05cdc..5720ac9  main       -> origin/main
+Updating da05cdc..5720ac9
+Fast-forward
+ artifacts/api-server/package.json                                        |   5 +-
+ artifacts/api-server/scripts/backfill-review-summary.mjs                 |  54 ++++++
+ artifacts/api-server/scripts/bench-storefront.mjs                        |  60 +++++++
+ artifacts/api-server/scripts/seed-reviews.mjs                            | 290 ++++++++++++++++++++++++++++++
+ artifacts/api-server/scripts/verify-review-summary-on-delete.mjs         | 105 +++++++++++
+ artifacts/api-server/src/lib/email.ts                                    | 242 +++++++++++++++++--------
+ artifacts/api-server/src/lib/reviewSummary.ts                            |  85 +++++++++
+ artifacts/api-server/src/routes/admin.ts                                 | 299 ++++++++++++++++++++++++++++++-
+ artifacts/api-server/src/routes/checkout.ts                              |  12 +-
+ artifacts/api-server/src/routes/storefront.ts                            | 270 +++++++++++++++++++++++++++-
+ artifacts/fashion/src/App.tsx                                            |  83 ++++++---
+ artifacts/fashion/src/admin/AdminShell.tsx                               |   4 +
+ artifacts/fashion/src/admin/Dashboard.tsx                                | 252 ++++++++++++++++++--------
+ artifacts/fashion/src/admin/EmailsAdmin.tsx                              | 176 +++++++++++++++++++
+ artifacts/fashion/src/admin/OrdersAdmin.tsx                              | 140 ++++++++++-----
+ artifacts/fashion/src/admin/ReviewsAdmin.tsx                             | 211 ++++++++++++++++++++++
+ artifacts/fashion/src/admin/SettingsAdmin.tsx                            |  31 ++++
+ artifacts/fashion/src/admin/api.ts                                       |  96 +++++++++-
+ artifacts/fashion/src/components/Footer.tsx                              |  82 +++++----
+ artifacts/fashion/src/components/HeroSlider.tsx                          |  82 ++-------
+ artifacts/fashion/src/components/ProductCard.tsx                         |  12 +-
+ artifacts/fashion/src/components/SecondaryNav.tsx                        |  17 +-
+ artifacts/fashion/src/lib/imageUrl.ts                                    |  32 ++--
+ artifacts/fashion/src/lib/reviews.ts                                     |  29 +++
+ artifacts/fashion/src/pages/Home.tsx                                     |  34 +++-
+ artifacts/fashion/src/pages/ProductDetail.tsx                            | 163 +++++++++++------
+ ...ome-to-Ubuntu-24-04-4-LTS-GNU-Linux-6-8-0-110-gener_1776709140660.txt |  62 +++++++
+ ...ome-to-Ubuntu-24-04-4-LTS-GNU-Linux-6-8-0-110-gener_1776709409943.txt | 171 ++++++++++++++++++
+ ...ome-to-Ubuntu-24-04-4-LTS-GNU-Linux-6-8-0-110-gener_1776709751351.txt | 311 +++++++++++++++++++++++++++++++++
+ lib/db/src/schema/admin.ts                                               |  57 ++++++
+ pnpm-lock.yaml                                                           |  11 +-
+ pnpm-workspace.yaml                                                      | 212 ++++++++++------------
+ replit.md                                                                |  77 ++++++++
+ 33 files changed, 3240 insertions(+), 527 deletions(-)
+ create mode 100644 artifacts/api-server/scripts/backfill-review-summary.mjs
+ create mode 100644 artifacts/api-server/scripts/bench-storefront.mjs
+ create mode 100644 artifacts/api-server/scripts/seed-reviews.mjs
+ create mode 100644 artifacts/api-server/scripts/verify-review-summary-on-delete.mjs
+ create mode 100644 artifacts/api-server/src/lib/reviewSummary.ts
+ create mode 100644 artifacts/fashion/src/admin/EmailsAdmin.tsx
+ create mode 100644 artifacts/fashion/src/admin/ReviewsAdmin.tsx
+ create mode 100644 attached_assets/Pasted-Welcome-to-Ubuntu-24-04-4-LTS-GNU-Linux-6-8-0-110-gener_1776709140660.txt
+ create mode 100644 attached_assets/Pasted-Welcome-to-Ubuntu-24-04-4-LTS-GNU-Linux-6-8-0-110-gener_1776709409943.txt
+ create mode 100644 attached_assets/Pasted-Welcome-to-Ubuntu-24-04-4-LTS-GNU-Linux-6-8-0-110-gener_1776709751351.txt
+Scope: all 10 workspace projects
+Lockfile is up to date, resolution step is skipped
+Already up to date
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Us…
+└─ Done in 18ms
+Done in 3.4s using pnpm v10.33.0
+
+> @workspace/api-server@0.0.0 build /home/velour/velour/artifacts/api-server
+> node ./build.mjs
+
+
+  dist/index.mjs                       2.1mb ⚠️
+  dist/pino-worker.mjs               153.4kb
+  dist/pino-file.mjs                 142.1kb
+  dist/pino-pretty.mjs               114.6kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/index.mjs.map                   3.5mb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.0kb
+  dist/pino-pretty.mjs.map           203.9kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+
+⚡ Done in 636ms
+
+> @workspace/fashion@0.0.0 build /home/velour/velour/artifacts/fashion
+> PORT=${PORT:-5000} BASE_PATH=${BASE_PATH:-/} vite build --config vite.config.ts
+
+vite v7.3.2 building client environment for production...
+src/components/ui/sonner.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/sheet.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 2296 modules transformed.
+dist/public/index.html                           2.39 kB │ gzip:   1.00 kB
+dist/public/assets/index-DUmSXtgE.css          137.65 kB │ gzip:  21.94 kB
+dist/public/assets/trash-2-oBBxBk5i.js           0.33 kB │ gzip:   0.22 kB
+dist/public/assets/CustomersAdmin-Bfg1PCMl.js    1.89 kB │ gzip:   0.72 kB
+dist/public/assets/switch-CmO7Ixqk.js            2.45 kB │ gzip:   1.23 kB
+dist/public/assets/EmailsAdmin-BczKOUM4.js       3.66 kB │ gzip:   1.49 kB
+dist/public/assets/ReviewsAdmin-BZ-71MND.js      3.93 kB │ gzip:   1.67 kB
+dist/public/assets/HeroAdmin-7O19lBm8.js         5.17 kB │ gzip:   2.12 kB
+dist/public/assets/SettingsAdmin-D3B4mhmC.js     7.12 kB │ gzip:   2.35 kB
+dist/public/assets/OrdersAdmin--ilT10h9.js       7.69 kB │ gzip:   2.47 kB
+dist/public/assets/Dashboard-NPx_i5YI.js         7.91 kB │ gzip:   2.39 kB
+dist/public/assets/api-pSu4q3Tn.js               9.54 kB │ gzip:   3.36 kB
+dist/public/assets/ProductsAdmin-CAH82MCo.js    12.58 kB │ gzip:   4.23 kB
+dist/public/assets/index-0TMRDKn7.js           734.12 kB │ gzip: 228.91 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 9.24s
+
+> @workspace/db@0.0.0 push /home/velour/velour/lib/db
+> drizzle-kit push --config ./drizzle.config.ts
+
+Reading config file '/home/velour/velour/lib/db/drizzle.config.ts'
+Using 'pg' driver for database querying
+[✓] Pulling schema from database...
+[✓] Changes applied
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [velour-api](ids: [ 0 ])
+[PM2] [velour-api](0) ✓
+Use --update-env to update environment variables
+[PM2][ERROR] Process or Namespace velour-web not found
+root@ubuntu-s-2vcpu-2gb-90gb-intel-ams3:~# 
