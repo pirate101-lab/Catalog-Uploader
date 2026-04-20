@@ -3,6 +3,7 @@ import { db, ordersTable } from "@workspace/db";
 import { getProductById } from "../lib/catalog";
 import { getOverridesMap } from "../lib/overrides";
 import { getSiteSettings } from "../lib/siteSettings";
+import { sendOrderConfirmationEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -151,6 +152,8 @@ router.post("/checkout/submit", async (req: Request, res: Response) => {
         status: "new",
       })
       .returning();
+
+    void sendOrderConfirmationEmail(order, req.log);
 
     res.status(201).json({
       orderId: order.id,
