@@ -4,6 +4,7 @@ import {
   ObjectStorageService,
   StorageNotConfiguredError,
 } from "../lib/objectStorage";
+import { requireAdmin } from "../middlewares/adminGuard";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -11,12 +12,15 @@ const objectStorageService = new ObjectStorageService();
 /**
  * POST /storage/uploads/request-url
  *
- * Returns a presigned PUT URL plus the eventual public objectPath.
- * The client uploads file bytes directly to GCS via the presigned URL,
- * then stores the returned `publicUrl` as the persistent reference.
+ * Admin-only: returns a presigned PUT URL plus the eventual public
+ * objectPath. The client uploads file bytes directly to GCS via the
+ * presigned URL, then stores the returned `publicUrl` as the persistent
+ * reference. Guarded with requireAdmin so unauthenticated users cannot
+ * mint signed URLs and write arbitrary public objects.
  */
 router.post(
   "/storage/uploads/request-url",
+  requireAdmin,
   async (req: Request, res: Response) => {
     try {
       const name =
