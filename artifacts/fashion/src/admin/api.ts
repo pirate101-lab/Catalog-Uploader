@@ -180,27 +180,41 @@ export const adminApi = {
   /* Stats */
   getStats: () => adminFetch<DashboardStats>("/admin/stats"),
 
-  /* Products (storefront read) */
+  /* Products — admin endpoint that includes hidden rows + override metadata */
   listProducts: (params: {
     q?: string;
     category?: string;
     limit?: number;
     offset?: number;
+    hiddenOnly?: boolean;
+    featuredOnly?: boolean;
   }) => {
     const q = new URLSearchParams();
     if (params.q) q.set("q", params.q);
     if (params.category) q.set("category", params.category);
+    if (params.hiddenOnly) q.set("hiddenOnly", "1");
+    if (params.featuredOnly) q.set("featuredOnly", "1");
     q.set("limit", String(params.limit ?? 50));
     q.set("offset", String(params.offset ?? 0));
-    return fetch(`/api/storefront/products?${q.toString()}`, {
-      credentials: "include",
-    }).then((r) => r.json()) as Promise<{
-      rows: ProductRow[];
+    return adminFetch<{
+      rows: Array<ProductRow & { override: ProductOverride | null }>;
       total: number;
       limit: number;
       offset: number;
-    }>;
+    }>(`/admin/products?${q.toString()}`);
   },
+
+  requestUploadUrl: (name: string) =>
+    fetch("/api/storage/uploads/request-url", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).then((r) => r.json()) as Promise<{
+      uploadURL: string;
+      objectPath: string;
+      publicUrl: string;
+    }>,
 };
 
 export function fmtCents(cents: number, symbol = "$"): string {

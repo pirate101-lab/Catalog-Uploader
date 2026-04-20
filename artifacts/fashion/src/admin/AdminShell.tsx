@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, Redirect, useLocation } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import {
   LayoutDashboard,
@@ -76,33 +76,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }
 
   if (!adminCheck.isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="max-w-md w-full p-10 border rounded-lg text-center space-y-6">
-          <ShieldAlert className="w-10 h-10 mx-auto text-destructive" />
-          <div>
-            <h1 className="font-serif text-3xl font-bold mb-2">
-              No admin access
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Your account isn't on the admin allowlist. Ask the store owner
-              to add <span className="font-mono">{user?.email}</span> to
-              <span className="font-mono"> ADMIN_EMAILS</span>.
-            </p>
-          </div>
-          <div className="flex gap-2 justify-center">
-            <Link href="/">
-              <Button variant="outline" className="h-11">
-                Back to storefront
-              </Button>
-            </Link>
-            <Button onClick={logout} className="h-11">
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+    // Redirect non-admin authenticated users back to the storefront. The
+    // server still enforces admin on every /admin/* API route, so this
+    // is purely a UX shortcut to keep them out of the admin shell.
+    return <Redirect to="/" />;
   }
 
   return (

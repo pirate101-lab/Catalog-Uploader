@@ -235,6 +235,53 @@ router.post("/admin/product-overrides/bulk", async (req, res) => {
   res.json({ updated: ids.length });
 });
 
+/* ---------------- Admin Products listing ----------------
+ * Storefront /storefront/products intentionally hides products with
+ * { hidden: true } overrides. The admin needs the full catalog so it
+ * can unhide them again — this endpoint returns all products with their
+ * effective override metadata merged in.
+ */
+
+router.get("/admin/products", async (req: Request, res: Response) => {
+  const limit = Math.min(
+    Number((req.query["limit"] as string) ?? 50) || 50,
+    200,
+  );
+  const offset = Math.max(Number((req.query["offset"] as string) ?? 0) || 0, 0);
+  const q = ((req.query["q"] as string) ?? "").trim().toLowerCase();
+  const category = (req.query["category"] as string) ?? "";
+  const showHiddenOnly = req.query["hiddenOnly"] === "1";
+  const showFeaturedOnly = req.query["featuredOnly"] === "1";
+
+  const all = await getAllProducts();
+  const overrideRows = await db.select().from(productOverridesTable);
+  const overridesById = new Map(overrideRows.map((o) => [o.productId, o]));
+
+  let filtered = all;
+  if (q) {
+    filtered = filtered.filter(
+      (p) =>
+        p.title.toLowerCase().includes(q) ||
+        p.id.toLowerCase().includes(q),
+    );
+  }
+  if (category) {
+    filtered = filtered.filter((p) => p.category === category);
+  }
+  if (showHiddenOnly) {
+    filtered = filtered.filter((p) => overridesById.get(p.id)?.hidden);
+  }
+  if (showFeaturedOnly) {
+    filtered = filtered.filter((p) => overridesById.get(p.id)?.featured);
+  }
+
+  const slice = filtered.slice(offset, offset + limit).map((p) => ({
+    ...p,
+    override: overridesById.get(p.id) ?? null,
+  }));
+  res.json({ rows: slice, total: filtered.length, limit, offset });
+});
+
 /* ---------------- Orders ---------------- */
 
 const ORDER_STATUSES = [

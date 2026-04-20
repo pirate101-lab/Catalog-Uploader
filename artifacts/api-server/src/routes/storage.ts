@@ -9,6 +9,39 @@ const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
 /**
+ * POST /storage/uploads/request-url
+ *
+ * Returns a presigned PUT URL plus the eventual public objectPath.
+ * The client uploads file bytes directly to GCS via the presigned URL,
+ * then stores the returned `publicUrl` as the persistent reference.
+ */
+router.post(
+  "/storage/uploads/request-url",
+  async (req: Request, res: Response) => {
+    try {
+      const name =
+        typeof req.body?.name === "string" && req.body.name.length > 0
+          ? req.body.name
+          : "upload.bin";
+      const { uploadURL, objectPath } =
+        await objectStorageService.getUploadURL(name);
+      res.json({
+        uploadURL,
+        objectPath,
+        publicUrl: `/api/storage/public-objects/${objectPath}`,
+      });
+    } catch (error) {
+      if (error instanceof StorageNotConfiguredError) {
+        res.status(503).json({ error: error.message });
+        return;
+      }
+      req.log.error({ err: error }, "Failed to sign upload URL");
+      res.status(500).json({ error: "Failed to sign upload URL" });
+    }
+  },
+);
+
+/**
  * GET /storage/public-objects/*
  *
  * Serve public assets from PUBLIC_OBJECT_SEARCH_PATHS.

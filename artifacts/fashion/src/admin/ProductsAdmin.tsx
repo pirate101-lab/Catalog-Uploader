@@ -39,6 +39,16 @@ export function ProductsAdmin() {
       .then((data) => {
         setRows(data.rows);
         setTotal(data.total);
+        // /admin/products embeds the override on each row; merge so a
+        // hidden product still has its toggle reflect the saved state
+        // before the separate listOverrides() fetch returns.
+        setOverrides((prev) => {
+          const next = new Map(prev);
+          for (const r of data.rows) {
+            if (r.override) next.set(r.id, r.override);
+          }
+          return next;
+        });
       })
       .finally(() => setLoading(false));
   }, [q, page]);

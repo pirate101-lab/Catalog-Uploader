@@ -175,11 +175,52 @@ function SlideEditor({
               onChange={(e) => set("ctaHref", e.target.value)}
             />
           </Field>
-          <Field label="Image URL">
-            <Input
-              value={draft.imageUrl}
-              onChange={(e) => set("imageUrl", e.target.value)}
-            />
+          <Field label="Image">
+            <div className="flex gap-2 items-center">
+              <Input
+                value={draft.imageUrl}
+                onChange={(e) => set("imageUrl", e.target.value)}
+                placeholder="/path/to/image.jpg or paste URL"
+              />
+              <input
+                id={`upload-${slide.id}`}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const t = toast.loading("Uploading…");
+                  try {
+                    const { uploadURL, publicUrl } =
+                      await adminApi.requestUploadUrl(file.name);
+                    const put = await fetch(uploadURL, {
+                      method: "PUT",
+                      headers: { "Content-Type": file.type },
+                      body: file,
+                    });
+                    if (!put.ok) throw new Error("Upload failed");
+                    set("imageUrl", publicUrl);
+                    toast.success("Uploaded", { id: t });
+                  } catch (err) {
+                    toast.error((err as Error).message, { id: t });
+                  } finally {
+                    e.target.value = "";
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  document
+                    .getElementById(`upload-${slide.id}`)
+                    ?.click()
+                }
+              >
+                Upload
+              </Button>
+            </div>
           </Field>
         </div>
         <div className="flex items-center justify-between pt-3 border-t">
