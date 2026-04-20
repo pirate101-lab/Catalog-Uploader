@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { imageUrl, fallbackImage, isStorageConfigured, PLACEHOLDER_IMAGE } from '@/lib/imageUrl';
+import { imageUrl, imageSrcSet, fallbackImage, isStorageConfigured, PLACEHOLDER_IMAGE } from '@/lib/imageUrl';
 
 interface ProductImageProps {
   src?: string;
@@ -7,9 +7,9 @@ interface ProductImageProps {
   id: string;
   alt: string;
   className?: string;
-  /** Display width hint for srcset / DPR scaling. Omit to skip srcset. */
+  /** Display width hint used to choose the default `src` variant. */
   width?: number;
-  /** sizes attr passed straight through. */
+  /** sizes attr passed straight through; pairs with the width-descriptor srcset. */
   sizes?: string;
   loading?: 'lazy' | 'eager';
   /** When true, marks the image as high priority for the browser. */
@@ -29,18 +29,21 @@ export function ProductImage({
 }: ProductImageProps) {
   const initial = imageUrl(src, { category, id, w: width });
   const [url, setUrl] = useState(initial);
+  const [errored, setErrored] = useState(false);
 
   useEffect(() => {
     setUrl(imageUrl(src, { category, id, w: width }));
+    setErrored(false);
   }, [src, category, id, width]);
 
   if (!isStorageConfigured() || !src) {
     return <div aria-label={alt} className={className} />;
   }
 
-  // Our R2 catalog ships a single resolution per asset, so DPR-based srcset
-  // hints just nudge browsers to upscale less aggressively on retina screens.
-  const srcSet = width ? `${url} 1x, ${url} 2x` : undefined;
+  // Catalog assets are uploaded to R2 in 400 / 800 / 1600px widths; emit a
+  // real width-descriptor srcset so browsers can pick the right file for the
+  // viewport and DPR.
+  const srcSet = errored ? undefined : imageSrcSet(src, { category, id });
 
   return (
     <img
@@ -54,7 +57,10 @@ export function ProductImage({
       className={className}
       onError={() => {
         const fb = fallbackImage(category, id, width);
-        if (url !== fb && url !== PLACEHOLDER_IMAGE) setUrl(fb);
+        if (url !== fb && url !== PLACEHOLDER_IMAGE) {
+          setErrored(true);
+          setUrl(fb);
+        }
       }}
     />
   );

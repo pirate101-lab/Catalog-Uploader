@@ -37,6 +37,9 @@ function rewriteImageUrl(relPath: string): string {
     // Fallback if env not set; serves a placeholder so the page still renders.
     return `/image-coming-soon.svg`;
   }
+  // We emit the "base" .webp URL here; the frontend's imageUrl()/imageSrcSet()
+  // helpers derive the per-width variants (`_400.webp` / `_800.webp` /
+  // `_1600.webp`) that scripts/upload-r2.mjs actually uploads to R2.
   return `${PUBLIC_BASE}/${KEY_PREFIX}/${clean}`;
 }
 
