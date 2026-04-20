@@ -434,9 +434,14 @@ router.patch("/admin/orders/:id", async (req, res) => {
   }
   if (existing.status !== row.status) {
     // Fire-and-forget so a slow/failing email provider does not block the
-    // admin UI. Errors are logged + recorded inside the helpers. Status
-    // → email kind map: packed → confirmation, shipped/delivered → status.
-    if (row.status === "packed") {
+    // admin UI. Errors are logged + recorded inside the helpers.
+    //
+    // Confirmation only fires on the *first* admin action — i.e. the
+    // `new → packed` transition — so flipping a packed order back to
+    // new and forward again won't blast the customer with duplicate
+    // confirmations. Resending intentionally goes through the dedicated
+    // /resend-email endpoint instead.
+    if (existing.status === "new" && row.status === "packed") {
       void sendOrderConfirmationEmail(row, req.log);
     } else if (row.status === "shipped" || row.status === "delivered") {
       void sendOrderStatusEmail(row, row.status, req.log);

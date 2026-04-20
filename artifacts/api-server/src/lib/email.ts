@@ -111,6 +111,10 @@ function renderOrderEmail(
 ): RenderedEmail {
   const items = (order.items as OrderItem[]) ?? [];
   const orderRef = shortOrderId(order.id);
+  const storefrontUrl = getStorefrontUrl();
+  const storefrontDisplay = getStorefrontDisplay(storefrontUrl);
+  const ctaLabel =
+    kind === "delivered" ? "Shop again" : "Visit the shop";
 
   let heading: string;
   let intro: string;
@@ -206,7 +210,10 @@ function renderOrderEmail(
       </tr>
     </table>
     ${addressHtml}
-    <p style="margin:32px 0 0 0;color:#888;font-size:12px;">${escapeHtml(storeName)}</p>
+    <p style="margin:32px 0 16px 0;">
+      <a href="${escapeHtml(storefrontUrl)}" style="display:inline-block;background:#111;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:4px;font-size:14px;">${escapeHtml(ctaLabel)}</a>
+    </p>
+    <p style="margin:24px 0 0 0;color:#888;font-size:12px;">${escapeHtml(storeName)} · <a href="${escapeHtml(storefrontUrl)}" style="color:#888;">${escapeHtml(storefrontDisplay)}</a></p>
   </div>
 </body></html>`;
 
@@ -238,9 +245,28 @@ function renderOrderEmail(
   if (addressLines.length > 0) {
     textLines.push("", "Shipping to:", ...addressLines);
   }
-  textLines.push("", storeName);
+  textLines.push("", `${ctaLabel}: ${storefrontUrl}`, "", storeName);
 
   return { subject, html, text: textLines.join("\n") };
+}
+
+/** Resolve the public storefront URL used in email CTAs. Honours the
+ *  `PUBLIC_SITE_URL` env var (set in production), then the dev preview
+ *  domain, and finally a sensible default so links never render blank. */
+function getStorefrontUrl(): string {
+  const fromEnv = process.env["PUBLIC_SITE_URL"]?.trim();
+  if (fromEnv) return fromEnv.replace(/\/+$/, "");
+  const devDomain = process.env["REPLIT_DEV_DOMAIN"]?.trim();
+  if (devDomain) return `https://${devDomain}`;
+  return "https://shopthelook.page";
+}
+
+function getStorefrontDisplay(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
 }
 
 interface SenderResolution {

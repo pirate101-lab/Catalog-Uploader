@@ -268,7 +268,10 @@ function EmailEventsCard({
     }
   };
 
-  const anyFailed = events.some(
+  // Only warn when the *latest* attempt for a given kind is in a bad
+  // state. A historical failure that's since been resent successfully
+  // shouldn't keep the banner red.
+  const anyFailed = [...latestByKind.values()].some(
     (e) => e.status === "failed" || e.status === "skipped",
   );
 
