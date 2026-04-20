@@ -168,3 +168,16 @@ export const reviewsTable = pgTable(
 
 export type Review = typeof reviewsTable.$inferSelect;
 export type InsertReview = typeof reviewsTable.$inferInsert;
+
+export const productReviewSummaryTable = pgTable("product_review_summary", {
+  productId: varchar("product_id").primaryKey(),
+  count: integer("count").notNull().default(0),
+  average: numeric("average", { precision: 4, scale: 2 }).notNull().default("0"),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export type ProductReviewSummary = typeof productReviewSummaryTable.$inferSelect;
+export type InsertProductReviewSummary = typeof productReviewSummaryTable.$inferInsert;

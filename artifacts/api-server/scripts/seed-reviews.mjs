@@ -199,10 +199,17 @@ const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 try {
+  // Track every product whose review set we touched so we can refresh
+  // the cached summary in one pass at the end. Seeded inserts plus any
+  // products whose reviews were just removed by --reset both need a
+  // refresh so the cache doesn't drift.
+  const touched = new Set(rows.map((r) => r.productId));
+
   if (RESET) {
     const del = await pool.query(
-      `DELETE FROM reviews WHERE seeded = true RETURNING id`,
+      `DELETE FROM reviews WHERE seeded = true RETURNING id, product_id`,
     );
+    for (const r of del.rows) touched.add(r.product_id);
     console.log(`Cleared ${del.rowCount} previously seeded review row(s).`);
   }
 
@@ -232,6 +239,48 @@ try {
     process.stdout.write(`\r  inserted ${inserted}/${rows.length}`);
   }
   process.stdout.write("\n");
+
+  // Refresh the cached `product_review_summary` rows for every touched
+  // product (and any product whose seeded rows were just deleted via
+  // `--reset`). Mirrors the upsert performed at API write time.
+  const productIds = Array.from(touched);
+  if (productIds.length > 0) {
+    const placeholders = productIds.map((_, i) => `$${i + 1}`).join(",");
+    const refresh = await pool.query(
+      `
+      INSERT INTO product_review_summary (product_id, count, average, updated_at)
+      SELECT product_id,
+             count(*)::int,
+             round(avg(rating)::numeric, 2),
+             now()
+      FROM reviews
+      WHERE product_id IN (${placeholders})
+      GROUP BY product_id
+      ON CONFLICT (product_id) DO UPDATE
+        SET count = EXCLUDED.count,
+            average = EXCLUDED.average,
+            updated_at = EXCLUDED.updated_at
+      `,
+      productIds,
+    );
+    // Products that lost all their reviews via --reset will not appear in
+    // the SELECT above; zero them out explicitly so the cache stays
+    // truthful.
+    await pool.query(
+      `
+      UPDATE product_review_summary
+      SET count = 0, average = 0, updated_at = now()
+      WHERE product_id IN (${placeholders})
+        AND NOT EXISTS (
+          SELECT 1 FROM reviews r WHERE r.product_id = product_review_summary.product_id
+        )
+      `,
+      productIds,
+    );
+    console.log(
+      `Refreshed review summary for ${refresh.rowCount} product(s).`,
+    );
+  }
   console.log("Done.");
 } catch (err) {
   console.error("Seed failed:", err);

@@ -5,9 +5,11 @@ import {
   db,
   heroSlidesTable,
   ordersTable,
+  productReviewSummaryTable,
   reviewsTable,
   wishlistSignalsTable,
 } from "@workspace/db";
+import { refreshProductReviewSummary } from "../lib/reviewSummary";
 import { getAllProducts, getProductById, type ProductRow } from "../lib/catalog";
 import { getOverridesMap } from "../lib/overrides";
 import { getSiteSettings } from "../lib/siteSettings";
@@ -378,18 +380,21 @@ router.get(
       .limit(limit)
       .offset(offset);
 
+    // Read the cached aggregate written by `refreshProductReviewSummary`
+    // on every insert. Falls back to zero when no review has ever been
+    // recorded for the product (no summary row exists).
     const summary = await db
       .select({
-        count: sql<number>`count(*)::int`,
-        average: sql<number>`coalesce(avg(${reviewsTable.rating}), 0)::float`,
+        count: productReviewSummaryTable.count,
+        average: productReviewSummaryTable.average,
       })
-      .from(reviewsTable)
-      .where(eq(reviewsTable.productId, productId));
+      .from(productReviewSummaryTable)
+      .where(eq(productReviewSummaryTable.productId, productId))
+      .limit(1);
 
-    const { count = 0, average = 0 } = (summary[0] ?? {}) as {
-      count?: number;
-      average?: number;
-    };
+    const summaryRow = summary[0];
+    const count = summaryRow?.count ?? 0;
+    const average = summaryRow ? Number(summaryRow.average) : 0;
     res.json({
       reviews: rows.map((r: (typeof rows)[number]) => ({
         id: r.id,
@@ -529,6 +534,7 @@ router.post(
         verifiedPurchase: true,
         seeded: false,
       });
+      await refreshProductReviewSummary(productId);
     } catch (err) {
       // Race against the soft check above — partial unique index on
       // (product_id, user_id) WHERE user_id IS NOT NULL.
