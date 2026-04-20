@@ -47,6 +47,18 @@ const VALID_BUCKETS: ReadonlySet<string> = new Set([
   "trending",
 ]);
 
+// Top-nav category labels that are actually bucket aliases. The
+// SecondaryNav component navigates with `?category=TikTok Verified`
+// (and similar) per the URL contract; the route translates those
+// labels into the underlying bucket flag here so callers don't have
+// to know about the synthesis. Keys are case-insensitive.
+const CATEGORY_LABEL_TO_BUCKET: ReadonlyMap<string, BucketKey> = new Map([
+  ["new in", "new_in"],
+  ["collection", "collection"],
+  ["tiktok verified", "tiktok_verified"],
+  ["trending", "trending"],
+]);
+
 // Mulberry32 — small, fast, deterministic PRNG. Seeded from the daily
 // date string so the homepage's "TikTok featured" grid stays consistent
 // for every visitor on a given day, then rotates at midnight UTC.
@@ -146,6 +158,18 @@ function searchAndSort(rows: DecoratedRow[], f: SearchFilters): DecoratedRow[] {
     return seededShuffle(result, f.seed);
   }
   switch (f.sort) {
+    case "trending":
+      // trendScore desc, then numeric id desc as a stable tiebreaker so
+      // the order doesn't flap between requests for items at score 0.
+      result = [...result].sort((a, b) => {
+        const ta = a.trendScore ?? 0;
+        const tb = b.trendScore ?? 0;
+        if (ta !== tb) return tb - ta;
+        const ai = Number(a.id.replace(/\D/g, "")) || 0;
+        const bi = Number(b.id.replace(/\D/g, "")) || 0;
+        return bi - ai;
+      });
+      break;
     case "price-asc":
       result = [...result].sort((a, b) => Number(a.price) - Number(b.price));
       break;
@@ -283,7 +307,7 @@ function parseNumber(v: unknown): number | undefined {
 
 router.get("/storefront/products", async (req: Request, res: Response) => {
   const q = (req.query["q"] as string | undefined)?.trim();
-  const category = req.query["category"] as string | undefined;
+  let category = req.query["category"] as string | undefined;
   const gender = parseGender(req.query["gender"]);
   const idsParam = (req.query["ids"] as string | undefined)?.trim();
   const sort = (req.query["sort"] as string | undefined) ?? "featured";
@@ -297,10 +321,21 @@ router.get("/storefront/products", async (req: Request, res: Response) => {
   const priceMax = parseNumber(req.query["priceMax"]);
   const featuredOnly = req.query["featured"] === "true";
   const bucketRaw = (req.query["bucket"] as string | undefined)?.trim();
-  const bucket =
+  let bucket =
     bucketRaw && VALID_BUCKETS.has(bucketRaw)
       ? (bucketRaw as BucketKey)
       : undefined;
+  // Translate bucket-aliased `?category=` labels into the bucket filter
+  // and drop them from the category filter so they don't double-filter
+  // against the (non-existent) "TikTok Verified" product category. An
+  // explicit `?bucket=` param wins if both are present.
+  if (!bucket && category) {
+    const alias = CATEGORY_LABEL_TO_BUCKET.get(category.toLowerCase());
+    if (alias) {
+      bucket = alias;
+      category = undefined;
+    }
+  }
   const dailyRotate = req.query["dailyRotate"] === "true";
   const seedRaw = (req.query["seed"] as string | undefined)?.trim();
   // Bound the seed to a small alnum/dash slug so a hostile client can't

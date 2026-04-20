@@ -1,4 +1,4 @@
-import type { Product, ProductColor } from '@/data/products';
+import type { BucketKey, Product, ProductColor } from '@/data/products';
 
 interface ApiProductRow {
   id: string;
@@ -9,7 +9,20 @@ interface ApiProductRow {
   imageUrls: unknown;
   sizes: unknown;
   colors: unknown;
+  isNewIn?: boolean;
+  isCollection?: boolean;
+  isTikTokVerified?: boolean;
+  isTrending?: boolean;
+  trendScore?: number;
+  buckets?: unknown;
 }
+
+const VALID_BUCKETS: ReadonlySet<string> = new Set([
+  'new_in',
+  'collection',
+  'tiktok_verified',
+  'trending',
+]);
 
 interface ListResponse {
   rows: ApiProductRow[];
@@ -35,6 +48,9 @@ export function rowToProduct(r: ApiProductRow): Product {
   }));
   const images = asArray<string>(r.imageUrls).filter(Boolean);
   const primary = images[0] ?? colors[0]?.image ?? '';
+  const buckets = asArray<string>(r.buckets).filter((b) =>
+    VALID_BUCKETS.has(b),
+  ) as BucketKey[];
   return {
     id: r.id,
     title: r.title,
@@ -45,14 +61,16 @@ export function rowToProduct(r: ApiProductRow): Product {
     image: primary,
     imageAlt: r.title,
     gallery: images.length > 0 ? images : primary ? [primary] : [],
+    isNewIn: Boolean(r.isNewIn),
+    isCollection: Boolean(r.isCollection),
+    isTikTokVerified: Boolean(r.isTikTokVerified),
+    isTrending: Boolean(r.isTrending),
+    trendScore: typeof r.trendScore === 'number' ? r.trendScore : 0,
+    buckets,
   };
 }
 
-export type BucketKey =
-  | 'new_in'
-  | 'collection'
-  | 'tiktok_verified'
-  | 'trending';
+export type { BucketKey };
 
 export interface SearchOptions {
   q?: string;
@@ -61,7 +79,13 @@ export interface SearchOptions {
   sizes?: string[];
   priceMin?: number;
   priceMax?: number;
-  sort?: 'featured' | 'newest' | 'name-asc' | 'price-asc' | 'price-desc';
+  sort?:
+    | 'featured'
+    | 'newest'
+    | 'name-asc'
+    | 'price-asc'
+    | 'price-desc'
+    | 'trending';
   limit?: number;
   offset?: number;
   /** Restrict to products in this synthetic merch bucket. */

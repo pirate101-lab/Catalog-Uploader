@@ -661,7 +661,7 @@ export function HomePage() {
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
             <div>
               <span className="text-xs font-bold uppercase tracking-[0.3em] text-primary mb-3 block">
-                The Edit
+                TikTok Verified · Today's Featured Edit
               </span>
               <h2 className="font-serif text-3xl md:text-4xl font-extrabold text-foreground">
                 {headline}

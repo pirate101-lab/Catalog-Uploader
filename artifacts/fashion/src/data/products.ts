@@ -7,6 +7,12 @@ export interface ProductColor {
   image: string;
 }
 
+export type BucketKey =
+  | 'new_in'
+  | 'collection'
+  | 'tiktok_verified'
+  | 'trending';
+
 export interface Product {
   id: string;
   title: string;
@@ -17,6 +23,14 @@ export interface Product {
   image: string;
   imageAlt: string;
   gallery: string[];
+  // Synthesised merch-bucket flags from the API. Always present; men's
+  // products and any future genders default to all-false.
+  isNewIn: boolean;
+  isCollection: boolean;
+  isTikTokVerified: boolean;
+  isTrending: boolean;
+  trendScore: number;
+  buckets: BucketKey[];
 }
 
 export const CATEGORIES: string[] = [

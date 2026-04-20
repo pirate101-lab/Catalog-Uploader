@@ -35,6 +35,12 @@ const BUCKET_LABELS: Record<BucketKey, string> = {
   tiktok_verified: 'TikTok Verified',
   trending: 'Trending',
 };
+const CATEGORY_LABEL_TO_BUCKET: Record<string, BucketKey> = {
+  'new in': 'new_in',
+  collection: 'collection',
+  'tiktok verified': 'tiktok_verified',
+  trending: 'trending',
+};
 
 const RAIL_TO_CATEGORY: Record<string, string> = {
   All: 'All',
@@ -120,10 +126,23 @@ function readUrlFilters(search: string): {
   const priceMin = clamp(p.get('priceMin'), 0);
   const priceMax = Math.max(priceMin, clamp(p.get('priceMax'), PRICE_MAX));
   const bucketRaw = p.get('bucket');
-  const bucket: BucketKey | null =
+  let bucket: BucketKey | null =
     bucketRaw && VALID_BUCKETS.has(bucketRaw) ? (bucketRaw as BucketKey) : null;
+  // Bucket-aliased category labels (from the SecondaryNav) translate
+  // into bucket state, not railLabel — there is no "TikTok Verified"
+  // entry in the sidebar category list, so otherwise the rail would
+  // show no active state and the API call would carry a category that
+  // matches nothing.
+  let categoryRaw = p.get('category') ?? '';
+  if (!bucket) {
+    const alias = CATEGORY_LABEL_TO_BUCKET[categoryRaw.toLowerCase()];
+    if (alias) {
+      bucket = alias;
+      categoryRaw = '';
+    }
+  }
   return {
-    category: p.get('category') ?? '',
+    category: categoryRaw,
     q: p.get('q') ?? '',
     gender,
     sizes,

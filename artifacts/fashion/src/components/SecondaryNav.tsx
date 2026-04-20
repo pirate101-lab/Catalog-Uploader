@@ -4,23 +4,27 @@ import { TOP_LEVEL, TOP_LEVEL_BUCKETS } from '@/data/taxonomy';
 /**
  * Trendsi-style horizontal top-level category bar that sits directly under
  * the main header. The four merch tabs (New In, Collection, TikTok
- * Verified, Trending) navigate to /shop with `?bucket=...`; "Category"
- * opens the unfiltered /shop view. Active highlight is derived from the
- * current URL's `?bucket=` param.
+ * Verified, Trending) navigate to /shop with `?category=<Label>` per the
+ * URL contract — the API translates those labels into bucket flags at
+ * the route boundary. "Category" opens the unfiltered /shop view.
+ * Active highlight is derived from `?category=` (with `?bucket=` as a
+ * fallback so deep links from elsewhere still highlight correctly).
  */
 export function SecondaryNav() {
   const [location, navigate] = useLocation();
   const search = typeof window !== 'undefined' ? window.location.search : '';
   const params = new URLSearchParams(search);
+  const activeCategory = params.get('category');
   const activeBucket = params.get('bucket');
   const onShop = location.startsWith('/shop');
-  // Reverse-lookup the nav label for the active bucket.
   const activeLabel = (() => {
-    if (!activeBucket) return onShop ? 'Category' : null;
-    for (const [label, bk] of Object.entries(TOP_LEVEL_BUCKETS)) {
-      if (bk === activeBucket) return label;
+    if (activeCategory && TOP_LEVEL.includes(activeCategory)) return activeCategory;
+    if (activeBucket) {
+      for (const [label, bk] of Object.entries(TOP_LEVEL_BUCKETS)) {
+        if (bk === activeBucket) return label;
+      }
     }
-    return null;
+    return onShop ? 'Category' : null;
   })();
 
   const onClick = (label: string) => {
@@ -29,7 +33,7 @@ export function SecondaryNav() {
       navigate('/shop');
       return;
     }
-    navigate(`/shop?bucket=${encodeURIComponent(bucket)}`);
+    navigate(`/shop?category=${encodeURIComponent(label)}`);
   };
 
   return (
