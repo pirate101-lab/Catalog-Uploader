@@ -8,10 +8,12 @@
 // upscaling) but still re-encoded so we always upload the three keys the
 // frontend asks for.
 //
-// Usage: node scripts/upload-r2.mjs <source-dir>
+// Usage: node scripts/upload-r2.mjs <source-dir> [r2-prefix]
+//   r2-prefix defaults to "catalog/replit_lite/images" (women's catalog).
+//   Pass e.g. "catalog/replit_lite_men/images" for the men's catalog.
 //   Reads R2_S3_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET from env.
 //   Optional: UPLOAD_CONCURRENCY (default 40), SKIP_EXISTING ("0" disables; default skip),
-//             WEBP_QUALITY (default 82).
+//             WEBP_QUALITY (default 82), R2_PREFIX (overrides positional prefix).
 import { S3Client, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
@@ -20,7 +22,7 @@ import sharp from "sharp";
 
 const sourceDir = argv[2];
 if (!sourceDir) {
-  stderr.write("usage: upload-r2.mjs <source-dir>\n");
+  stderr.write("usage: upload-r2.mjs <source-dir> [r2-prefix]\n");
   exit(1);
 }
 
@@ -39,7 +41,7 @@ const s3 = new S3Client({
   credentials: { accessKeyId: KEY_ID, secretAccessKey: SECRET },
 });
 
-const PREFIX = "catalog/replit_lite/images";
+const PREFIX = (env.R2_PREFIX ?? argv[3] ?? "catalog/replit_lite/images").replace(/\/+$/, "");
 // Keep these in sync with IMAGE_WIDTHS in artifacts/fashion/src/lib/imageUrl.ts.
 const VARIANT_WIDTHS = [400, 800, 1600];
 const CONCURRENCY = Number(env.UPLOAD_CONCURRENCY ?? 40);

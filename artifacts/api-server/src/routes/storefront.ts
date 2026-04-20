@@ -5,13 +5,22 @@ const router: IRouter = Router();
 
 const HERO_BASE = "/api/storage/public-objects";
 
+function parseGender(v: unknown): "men" | "women" | undefined {
+  if (v === "men" || v === "women") return v;
+  return undefined;
+}
+
 function searchAndSort(
   rows: ProductRow[],
   q: string | undefined,
   category: string | undefined,
+  gender: "men" | "women" | undefined,
   sort: string,
 ): ProductRow[] {
   let result = rows;
+  if (gender) {
+    result = result.filter((p) => p.gender === gender);
+  }
   if (category && category !== "All") {
     const c = category.toLowerCase();
     result = result.filter((p) => (p.category ?? "").toLowerCase() === c);
@@ -89,8 +98,9 @@ router.get("/storefront/hero", (_req: Request, res: Response) => {
   ]);
 });
 
-router.get("/storefront/categories", (_req: Request, res: Response) => {
-  const rows = getAllProducts();
+router.get("/storefront/categories", (req: Request, res: Response) => {
+  const gender = parseGender(req.query["gender"]);
+  const rows = getAllProducts().filter((r) => (gender ? r.gender === gender : true));
   const counts = new Map<string, number>();
   for (const r of rows) {
     if (!r.category) continue;
@@ -110,12 +120,16 @@ router.get("/storefront/categories", (_req: Request, res: Response) => {
 });
 
 router.get("/storefront/stats", (_req: Request, res: Response) => {
-  res.json({ products: getAllProducts().length });
+  const all = getAllProducts();
+  const byGender = { women: 0, men: 0 };
+  for (const p of all) byGender[p.gender]++;
+  res.json({ products: all.length, women: byGender.women, men: byGender.men });
 });
 
 router.get("/storefront/products", (req: Request, res: Response) => {
   const q = (req.query["q"] as string | undefined)?.trim();
   const category = req.query["category"] as string | undefined;
+  const gender = parseGender(req.query["gender"]);
   const idsParam = (req.query["ids"] as string | undefined)?.trim();
   const sort = (req.query["sort"] as string | undefined) ?? "featured";
   const limit = Math.min(Number(req.query["limit"] ?? 24), 100);
@@ -132,7 +146,7 @@ router.get("/storefront/products", (req: Request, res: Response) => {
     return;
   }
 
-  const filtered = searchAndSort(all, q, category, sort);
+  const filtered = searchAndSort(all, q, category, gender, sort);
   const rows = filtered.slice(offset, offset + limit);
   res.json({ rows, total: filtered.length, limit, offset });
 });

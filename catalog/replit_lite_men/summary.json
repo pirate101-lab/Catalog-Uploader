@@ -1,0 +1,30 @@
+{
+  "source_endpoint": "home-product",
+  "total_fetched_styles": 2361,
+  "target_selected": 2361,
+  "downloaded_ok": 2361,
+  "failed": 0,
+  "max_total": null,
+  "max_total_gb": 3.0,
+  "max_total_bytes": 3221225472,
+  "downloaded_bytes": 59701646,
+  "total_bytes_on_disk": 59801676,
+  "per_category_target": 2000,
+  "categories": {
+    "accessories": 100,
+    "activewear": 1,
+    "bottoms": 151,
+    "denim": 345,
+    "formal": 8,
+    "knitwear": 309,
+    "other": 294,
+    "outerwear": 55,
+    "sets": 10,
+    "shoes": 245,
+    "shorts": 62,
+    "tops": 781
+  },
+  "output_catalog": "/home/runner/workspace/catalog/replit_lite_men/catalog_men_lite.json",
+  "output_images_root": "/home/runner/workspace/catalog/replit_lite_men/images",
+  "failed_log": "/home/runner/workspace/catalog/replit_lite_men/failed_images.json"
+}
