@@ -19,7 +19,7 @@ export interface HeroSlide {
 
 interface Props {
   slides: HeroSlide[];
-  /** Auto-advance interval in ms. Default 7000. Set to 0 to disable. */
+  /** Auto-advance interval in ms. Default 6000. Set to 0 to disable. */
   intervalMs?: number;
 }
 
