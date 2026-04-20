@@ -124,6 +124,13 @@ export interface AdminOverview {
     revenueCents: number;
   }>;
   recentOrders: OrderRow[];
+  lowStockProducts: Array<{
+    productId: string;
+    title: string;
+    stockLevel: number;
+  }>;
+  emailsFailed24h: number;
+  productsCount: number;
 }
 
 export interface ReviewRow {

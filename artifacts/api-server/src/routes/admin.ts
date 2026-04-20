@@ -849,10 +849,16 @@ router.get("/admin/stats", async (_req, res) => {
 });
 
 /* ---------------- Dashboard Overview ----------------
- * Single-roundtrip aggregation for the new admin Overview tab. Returns
- * orders + revenue counts by window (today / week / month), AOV, status
- * funnel counts, top 5 best-selling products (by qty across all
- * non-cancelled orders), and the 10 most recent orders.
+ * Aggregation for the admin Overview tab. All independent queries run
+ * in parallel via Promise.all so the endpoint is one HTTP round-trip
+ * even though it issues several SQL statements. Returns:
+ *   - orders + revenue + AOV by window (today / week / month)
+ *   - full status funnel
+ *   - top 5 best-selling products (qty + revenue)
+ *   - the 10 most recent orders
+ *   - low-stock products (override stock_level <= 5)
+ *   - failed/skipped email events in the last 24h
+ *   - total catalog product count
  */
 
 router.get("/admin/overview", async (_req, res) => {
@@ -861,6 +867,7 @@ router.get("/admin/overview", async (_req, res) => {
   startOfDay.setHours(0, 0, 0, 0);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
   const aggregate = async (since: Date) => {
     const [row] = await db
@@ -884,21 +891,79 @@ router.get("/admin/overview", async (_req, res) => {
     };
   };
 
-  const [today, week, month] = await Promise.all([
+  const allProducts = getAllProducts();
+
+  const [
+    today,
+    week,
+    month,
+    funnelRows,
+    topSellerResult,
+    recentOrders,
+    lowStockOverrides,
+    emailFailRow,
+  ] = await Promise.all([
     aggregate(startOfDay),
     aggregate(sevenDaysAgo),
     aggregate(thirtyDaysAgo),
+    db
+      .select({
+        status: ordersTable.status,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(ordersTable)
+      .groupBy(ordersTable.status),
+    // Top sellers — unnest the items JSONB array, count quantities per
+    // productId. Excludes cancelled orders. Title falls back to whatever
+    // was stored at order time so it survives catalog churn.
+    db.execute<{
+      product_id: string;
+      title: string;
+      qty: number;
+      revenue: number;
+    }>(sql`
+      SELECT (item->>'productId') AS product_id,
+             MAX(item->>'title') AS title,
+             SUM((item->>'quantity')::int)::int AS qty,
+             SUM((item->>'quantity')::int * (item->>'unitPriceCents')::int)::bigint AS revenue
+      FROM ${ordersTable}, jsonb_array_elements(${ordersTable.items}) AS item
+      WHERE ${ordersTable.status} <> 'cancelled'
+        AND (item->>'productId') IS NOT NULL
+      GROUP BY (item->>'productId')
+      ORDER BY qty DESC
+      LIMIT 5
+    `),
+    db
+      .select()
+      .from(ordersTable)
+      .orderBy(desc(ordersTable.createdAt))
+      .limit(10),
+    db
+      .select({
+        productId: productOverridesTable.productId,
+        stockLevel: productOverridesTable.stockLevel,
+      })
+      .from(productOverridesTable)
+      .where(
+        and(
+          sql`${productOverridesTable.stockLevel} IS NOT NULL`,
+          sql`${productOverridesTable.stockLevel} <= 5`,
+        ),
+      )
+      .limit(10)
+      .then((rows) => rows),
+    db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(orderEmailEventsTable)
+      .where(
+        and(
+          gte(orderEmailEventsTable.createdAt, oneDayAgo),
+          sql`${orderEmailEventsTable.status} IN ('failed', 'skipped')`,
+        ),
+      )
+      .then((rows) => rows[0]),
   ]);
 
-  // Status funnel — counts grouped by status across the full lifetime so
-  // pending/packed/shipped/delivered/cancelled all appear even when zero.
-  const funnelRows = await db
-    .select({
-      status: ordersTable.status,
-      count: sql<number>`COUNT(*)::int`,
-    })
-    .from(ordersTable)
-    .groupBy(ordersTable.status);
   const funnel: Record<string, number> = {
     new: 0,
     packed: 0,
@@ -910,38 +975,21 @@ router.get("/admin/overview", async (_req, res) => {
     funnel[r.status] = Number(r.count);
   }
 
-  // Top sellers — unnest the items JSONB array, count quantities per
-  // productId. Excludes cancelled orders. Title falls back to whatever
-  // was stored at order time so it survives catalog churn.
-  const topSellerRows = await db.execute<{
-    product_id: string;
-    title: string;
-    qty: number;
-    revenue: number;
-  }>(sql`
-    SELECT (item->>'productId') AS product_id,
-           MAX(item->>'title') AS title,
-           SUM((item->>'quantity')::int)::int AS qty,
-           SUM((item->>'quantity')::int * (item->>'unitPriceCents')::int)::bigint AS revenue
-    FROM ${ordersTable}, jsonb_array_elements(${ordersTable.items}) AS item
-    WHERE ${ordersTable.status} <> 'cancelled'
-      AND (item->>'productId') IS NOT NULL
-    GROUP BY (item->>'productId')
-    ORDER BY qty DESC
-    LIMIT 5
-  `);
-  const topSellers = (topSellerRows.rows ?? []).map((r) => ({
+  const topSellers = (topSellerResult.rows ?? []).map((r) => ({
     productId: r.product_id,
     title: r.title ?? r.product_id,
     qty: Number(r.qty),
     revenueCents: Number(r.revenue),
   }));
 
-  const recentOrders = await db
-    .select()
-    .from(ordersTable)
-    .orderBy(desc(ordersTable.createdAt))
-    .limit(10);
+  const lowStockProducts = lowStockOverrides.map((o) => {
+    const p = allProducts.find((x) => x.id === o.productId);
+    return {
+      productId: o.productId,
+      title: p?.title ?? o.productId,
+      stockLevel: o.stockLevel ?? 0,
+    };
+  });
 
   res.json({
     today,
@@ -950,6 +998,9 @@ router.get("/admin/overview", async (_req, res) => {
     funnel,
     topSellers,
     recentOrders,
+    lowStockProducts,
+    emailsFailed24h: Number(emailFailRow?.count ?? 0),
+    productsCount: allProducts.length,
   });
 });
 

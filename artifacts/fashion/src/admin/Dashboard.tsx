@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { AdminShell, AdminPageHeader } from "./AdminShell";
-import {
-  adminApi,
-  fmtCents,
-  type AdminOverview,
-  type DashboardStats,
-} from "./api";
+import { adminApi, fmtCents, type AdminOverview } from "./api";
 import {
   Package,
   ShoppingBag,
@@ -27,18 +22,14 @@ const FUNNEL_LABELS: Array<{ key: string; label: string; color: string }> = [
 ];
 
 export function AdminDashboard() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([adminApi.getStats(), adminApi.getOverview()])
-      .then(([s, o]) => {
-        if (cancelled) return;
-        setStats(s);
-        setOverview(o);
-      })
+    adminApi
+      .getOverview()
+      .then((o) => !cancelled && setOverview(o))
       .catch((e) => !cancelled && setError(e.message));
     return () => {
       cancelled = true;
@@ -56,7 +47,7 @@ export function AdminDashboard() {
         description="Activity across the storefront."
       />
       {error && <div className="text-sm text-destructive mb-4">{error}</div>}
-      {!stats || !overview ? (
+      {!overview ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
       ) : (
         <>
@@ -84,28 +75,30 @@ export function AdminDashboard() {
             <Kpi
               icon={<Package className="w-4 h-4" />}
               label="Products"
-              value={stats.products.toLocaleString()}
+              value={overview.productsCount.toLocaleString()}
             />
             <Kpi
               icon={<ShoppingBag className="w-4 h-4" />}
               label="Orders today"
-              value={stats.ordersToday.toLocaleString()}
-              sub={`${stats.ordersWeek} this week`}
+              value={overview.today.count.toLocaleString()}
+              sub={`${overview.week.count} this week`}
             />
             <Kpi
               icon={<AlertTriangle className="w-4 h-4" />}
               label="Low stock"
-              value={stats.lowStockCount.toLocaleString()}
+              value={overview.lowStockProducts.length.toLocaleString()}
               sub={
-                stats.lowStockCount === 0 ? "All good" : "Needs attention"
+                overview.lowStockProducts.length === 0
+                  ? "All good"
+                  : "Needs attention"
               }
             />
             <Kpi
               icon={<MailWarning className="w-4 h-4" />}
               label="Emails failed 24h"
-              value={(stats.emailsFailed24h ?? 0).toLocaleString()}
+              value={overview.emailsFailed24h.toLocaleString()}
               sub={
-                (stats.emailsFailed24h ?? 0) === 0
+                overview.emailsFailed24h === 0
                   ? "All delivered"
                   : "Check Emails tab"
               }
@@ -177,14 +170,14 @@ export function AdminDashboard() {
             </section>
           </div>
 
-          {stats.lowStockProducts.length > 0 && (
+          {overview.lowStockProducts.length > 0 && (
             <section className="border rounded-lg p-6 mb-6 border-amber-500/40 bg-amber-500/5">
               <h2 className="text-xs uppercase tracking-widest font-bold mb-4 flex items-center gap-2 text-amber-700 dark:text-amber-300">
                 <AlertTriangle className="w-4 h-4" />
                 Low stock alerts
               </h2>
               <ul className="divide-y">
-                {stats.lowStockProducts.map((p) => (
+                {overview.lowStockProducts.map((p) => (
                   <li
                     key={p.productId}
                     className="py-2 text-sm flex justify-between"
