@@ -8,8 +8,24 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Search } from "lucide-react";
+
+type BulkAction = {
+  label: string;
+  patch: Partial<ProductOverride>;
+  description: string;
+};
 
 const PAGE = 50;
 
@@ -23,6 +39,7 @@ export function ProductsAdmin() {
   );
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pendingAction, setPendingAction] = useState<BulkAction | null>(null);
 
   useEffect(() => {
     adminApi.listOverrides().then((arr) => {
@@ -69,13 +86,21 @@ export function ProductsAdmin() {
     setOverrides((m) => new Map(m).set(productId, saved));
   };
 
-  const bulk = async (patch: Partial<ProductOverride>) => {
+  const requestBulk = (action: BulkAction) => {
     if (selected.size === 0) {
       toast.error("Select rows first");
       return;
     }
-    await adminApi.bulkOverride([...selected], patch);
-    toast.success(`Updated ${selected.size}`);
+    setPendingAction(action);
+  };
+
+  const confirmBulk = async () => {
+    if (!pendingAction) return;
+    const count = selected.size;
+    const action = pendingAction;
+    setPendingAction(null);
+    await adminApi.bulkOverride([...selected], action.patch);
+    toast.success(`${action.label}: updated ${count} product${count === 1 ? "" : "s"}`);
     setSelected(new Set());
     const arr = await adminApi.listOverrides();
     const m = new Map<string, ProductOverride>();
@@ -115,7 +140,14 @@ export function ProductsAdmin() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => bulk({ hidden: true })}
+            onClick={() =>
+              requestBulk({
+                label: "Hide",
+                patch: { hidden: true },
+                description:
+                  "These products will be hidden from the storefront and removed from search results until you show them again.",
+              })
+            }
             disabled={selected.size === 0}
           >
             Hide
@@ -123,7 +155,14 @@ export function ProductsAdmin() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => bulk({ hidden: false })}
+            onClick={() =>
+              requestBulk({
+                label: "Show",
+                patch: { hidden: false },
+                description:
+                  "These products will become visible on the storefront again.",
+              })
+            }
             disabled={selected.size === 0}
           >
             Show
@@ -131,7 +170,14 @@ export function ProductsAdmin() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => bulk({ featured: true })}
+            onClick={() =>
+              requestBulk({
+                label: "Feature",
+                patch: { featured: true },
+                description:
+                  "These products will be marked as featured and may appear in featured placements.",
+              })
+            }
             disabled={selected.size === 0}
           >
             Feature
@@ -139,7 +185,14 @@ export function ProductsAdmin() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => bulk({ badge: "NEW" })}
+            onClick={() =>
+              requestBulk({
+                label: 'Badge "NEW"',
+                patch: { badge: "NEW" },
+                description:
+                  'These products will display a "NEW" badge on the storefront.',
+              })
+            }
             disabled={selected.size === 0}
           >
             Badge "NEW"
@@ -303,6 +356,35 @@ export function ProductsAdmin() {
           </Button>
         </div>
       </div>
+
+      <AlertDialog
+        open={pendingAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingAction(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingAction?.label} {selected.size.toLocaleString()} product
+              {selected.size === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingAction?.description} You're about to apply this to{" "}
+              <span className="font-semibold text-foreground">
+                {selected.size.toLocaleString()}
+              </span>{" "}
+              selected product{selected.size === 1 ? "" : "s"}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulk}>
+              {pendingAction?.label}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminShell>
   );
 }
