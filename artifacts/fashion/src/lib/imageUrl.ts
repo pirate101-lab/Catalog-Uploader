@@ -5,9 +5,12 @@
 // VITE_STORAGE_BASE_URL when provided, otherwise we render the bundled
 // "PHOTO COMING SOON" placeholder.
 //
-// Catalog .webp assets in R2 are stored as a single canonical file (no
-// per-width variants exist on the bucket today), so we render the base
-// URL as-is and skip building a `srcset`.
+// Catalog .webp assets are uploaded to R2 in three responsive widths
+// (400 / 800 / 1600px) by `artifacts/api-server/scripts/upload-r2.mjs`,
+// using the convention `<name>_<width>.webp`. The unsuffixed canonical
+// `<name>.webp` is NOT guaranteed to exist on the bucket (the men's
+// catalog only has the sized variants), so we always rewrite to a
+// sized variant and emit a real width-descriptor srcset.
 
 const STORAGE_BASE = (import.meta.env.VITE_STORAGE_BASE_URL as string | undefined)?.replace(/\/$/, '');
 const BASE_URL = (import.meta.env.BASE_URL as string | undefined) ?? '/';
@@ -47,19 +50,23 @@ function isSizedAsset(url: string): boolean {
 
 export function imageUrl(
   path: string | undefined,
-  _opts: { category: string; id: string; w?: number },
+  opts: { category: string; id: string; w?: number },
 ): string {
   if (!path) return PLACEHOLDER_IMAGE;
   const base = resolveBase(path);
   if (!base) return PLACEHOLDER_IMAGE;
-  return base;
+  if (!isSizedAsset(base)) return base;
+  return withSize(base, pickWidth(opts.w ?? DEFAULT_WIDTH));
 }
 
 export function imageSrcSet(
-  _path: string | undefined,
+  path: string | undefined,
   _opts: { category: string; id: string },
 ): string | undefined {
-  return undefined;
+  if (!path) return undefined;
+  const base = resolveBase(path);
+  if (!base || !isSizedAsset(base)) return undefined;
+  return IMAGE_WIDTHS.map((w) => `${withSize(base, w)} ${w}w`).join(', ');
 }
 
 // Builds the inputs needed for a `<link rel="preload" as="image">` hint that
@@ -74,8 +81,8 @@ export function imagePreload(
   const base = resolveBase(path);
   if (!base || !isSizedAsset(base)) return null;
   return {
-    href: base,
-    imageSrcSet: `${base} ${DEFAULT_WIDTH}w`,
+    href: withSize(base, DEFAULT_WIDTH),
+    imageSrcSet: IMAGE_WIDTHS.map((w) => `${withSize(base, w)} ${w}w`).join(', '),
     type: 'image/webp',
   };
 }
