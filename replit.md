@@ -113,6 +113,23 @@ Pragmatic perf + correctness pass; no behaviour changes other than what's listed
 
 - **Mobile tap targets**: bumped `ProductCard` wishlist + quick-add buttons from `w-9 h-9` (36 px) to `w-10 h-10` (40 px). Footer Contact + legal placeholder buttons gain `min-h-[40px]` so they meet the 40 px guideline without changing the visible label height.
 
+### Women's catalog images on R2 (Task #20)
+
+The two catalogs were uploaded with **different conventions**:
+
+| Catalog | R2 prefix | Variants on bucket |
+|---|---|---|
+| Men   | `catalog/replit_lite_men/...`  | `_400.webp`, `_800.webp`, `_1600.webp` only |
+| Women | `catalog/replit_lite/...`      | unsuffixed `<id>.webp` only |
+
+Before #20, `imageUrl.ts` always rewrote `.webp → _<width>.webp`, so every
+women's image 404'd and the onError handler swapped in the placeholder
+(visible site-wide as "PHOTO COMING SOON" tiles). The fix branches in
+`hasSizedVariants(url)` — only URLs containing `/replit_lite_men/` get the
+width rewrite + 3-width srcset; women URLs are served as the canonical
+`.webp` with no srcset. A future task can backfill `_400/_800/_1600.webp`
+derivatives for women's images on R2 and let us drop the branch.
+
 ### Known residual issues (not addressed in this audit)
 
 - Terms / Privacy / Cookies and Contact still need real pages — placeholder toasts are a stopgap until the dedicated legal-pages task ships.

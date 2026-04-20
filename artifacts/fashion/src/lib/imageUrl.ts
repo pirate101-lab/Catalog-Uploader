@@ -5,12 +5,18 @@
 // VITE_STORAGE_BASE_URL when provided, otherwise we render the bundled
 // "PHOTO COMING SOON" placeholder.
 //
-// Catalog .webp assets are uploaded to R2 in three responsive widths
-// (400 / 800 / 1600px) by `artifacts/api-server/scripts/upload-r2.mjs`,
-// using the convention `<name>_<width>.webp`. The unsuffixed canonical
-// `<name>.webp` is NOT guaranteed to exist on the bucket (the men's
-// catalog only has the sized variants), so we always rewrite to a
-// sized variant and emit a real width-descriptor srcset.
+// Two upload conventions exist on R2:
+//   - Men's catalog (`/catalog/replit_lite_men/...`) is uploaded by
+//     `artifacts/api-server/scripts/upload-r2.mjs` in three responsive
+//     widths (`<name>_400.webp`, `_800.webp`, `_1600.webp`) — no
+//     unsuffixed canonical exists.
+//   - Women's catalog (`/catalog/replit_lite/...`) was bulk-imported with
+//     only the unsuffixed canonical `<name>.webp` — no sized variants
+//     exist (yet).
+// Therefore we branch on the URL prefix: men keeps the width rewrite +
+// width-descriptor srcset; women is served as-is with no srcset. A
+// future task can backfill sized variants for women and let us drop the
+// branch.
 
 const STORAGE_BASE = (import.meta.env.VITE_STORAGE_BASE_URL as string | undefined)?.replace(/\/$/, '');
 const BASE_URL = (import.meta.env.BASE_URL as string | undefined) ?? '/';
@@ -47,8 +53,16 @@ function withSize(url: string, width: number): string {
   return stripped.replace(/(\.webp)(\?.*)?$/i, `_${width}$1$2`);
 }
 
-function isSizedAsset(url: string): boolean {
+function isWebp(url: string): boolean {
   return /\.webp(\?.*)?$/i.test(url);
+}
+
+// Only the men's catalog has sized `_<w>.webp` variants on R2. The women's
+// catalog (default `/replit_lite/` namespace) has only the unsuffixed
+// canonical, so we must NOT rewrite those URLs or 404s appear and the
+// onError handler swaps in the placeholder.
+function hasSizedVariants(url: string): boolean {
+  return /\/replit_lite_men\//i.test(url);
 }
 
 export function imageUrl(
@@ -58,7 +72,7 @@ export function imageUrl(
   if (!path) return PLACEHOLDER_IMAGE;
   const base = resolveBase(path);
   if (!base) return PLACEHOLDER_IMAGE;
-  if (!isSizedAsset(base)) return base;
+  if (!isWebp(base) || !hasSizedVariants(base)) return base;
   return withSize(base, pickWidth(opts.w ?? DEFAULT_WIDTH));
 }
 
@@ -68,7 +82,7 @@ export function imageSrcSet(
 ): string | undefined {
   if (!path) return undefined;
   const base = resolveBase(path);
-  if (!base || !isSizedAsset(base)) return undefined;
+  if (!base || !isWebp(base) || !hasSizedVariants(base)) return undefined;
   return IMAGE_WIDTHS.map((w) => `${withSize(base, w)} ${w}w`).join(', ');
 }
 
@@ -79,10 +93,14 @@ export function imageSrcSet(
 export function imagePreload(
   path: string | undefined,
   _opts: { category: string; id: string; w?: number },
-): { href: string; imageSrcSet: string; type: string } | null {
+): { href: string; imageSrcSet?: string; type: string } | null {
   if (!path) return null;
   const base = resolveBase(path);
-  if (!base || !isSizedAsset(base)) return null;
+  if (!base || !isWebp(base)) return null;
+  if (!hasSizedVariants(base)) {
+    // Women's catalog: only canonical exists, preload that single asset.
+    return { href: base, type: 'image/webp' };
+  }
   return {
     href: withSize(base, DEFAULT_WIDTH),
     imageSrcSet: IMAGE_WIDTHS.map((w) => `${withSize(base, w)} ${w}w`).join(', '),

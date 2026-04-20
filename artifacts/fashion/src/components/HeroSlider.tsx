@@ -88,7 +88,7 @@ export function HeroSlider({ slides, intervalMs = 6000 }: Props) {
 
   return (
     <section
-      className="group relative h-[70dvh] min-h-[460px] max-h-[640px] lg:h-[55dvh] lg:min-h-[480px] lg:max-h-[720px] w-full overflow-hidden bg-black text-white lg:mx-4 lg:w-[calc(100%-2rem)] lg:rounded-3xl lg:shadow-xl"
+      className="group relative h-[35dvh] min-h-[230px] max-h-[320px] lg:h-[28dvh] lg:min-h-[260px] lg:max-h-[360px] w-full overflow-hidden bg-black text-white lg:mx-4 lg:w-[calc(100%-2rem)] lg:rounded-3xl lg:shadow-xl"
       aria-roledescription="carousel"
       aria-label="VELOUR season highlights"
     >
