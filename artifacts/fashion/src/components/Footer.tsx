@@ -11,9 +11,9 @@ export function Footer() {
   };
 
   return (
-    <footer className="bg-foreground text-background py-16 md:py-24">
-      <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-12 gap-12">
-        <div className="md:col-span-3 space-y-6">
+    <footer className="bg-zinc-950 text-zinc-100 py-8 md:py-12">
+      <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10">
+        <div className="md:col-span-3 space-y-4">
           <Link href="/" className="inline-flex items-center gap-2.5">
             <svg viewBox="0 0 36 36" className="w-8 h-8" aria-hidden="true">
               <defs>
@@ -29,53 +29,53 @@ export function Footer() {
             </svg>
             <h2 className="text-2xl font-serif font-black tracking-[0.14em]">VELOUR</h2>
           </Link>
-          <p className="text-background/60 text-sm leading-relaxed max-w-sm">
+          <p className="text-zinc-400 text-sm leading-relaxed max-w-sm">
             Modern editorial fashion with an after-dark edge. Dress for the version of yourself
             you want to become.
           </p>
         </div>
 
-        <div className="md:col-span-2 space-y-4">
+        <div className="md:col-span-2 space-y-3">
           <h3 className="font-medium text-sm tracking-wider uppercase">Shop</h3>
-          <ul className="space-y-3 text-sm text-background/60">
-            <li><Link href="/shop?sort=newest" className="hover:text-background transition-colors">New Arrivals</Link></li>
-            <li><Link href="/shop" className="hover:text-background transition-colors">All Collections</Link></li>
-            <li><Link href="/shop?category=Dresses" className="hover:text-background transition-colors">Dresses</Link></li>
-            <li><Link href="/shop?gender=men" className="hover:text-background transition-colors">Men</Link></li>
+          <ul className="space-y-2 text-sm text-zinc-400">
+            <li><Link href="/shop?sort=newest" className="hover:text-zinc-100 transition-colors">New Arrivals</Link></li>
+            <li><Link href="/shop" className="hover:text-zinc-100 transition-colors">All Collections</Link></li>
+            <li><Link href="/shop?category=Dresses" className="hover:text-zinc-100 transition-colors">Dresses</Link></li>
+            <li><Link href="/shop?gender=men" className="hover:text-zinc-100 transition-colors">Men</Link></li>
           </ul>
         </div>
 
-        <div className="md:col-span-2 space-y-4">
+        <div className="md:col-span-2 space-y-3">
           <h3 className="font-medium text-sm tracking-wider uppercase">Help</h3>
-          <ul className="space-y-3 text-sm text-background/60">
-            <li><a href="#" className="hover:text-background transition-colors">FAQ</a></li>
-            <li><a href="#" className="hover:text-background transition-colors">Shipping</a></li>
-            <li><a href="#" className="hover:text-background transition-colors">Returns</a></li>
-            <li><a href="#" className="hover:text-background transition-colors">Contact</a></li>
+          <ul className="space-y-2 text-sm text-zinc-400">
+            <li><a href="#" className="hover:text-zinc-100 transition-colors">FAQ</a></li>
+            <li><a href="#" className="hover:text-zinc-100 transition-colors">Shipping</a></li>
+            <li><a href="#" className="hover:text-zinc-100 transition-colors">Returns</a></li>
+            <li><a href="#" className="hover:text-zinc-100 transition-colors">Contact</a></li>
           </ul>
         </div>
 
-        <div className="md:col-span-2 space-y-4">
+        <div className="md:col-span-2 space-y-3">
           <h3 className="font-medium text-sm tracking-wider uppercase">Follow Us</h3>
-          <ul className="space-y-3 text-sm text-background/60">
-            <li><a href="#" className="hover:text-background transition-colors">Instagram</a></li>
-            <li><a href="#" className="hover:text-background transition-colors">TikTok</a></li>
-            <li><a href="#" className="hover:text-background transition-colors">Pinterest</a></li>
-            <li><a href="#" className="hover:text-background transition-colors">YouTube</a></li>
+          <ul className="space-y-2 text-sm text-zinc-400">
+            <li><a href="#" className="hover:text-zinc-100 transition-colors">Instagram</a></li>
+            <li><a href="#" className="hover:text-zinc-100 transition-colors">TikTok</a></li>
+            <li><a href="#" className="hover:text-zinc-100 transition-colors">Pinterest</a></li>
+            <li><a href="#" className="hover:text-zinc-100 transition-colors">YouTube</a></li>
           </ul>
         </div>
 
-        <div className="md:col-span-3 space-y-4">
+        <div className="md:col-span-3 space-y-3">
           <h3 className="font-medium text-sm tracking-wider uppercase">Newsletter</h3>
-          <p className="text-sm text-background/60">
+          <p className="text-sm text-zinc-400">
             Subscribe for early drops, exclusive deals, and behind-the-scenes from the studio.
           </p>
-          <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2 pt-2">
+          <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2">
             <Input
               type="email"
               placeholder="you@email.com"
               required
-              className="bg-background/10 border-background/20 text-background placeholder:text-background/40 focus-visible:ring-primary rounded-lg h-10"
+              className="bg-white/5 border-white/15 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-primary rounded-lg h-10"
             />
             <Button
               type="submit"
@@ -86,12 +86,12 @@ export function Footer() {
           </form>
         </div>
       </div>
-      <div className="container mx-auto px-4 mt-16 pt-8 border-t border-background/10 text-xs text-background/50 flex flex-col md:flex-row justify-between items-center">
+      <div className="container mx-auto px-4 mt-8 pt-6 border-t border-white/10 text-xs text-zinc-500 flex flex-col md:flex-row justify-between items-center gap-3">
         <p>&copy; {new Date().getFullYear()} VELOUR. All rights reserved.</p>
-        <div className="flex space-x-6 mt-4 md:mt-0">
-          <a href="#" className="hover:text-background transition-colors">Terms</a>
-          <a href="#" className="hover:text-background transition-colors">Privacy</a>
-          <a href="#" className="hover:text-background transition-colors">Cookies</a>
+        <div className="flex space-x-6">
+          <a href="#" className="hover:text-zinc-100 transition-colors">Terms</a>
+          <a href="#" className="hover:text-zinc-100 transition-colors">Privacy</a>
+          <a href="#" className="hover:text-zinc-100 transition-colors">Cookies</a>
         </div>
       </div>
     </footer>

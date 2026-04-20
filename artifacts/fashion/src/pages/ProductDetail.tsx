@@ -252,7 +252,7 @@ export function ProductDetailPage() {
                 <button
                   key={img + idx}
                   onClick={() => setActiveImage(idx)}
-                  className={`flex-shrink-0 w-20 h-24 border-2 transition-all ${
+                  className={`flex-shrink-0 w-20 h-24 rounded-lg overflow-hidden border-2 transition-all ${
                     activeImage === idx
                       ? 'border-primary'
                       : 'border-transparent hover:border-border'
@@ -270,7 +270,7 @@ export function ProductDetailPage() {
                 </button>
               ))}
             </div>
-            <div className="flex-1 min-w-0 bg-muted aspect-[3/4] relative overflow-hidden">
+            <div className="flex-1 min-w-0 bg-muted aspect-[3/4] relative overflow-hidden rounded-2xl ring-1 ring-border/40 shadow-sm">
               <ProductImage
                 src={gallery[activeImage]}
                 category={product.category}
@@ -285,7 +285,7 @@ export function ProductDetailPage() {
                   toggleWishlist(product.id);
                   toast.success(wishlisted ? 'Removed from wishlist' : 'Saved to wishlist');
                 }}
-                className={`absolute top-4 right-4 w-11 h-11 flex items-center justify-center backdrop-blur transition-colors ${
+                className={`absolute top-4 right-4 w-11 h-11 rounded-full flex items-center justify-center backdrop-blur transition-colors ${
                   wishlisted
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-background/85 text-foreground hover:bg-background'

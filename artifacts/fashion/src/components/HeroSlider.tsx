@@ -23,9 +23,8 @@ interface Props {
   intervalMs?: number;
 }
 
-export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
+export function HeroSlider({ slides, intervalMs = 6000 }: Props) {
   const [index, setIndex] = useState(0);
-  const [hovering, setHovering] = useState(false);
   const [pageVisible, setPageVisible] = useState(true);
   const reduceMotion = useReducedMotion();
   const advance = useCallback(
@@ -36,10 +35,12 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
   );
   const jumpTo = (next: number) => setIndex(((next % slides.length) + slides.length) % slides.length);
 
-  // Auto-advance, paused while hovering or while tab is hidden.
+  // Auto-advance on a steady cadence; only pause while the tab is hidden.
+  // We deliberately do NOT pause on hover so the slider keeps rotating
+  // even when the user's cursor lingers anywhere over the hero region.
   const timerRef = useRef<number | null>(null);
   useEffect(() => {
-    if (intervalMs <= 0 || hovering || !pageVisible || slides.length < 2) return;
+    if (intervalMs <= 0 || !pageVisible || slides.length < 2) return;
     timerRef.current = window.setTimeout(() => advance(1), intervalMs);
     return () => {
       if (timerRef.current !== null) {
@@ -47,7 +48,7 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
         timerRef.current = null;
       }
     };
-  }, [index, hovering, pageVisible, intervalMs, advance, slides.length]);
+  }, [index, pageVisible, intervalMs, advance, slides.length]);
 
   // Pause auto-advance while the tab is in the background.
   useEffect(() => {
@@ -88,9 +89,7 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
 
   return (
     <section
-      className="group relative h-[70dvh] min-h-[460px] max-h-[640px] lg:h-[100dvh] lg:min-h-0 lg:max-h-none w-full overflow-hidden bg-black text-white"
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
+      className="group relative h-[70dvh] min-h-[460px] max-h-[640px] lg:h-[55dvh] lg:min-h-[480px] lg:max-h-[720px] w-full overflow-hidden bg-black text-white lg:mx-4 lg:w-[calc(100%-2rem)] lg:rounded-3xl lg:shadow-xl"
       aria-roledescription="carousel"
       aria-label="VELOUR season highlights"
     >
@@ -171,7 +170,7 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
           <button
             onClick={() => advance(-1)}
             aria-label="Previous slide"
-            className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full flex items-center justify-center text-white/80 hover:text-white border border-white/20 hover:border-white/60 backdrop-blur-sm bg-black/20 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
+            className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full flex items-center justify-center text-white/80 hover:text-white border border-white/20 hover:border-white/60 backdrop-blur-sm bg-black/20 transition-all opacity-100 md:opacity-70 md:group-hover:opacity-100"
             data-testid="hero-prev"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -179,7 +178,7 @@ export function HeroSlider({ slides, intervalMs = 7000 }: Props) {
           <button
             onClick={() => advance(1)}
             aria-label="Next slide"
-            className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full flex items-center justify-center text-white/80 hover:text-white border border-white/20 hover:border-white/60 backdrop-blur-sm bg-black/20 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
+            className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full flex items-center justify-center text-white/80 hover:text-white border border-white/20 hover:border-white/60 backdrop-blur-sm bg-black/20 transition-all opacity-100 md:opacity-70 md:group-hover:opacity-100"
             data-testid="hero-next"
           >
             <ArrowRight className="w-5 h-5" />
