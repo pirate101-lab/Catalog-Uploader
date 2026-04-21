@@ -60,6 +60,11 @@ const FALLBACK_SETTINGS: SiteSettings = {
   bankInstructions: null,
   adminUsername: null,
   adminPasswordHash: null,
+  smtpHost: null,
+  smtpPort: null,
+  smtpSecure: true,
+  smtpUsername: null,
+  smtpPassword: null,
   updatedAt: new Date(0),
 };
 

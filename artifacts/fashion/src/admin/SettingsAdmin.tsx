@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { AdminShell, AdminPageHeader } from "./AdminShell";
-import { adminApi, type SiteSettings, type TestEmailResult } from "./api";
+import {
+  adminApi,
+  type SiteSettings,
+  type SmtpVerifyResult,
+  type TestEmailResult,
+} from "./api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +18,20 @@ export function SettingsAdmin() {
   const [testTo, setTestTo] = useState("");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestEmailResult | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<SmtpVerifyResult | null>(null);
+
+  const verifySmtp = async () => {
+    setVerifying(true);
+    setVerifyResult(null);
+    try {
+      setVerifyResult(await adminApi.verifySmtp());
+    } catch (e) {
+      setVerifyResult({ ok: false, configured: false, error: (e as Error).message });
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   useEffect(() => {
     adminApi.getSettings().then(setS);
@@ -265,6 +284,116 @@ export function SettingsAdmin() {
                 </div>
               ) : null}
             </div>
+          </Section>
+
+          <Section title="SMTP mailbox (Titan, Zoho, Workspace, …)">
+            <p className="text-xs text-muted-foreground -mt-2">
+              When SMTP is configured, all order and test emails are sent
+              through this mailbox instead of the platform default. Use
+              the same username and password you use to sign in to your
+              email inbox. Click <em>Verify connection</em> after saving
+              to confirm the credentials work.
+            </p>
+            <Field label="SMTP host">
+              <Input
+                value={s.smtpHost ?? ""}
+                placeholder="smtp.titan.email"
+                onChange={(e) => set("smtpHost", e.target.value)}
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Port">
+                <Input
+                  type="number"
+                  value={s.smtpPort ?? ""}
+                  placeholder="465"
+                  min={1}
+                  max={65535}
+                  onChange={(e) =>
+                    set(
+                      "smtpPort",
+                      e.target.value === "" ? null : Number(e.target.value),
+                    )
+                  }
+                />
+              </Field>
+              <Field label="Connection">
+                <div className="flex items-center gap-3 h-10">
+                  <Switch
+                    id="smtpSecure"
+                    checked={s.smtpSecure}
+                    onCheckedChange={(v) => set("smtpSecure", !!v)}
+                  />
+                  <Label htmlFor="smtpSecure" className="text-sm">
+                    SSL/TLS (port 465). Off = STARTTLS (587).
+                  </Label>
+                </div>
+              </Field>
+            </div>
+            <Field label="Username">
+              <Input
+                autoComplete="off"
+                value={s.smtpUsername ?? ""}
+                placeholder="orders@yourbrand.com"
+                onChange={(e) => set("smtpUsername", e.target.value)}
+              />
+            </Field>
+            <Field label="Password">
+              <Input
+                type="password"
+                autoComplete="new-password"
+                value={s.smtpPassword ?? ""}
+                placeholder="Mailbox password"
+                onChange={(e) => set("smtpPassword", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {s.smtpPasswordSet
+                  ? "A password is saved (shown as ••••). Type a new password to replace it, or clear the field to remove it."
+                  : "Stored server-side and never returned to the browser."}
+              </p>
+            </Field>
+
+            <div className="border-t pt-4 mt-2 flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={verifySmtp}
+                disabled={verifying}
+              >
+                {verifying ? "Verifying…" : "Verify connection"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Save your changes first, then verify.
+              </p>
+            </div>
+            {verifyResult ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className={`mt-2 rounded-md border p-3 text-sm ${
+                  verifyResult.ok
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                    : "border-destructive/50 bg-destructive/10 text-destructive"
+                }`}
+              >
+                {verifyResult.ok ? (
+                  <p className="font-medium">
+                    Connected. Your mailbox accepted the credentials.
+                  </p>
+                ) : (
+                  <>
+                    <p className="font-medium">
+                      {verifyResult.configured
+                        ? "Could not connect."
+                        : "SMTP not configured."}
+                    </p>
+                    <p className="text-xs mt-1 break-words">
+                      {verifyResult.error ?? "Unknown error."}
+                    </p>
+                  </>
+                )}
+              </div>
+            ) : null}
           </Section>
 
           <Section title="Storefront behavior">

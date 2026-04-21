@@ -123,6 +123,19 @@ export interface SiteSettings {
   bankSwiftCode: string | null;
   bankRoutingNumber: string | null;
   bankInstructions: string | null;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpSecure: boolean;
+  smtpUsername: string | null;
+  /** Masked or empty. Send back as-is to keep, or replace to update. */
+  smtpPassword: string;
+  smtpPasswordSet: boolean;
+}
+
+export interface SmtpVerifyResult {
+  ok: boolean;
+  configured: boolean;
+  error?: string;
 }
 
 export interface PaymentsUrls {
@@ -333,6 +346,18 @@ export const adminApi = {
     });
     const body = (await res.json().catch(() => ({}))) as TestEmailResult;
     return body;
+  },
+  /**
+   * Run an SMTP handshake against the saved credentials. Useful for
+   * confirming Titan / Zoho / etc. accept the username + password
+   * before relying on order-confirmation delivery.
+   */
+  verifySmtp: async (): Promise<SmtpVerifyResult> => {
+    const res = await fetch("/api/admin/settings/verify-smtp", {
+      method: "POST",
+      credentials: "include",
+    });
+    return (await res.json().catch(() => ({ ok: false, configured: false }))) as SmtpVerifyResult;
   },
 
   /* Stats */

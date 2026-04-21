@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import nodemailer, { type Transporter } from "nodemailer";
 import { getSiteSettings } from "./siteSettings";
 import { db, orderEmailEventsTable, type Order } from "@workspace/db";
 
@@ -285,6 +286,134 @@ interface SettingsLike {
   emailFromAddress?: string | null;
   emailFromName?: string | null;
   emailReplyTo?: string | null;
+  smtpHost?: string | null;
+  smtpPort?: number | null;
+  smtpSecure?: boolean | null;
+  smtpUsername?: string | null;
+  smtpPassword?: string | null;
+}
+
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  password: string;
+}
+
+/** Returns a fully-configured SMTP config or null if any required
+ *  field is missing. Hosts like Titan, Zoho, Google etc. all need at
+ *  minimum host + port + auth. */
+export function resolveSmtpConfig(s: SettingsLike): SmtpConfig | null {
+  const host = (s.smtpHost ?? "").trim();
+  const username = (s.smtpUsername ?? "").trim();
+  const password = s.smtpPassword ?? "";
+  const port = s.smtpPort ?? 0;
+  if (!host || !username || !password || !port) return null;
+  return {
+    host,
+    port,
+    secure: s.smtpSecure ?? true,
+    username,
+    password,
+  };
+}
+
+function buildTransport(cfg: SmtpConfig): Transporter {
+  return nodemailer.createTransport({
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.secure, // true for 465, false for 587/STARTTLS
+    auth: { user: cfg.username, pass: cfg.password },
+    // Titan and many shared SMTP hosts can be slow to handshake on
+    // first connection; give them up to 15s before we time out.
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 20_000,
+  });
+}
+
+async function sendViaSmtp(args: {
+  cfg: SmtpConfig;
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  replyTo: string | null;
+}): Promise<SendAttempt> {
+  try {
+    const transport = buildTransport(args.cfg);
+    const info = await transport.sendMail({
+      from: args.from,
+      to: args.to,
+      subject: args.subject,
+      html: args.html,
+      text: args.text,
+      replyTo: args.replyTo ?? undefined,
+    });
+    transport.close();
+    if (info.rejected && info.rejected.length > 0) {
+      return {
+        ok: false,
+        errorMessage: `SMTP rejected recipient(s): ${info.rejected.join(", ")}`,
+        transient: false,
+      };
+    }
+    return { ok: true, transient: false };
+  } catch (err) {
+    // nodemailer surfaces the SMTP response code in `responseCode` and
+    // a friendly message in `message`. Surface both so the admin can
+    // tell the difference between "auth failed" (535) and "connection
+    // refused" (network).
+    const e = err as { message?: string; responseCode?: number; code?: string };
+    const code = e.responseCode ?? e.code ?? null;
+    const msg = e.message ?? "Unknown SMTP error";
+    return {
+      ok: false,
+      errorMessage: code ? `${msg} (code ${code})` : msg,
+      // 4xx SMTP responses are transient by spec; 5xx and connect errors
+      // we treat as permanent so we don't loop on bad credentials.
+      transient: typeof e.responseCode === "number" && e.responseCode >= 400 && e.responseCode < 500,
+      statusCode: typeof e.responseCode === "number" ? e.responseCode : undefined,
+    };
+  }
+}
+
+/** Run a no-op SMTP handshake to check that the saved credentials can
+ *  authenticate against the configured host. Used by the admin
+ *  "Verify connection" button. */
+export async function verifySmtp(s: SettingsLike): Promise<{
+  ok: boolean;
+  error?: string;
+  configured: boolean;
+}> {
+  const cfg = resolveSmtpConfig(s);
+  if (!cfg) {
+    return {
+      ok: false,
+      configured: false,
+      error:
+        "SMTP is not fully configured. Fill in host, port, username and password before testing.",
+    };
+  }
+  const transport = buildTransport(cfg);
+  try {
+    await transport.verify();
+    return { ok: true, configured: true };
+  } catch (err) {
+    const e = err as { message?: string; responseCode?: number; code?: string };
+    const codeBits = [e.responseCode, e.code].filter(Boolean).join(" / ");
+    return {
+      ok: false,
+      configured: true,
+      error: codeBits
+        ? `${e.message ?? "SMTP verify failed"} (${codeBits})`
+        : (e.message ?? "SMTP verify failed"),
+    };
+  } finally {
+    transport.close();
+  }
 }
 
 /**
@@ -374,11 +503,17 @@ async function sendOrderEmail(
   kind: OrderEmailKind,
   log: Logger,
 ): Promise<void> {
+  const settings = await getSiteSettings();
+  const smtp = resolveSmtpConfig(settings);
   const apiKey = process.env["RESEND_API_KEY"];
-  if (!apiKey) {
+
+  // Choose transport: prefer SMTP when fully configured (Titan, Zoho,
+  // Workspace, etc), else Resend HTTP API, else skip with a clear log
+  // entry the operator can find in the Emails tab.
+  if (!smtp && !apiKey) {
     log.warn(
       { orderId: order.id, kind },
-      "RESEND_API_KEY not configured; skipping order email",
+      "No email transport configured (SMTP or RESEND_API_KEY); skipping order email",
     );
     await recordOrderEmailEvent({
       orderId: order.id,
@@ -387,13 +522,12 @@ async function sendOrderEmail(
       toAddress: order.email,
       fromAddress: null,
       errorMessage:
-        "Email is not configured on this server (missing RESEND_API_KEY).",
+        "Email is not configured. Add SMTP credentials in Settings → Email, or set RESEND_API_KEY.",
       log,
     });
     return;
   }
 
-  const settings = await getSiteSettings();
   const { from, replyTo, storeName, currencySymbol } = resolveOrderSender(settings);
 
   const { subject, html, text } = renderOrderEmail(
@@ -403,32 +537,52 @@ async function sendOrderEmail(
     currencySymbol,
   );
 
-  const payload: Record<string, unknown> = {
-    from,
-    to: order.email,
-    subject,
-    html,
-    text,
-  };
-  if (replyTo) payload["reply_to"] = replyTo;
-
   // First attempt + one retry on transient failures (5xx / network).
   // 500ms backoff is enough to clear a momentary provider blip without
   // making the admin UI feel sluggish if the second call also fails.
-  let attempt = await postToResend(apiKey, payload);
+  const trySend = async (): Promise<SendAttempt> => {
+    if (smtp) {
+      return sendViaSmtp({
+        cfg: smtp,
+        from,
+        to: order.email,
+        subject,
+        html,
+        text,
+        replyTo,
+      });
+    }
+    const payload: Record<string, unknown> = {
+      from,
+      to: order.email,
+      subject,
+      html,
+      text,
+    };
+    if (replyTo) payload["reply_to"] = replyTo;
+    return postToResend(apiKey!, payload);
+  };
+
+  let attempt = await trySend();
   if (!attempt.ok && attempt.transient) {
     log.warn(
       { orderId: order.id, kind, statusCode: attempt.statusCode },
       "Order email transient failure — retrying once",
     );
     await new Promise((resolve) => setTimeout(resolve, 500));
-    attempt = await postToResend(apiKey, payload);
+    attempt = await trySend();
   }
 
   if (!attempt.ok) {
     log.error(
-      { orderId: order.id, kind, statusCode: attempt.statusCode, error: attempt.errorMessage },
-      "Resend API rejected order email",
+      {
+        orderId: order.id,
+        kind,
+        statusCode: attempt.statusCode,
+        error: attempt.errorMessage,
+        transport: smtp ? "smtp" : "resend",
+      },
+      "Email transport rejected order email",
     );
     await recordOrderEmailEvent({
       orderId: order.id,
@@ -443,7 +597,10 @@ async function sendOrderEmail(
     return;
   }
 
-  log.info({ orderId: order.id, kind, to: order.email }, "Sent order email");
+  log.info(
+    { orderId: order.id, kind, to: order.email, transport: smtp ? "smtp" : "resend" },
+    "Sent order email",
+  );
   await recordOrderEmailEvent({
     orderId: order.id,
     kind,
@@ -509,15 +666,16 @@ export async function sendTestOrderEmail(
   to: string,
   log: Logger,
 ): Promise<TestEmailResult> {
+  const settings = await getSiteSettings();
+  const smtp = resolveSmtpConfig(settings);
   const apiKey = process.env["RESEND_API_KEY"];
-  if (!apiKey) {
+  if (!smtp && !apiKey) {
     return {
       ok: false,
       error:
-        "Email is not configured on this server (missing RESEND_API_KEY). Set the API key to enable order emails.",
+        "Email is not configured. Add SMTP credentials in Settings → Email, or set RESEND_API_KEY on the server.",
     };
   }
-  const settings = await getSiteSettings();
   const { from, replyTo, storeName, configured } = resolveOrderSender(settings);
   const subject = `Test email from ${storeName}`;
   const safeStore = escapeHtml(storeName);
@@ -547,6 +705,32 @@ export async function sendTestOrderEmail(
   ].join("\n");
 
   try {
+    if (smtp) {
+      const attempt = await sendViaSmtp({
+        cfg: smtp,
+        from,
+        to,
+        subject,
+        html,
+        text,
+        replyTo,
+      });
+      if (!attempt.ok) {
+        log.warn(
+          { to, transport: "smtp", error: attempt.errorMessage },
+          "SMTP rejected test email",
+        );
+        return {
+          ok: false,
+          error: attempt.errorMessage ?? "SMTP send failed",
+          from,
+          usingSandbox: false,
+        };
+      }
+      log.info({ to, from, transport: "smtp" }, "Sent test email via SMTP");
+      return { ok: true, from, usingSandbox: false };
+    }
+
     const payload: Record<string, unknown> = {
       from,
       to,
@@ -559,13 +743,12 @@ export async function sendTestOrderEmail(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey!}`,
       },
       body: JSON.stringify(payload),
     });
     if (!response.ok) {
       const body = await response.text();
-      // Try to surface Resend's "message" field for nicer UI; fall back to body.
       let errorMessage = body;
       try {
         const parsed = JSON.parse(body) as { message?: string; error?: string };
@@ -584,7 +767,7 @@ export async function sendTestOrderEmail(
         usingSandbox: !configured,
       };
     }
-    log.info({ to, from }, "Sent test email");
+    log.info({ to, from, transport: "resend" }, "Sent test email via Resend");
     return { ok: true, from, usingSandbox: !configured };
   } catch (err) {
     log.error({ err, to }, "Failed to send test email");

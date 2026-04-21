@@ -35,6 +35,7 @@ import {
   sendOrderConfirmationEmail,
   sendOrderEmailByKind,
   sendTestOrderEmail,
+  verifySmtp,
   ORDER_EMAIL_KINDS,
   type OrderEmailKind,
 } from "../lib/email";
@@ -674,16 +675,22 @@ function shapeSettingsForAdmin(
   const {
     adminPasswordHash: _hash,
     adminUsername: _username,
+    smtpPassword: _smtpPwd,
     ...rest
   } = s;
   void _hash;
   void _username;
+  void _smtpPwd;
   return {
     ...rest,
     paystackLiveSecretKey: maskSecret(s.paystackLiveSecretKey),
     paystackTestSecretKey: maskSecret(s.paystackTestSecretKey),
     paystackLiveSecretKeySet: !!s.paystackLiveSecretKey,
     paystackTestSecretKeySet: !!s.paystackTestSecretKey,
+    // SMTP password is write-only — surface a mask + a "set" flag so
+    // the UI can show "saved" without ever revealing the secret.
+    smtpPassword: maskSecret(s.smtpPassword),
+    smtpPasswordSet: !!s.smtpPassword,
   };
 }
 
@@ -720,6 +727,10 @@ router.put("/admin/settings", async (req, res) => {
     "bankSwiftCode",
     "bankRoutingNumber",
     "bankInstructions",
+    "smtpHost",
+    "smtpPort",
+    "smtpSecure",
+    "smtpUsername",
   ];
   const patch: Record<string, unknown> = {};
   for (const k of allowed) if (k in body) patch[k] = body[k];
@@ -739,6 +750,41 @@ router.put("/admin/settings", async (req, res) => {
   if (liveSecret !== undefined) patch["paystackLiveSecretKey"] = liveSecret;
   const testSecret = acceptSecret(body["paystackTestSecretKey"]);
   if (testSecret !== undefined) patch["paystackTestSecretKey"] = testSecret;
+  const smtpPwd = acceptSecret(body["smtpPassword"]);
+  if (smtpPwd !== undefined) patch["smtpPassword"] = smtpPwd;
+
+  // Coerce/validate the SMTP host/port/string fields so we never save
+  // garbage that would break nodemailer at send time.
+  if ("smtpHost" in patch) {
+    const v = patch["smtpHost"];
+    patch["smtpHost"] =
+      v === null || v === undefined || String(v).trim() === ""
+        ? null
+        : String(v).trim();
+  }
+  if ("smtpUsername" in patch) {
+    const v = patch["smtpUsername"];
+    patch["smtpUsername"] =
+      v === null || v === undefined || String(v).trim() === ""
+        ? null
+        : String(v).trim();
+  }
+  if ("smtpPort" in patch) {
+    const raw = patch["smtpPort"];
+    if (raw === null || raw === undefined || raw === "") {
+      patch["smtpPort"] = null;
+    } else {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n < 1 || n > 65535) {
+        res.status(400).json({ error: "smtpPort must be a port between 1 and 65535." });
+        return;
+      }
+      patch["smtpPort"] = n;
+    }
+  }
+  if ("smtpSecure" in patch) {
+    patch["smtpSecure"] = !!patch["smtpSecure"];
+  }
 
   // Trim+null bank string fields so blank inputs clear the row instead
   // of saving whitespace that the storefront would render verbatim.
@@ -900,6 +946,19 @@ router.post("/admin/settings/test-email", async (req, res) => {
   }
   const result = await sendTestOrderEmail(to, req.log);
   res.status(result.ok ? 200 : 502).json(result);
+});
+
+/* ---------------- SMTP verify ----------------
+ * POST /admin/settings/verify-smtp — performs an SMTP handshake +
+ * AUTH against the saved SMTP credentials without sending mail. The
+ * admin UI uses this so the operator can confirm Titan / Zoho / etc.
+ * accept the username + password before relying on order-confirmation
+ * delivery. Always 200 so the UI renders the result inline.
+ */
+router.post("/admin/settings/verify-smtp", async (_req, res) => {
+  const settings = await getSiteSettings();
+  const result = await verifySmtp(settings);
+  res.status(200).json(result);
 });
 
 /* ---------------- Dashboard KPIs ---------------- */

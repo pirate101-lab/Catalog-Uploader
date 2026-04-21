@@ -118,6 +118,14 @@ export const siteSettingsTable = pgTable("site_settings", {
   // with bcrypt; the operator can rotate both fields from the admin UI.
   adminUsername: text("admin_username"),
   adminPasswordHash: text("admin_password_hash"),
+  // Outbound SMTP — when configured, order/test emails go through this
+  // mailbox (e.g. Titan Email) instead of the Resend HTTP API. The
+  // password is write-only via the admin UI (masked on read).
+  smtpHost: text("smtp_host"),
+  smtpPort: integer("smtp_port"),
+  smtpSecure: boolean("smtp_secure").notNull().default(true),
+  smtpUsername: text("smtp_username"),
+  smtpPassword: text("smtp_password"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()
