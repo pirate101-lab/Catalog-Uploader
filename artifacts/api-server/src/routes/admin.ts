@@ -3,7 +3,9 @@ import {
   type IRouter,
   type Request,
   type Response,
+  raw as expressRaw,
 } from "express";
+import { ObjectStorageService, StorageNotConfiguredError } from "../lib/objectStorage";
 import { eq, sql, desc, asc, and, gte, lte, or, ilike } from "drizzle-orm";
 import {
   db,
@@ -935,6 +937,64 @@ router.put("/admin/settings", async (req, res) => {
   const settings = await getSiteSettings();
   res.json(shapeSettingsForAdmin(settings, role));
 });
+
+/* ---------------- Branding logo upload ---------------- */
+
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+const LOGO_MIME_TO_EXT: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/svg+xml": "svg",
+};
+
+router.post(
+  "/admin/settings/logo",
+  requireSuperAdmin,
+  expressRaw({ type: () => true, limit: LOGO_MAX_BYTES + 1024 }),
+  async (req: Request, res: Response) => {
+    const ctRaw = String(req.headers["content-type"] ?? "")
+      .split(";")[0]!
+      .trim()
+      .toLowerCase();
+    const ext = LOGO_MIME_TO_EXT[ctRaw];
+    if (!ext) {
+      res.status(400).json({
+        error:
+          "Unsupported logo type. Use PNG, JPG, SVG, WebP, or GIF (≤ 2 MB).",
+      });
+      return;
+    }
+    const buf = req.body;
+    if (!Buffer.isBuffer(buf) || buf.length === 0) {
+      res.status(400).json({ error: "Empty upload." });
+      return;
+    }
+    if (buf.length > LOGO_MAX_BYTES) {
+      res.status(413).json({ error: "Logo must be 2 MB or smaller." });
+      return;
+    }
+    try {
+      const svc = new ObjectStorageService();
+      const publicUrl = await svc.uploadBranding(buf, ctRaw, ext);
+      res.json({ publicUrl });
+    } catch (e) {
+      if (e instanceof StorageNotConfiguredError) {
+        res.status(503).json({
+          error:
+            "Object storage is not configured on this server. Set PUBLIC_OBJECT_SEARCH_PATHS or paste a logo URL instead.",
+        });
+        return;
+      }
+      req.log?.error?.({ err: e }, "logo upload failed");
+      res
+        .status(500)
+        .json({ error: (e as Error).message || "Logo upload failed." });
+    }
+  },
+);
 
 /* ---------------- Payments admin ---------------- */
 

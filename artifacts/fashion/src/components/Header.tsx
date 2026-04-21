@@ -19,6 +19,7 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [headerQuery, setHeaderQuery] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [storeName, setStoreName] = useState<string>('VELOUR');
   const [, navigate] = useLocation();
   const lastY = useRef(0);
 
@@ -26,8 +27,10 @@ export function Header() {
     let cancelled = false;
     fetch('/api/storefront/settings')
       .then((r) => r.json())
-      .then((d: { logoUrl?: string | null }) => {
-        if (!cancelled && d.logoUrl) setLogoUrl(d.logoUrl);
+      .then((d: { logoUrl?: string | null; storeName?: string }) => {
+        if (cancelled) return;
+        if (d.logoUrl) setLogoUrl(d.logoUrl);
+        if (d.storeName && d.storeName.trim()) setStoreName(d.storeName);
       })
       .catch(() => {});
     return () => {
@@ -73,12 +76,12 @@ export function Header() {
             href="/"
             className="flex items-center gap-2 md:gap-2.5 text-foreground"
             data-testid="link-logo"
-            aria-label="VELOUR home"
+            aria-label={`${storeName} home`}
           >
             {logoUrl ? (
               <img
                 src={logoUrl}
-                alt="VELOUR"
+                alt={storeName}
                 className="h-8 md:h-9 w-auto max-w-[160px] object-contain shrink-0"
               />
             ) : (

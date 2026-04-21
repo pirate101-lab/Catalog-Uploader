@@ -697,13 +697,7 @@ function LogoField({
     setUploading(true);
     setError(null);
     try {
-      const { uploadURL, publicUrl } = await adminApi.requestUploadUrl(file.name);
-      const put = await fetch(uploadURL, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+      const { publicUrl } = await adminApi.uploadLogo(file);
       onChange(publicUrl);
       toast.success("Logo uploaded — click Save settings to apply.");
     } catch (e) {

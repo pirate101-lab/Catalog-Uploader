@@ -125,6 +125,32 @@ export class ObjectStorageService {
 
     return { uploadURL, objectPath: relPath };
   }
+
+  /**
+   * Server-side upload for branding assets (logos). Writes the buffer
+   * directly through the GCS client under a `branding/` prefix so the
+   * caller controls the exact path/extension and the server can enforce
+   * size/MIME limits before any bytes hit storage. Returns the public
+   * URL the storefront/admin can immediately render.
+   */
+  async uploadBranding(
+    buf: Buffer,
+    contentType: string,
+    extension: string,
+  ): Promise<string> {
+    const publicPaths = this.getPublicObjectSearchPaths();
+    const basePath = publicPaths[0];
+    const objectId = randomUUID();
+    const safeExt = extension.replace(/[^a-z0-9]/gi, "").toLowerCase() || "img";
+    const relPath = `branding/${objectId}.${safeExt}`;
+    const fullPath = `${basePath}/${relPath}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    await objectStorageClient
+      .bucket(bucketName)
+      .file(objectName)
+      .save(buf, { contentType, resumable: false });
+    return `/api/storage/public-objects/${relPath}`;
+  }
 }
 
 function parseObjectPath(path: string): {

@@ -487,6 +487,22 @@ export const adminApi = {
   deleteAdminUser: (id: number) =>
     adminFetch<{ ok: true }>(`/admin-users/${id}`, { method: "DELETE" }),
 
+  uploadLogo: async (file: File): Promise<{ publicUrl: string }> => {
+    const res = await fetch("/api/admin/settings/logo", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      publicUrl?: string;
+      error?: string;
+    };
+    if (!res.ok || !body.publicUrl) {
+      throw new Error(body.error || `Upload failed (${res.status})`);
+    }
+    return { publicUrl: body.publicUrl };
+  },
   requestUploadUrl: (name: string) =>
     fetch("/api/storage/uploads/request-url", {
       method: "POST",
