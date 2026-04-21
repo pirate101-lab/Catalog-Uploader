@@ -16,6 +16,16 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## First-run setup
+
+Before the API server can serve storefront requests, the Postgres schema must be pushed:
+
+```
+pnpm --filter @workspace/db run push
+```
+
+This creates every table the API server reads from (`product_overrides`, `reviews`, `product_review_summary`, `orders`, `order_email_events`, `site_settings`, `hero_slides`, `addresses`, `users`, `sessions`, etc.). The public storefront read paths (`getOverridesMap`, `getSiteSettingsForStorefront`, `/storefront/hero`, and the per-product reviews endpoint) now degrade gracefully if Postgres is offline or missing tables — they log once and serve catalog rows / fallback data so men's, women's, and shoes tiles always render. Admin routes still surface real DB errors.
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages

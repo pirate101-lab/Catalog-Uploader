@@ -17,7 +17,7 @@ import {
   type ProductRow,
 } from "../lib/catalog";
 import { getOverridesMap } from "../lib/overrides";
-import { getSiteSettings } from "../lib/siteSettings";
+import { getSiteSettingsForStorefront } from "../lib/siteSettings";
 
 const router: IRouter = Router();
 
@@ -192,7 +192,7 @@ function searchAndSort(rows: DecoratedRow[], f: SearchFilters): DecoratedRow[] {
 }
 
 router.get("/storefront/settings", async (_req: Request, res: Response) => {
-  const s = await getSiteSettings();
+  const s = await getSiteSettingsForStorefront();
   // Bank-transfer payment details are read from env so they can be rotated
   // without redeploying. All four are optional — if any are missing the
   // storefront will display a friendly placeholder telling the customer to
@@ -270,17 +270,30 @@ const FALLBACK_HERO = [
   },
 ];
 
+let heroWarnedOnce = false;
+let reviewsWarnedOnce = false;
 router.get("/storefront/hero", async (_req: Request, res: Response) => {
-  const rows = await db
-    .select()
-    .from(heroSlidesTable)
-    .where(eq(heroSlidesTable.active, true))
-    .orderBy(asc(heroSlidesTable.sortOrder), asc(heroSlidesTable.id));
-  if (rows.length === 0) {
+  try {
+    const rows = await db
+      .select()
+      .from(heroSlidesTable)
+      .where(eq(heroSlidesTable.active, true))
+      .orderBy(asc(heroSlidesTable.sortOrder), asc(heroSlidesTable.id));
+    if (rows.length === 0) {
+      res.json(FALLBACK_HERO);
+      return;
+    }
+    res.json(rows);
+  } catch (err) {
+    if (!heroWarnedOnce) {
+      heroWarnedOnce = true;
+      console.warn(
+        "[storefront/hero] failed to load hero_slides; serving fallback:",
+        (err as Error).message,
+      );
+    }
     res.json(FALLBACK_HERO);
-    return;
   }
-  res.json(rows);
 });
 
 router.get("/storefront/categories", async (req: Request, res: Response) => {
@@ -495,37 +508,58 @@ router.get(
     const limit = Math.min(Math.max(parseInt(req.query["limit"], 20), 1), 100);
     const offset = Math.max(parseInt(req.query["offset"], 0), 0);
 
-    const rows = await db
-      .select({
-        id: reviewsTable.id,
-        name: reviewsTable.name,
-        rating: reviewsTable.rating,
-        title: reviewsTable.title,
-        body: reviewsTable.body,
-        verifiedPurchase: reviewsTable.verifiedPurchase,
-        createdAt: reviewsTable.createdAt,
-      })
-      .from(reviewsTable)
-      .where(eq(reviewsTable.productId, productId))
-      .orderBy(desc(reviewsTable.createdAt))
-      .limit(limit)
-      .offset(offset);
+    let rows: Array<{
+      id: number;
+      name: string;
+      rating: number;
+      title: string | null;
+      body: string;
+      verifiedPurchase: boolean;
+      createdAt: Date;
+    }> = [];
+    let count = 0;
+    let average = 0;
+    try {
+      rows = await db
+        .select({
+          id: reviewsTable.id,
+          name: reviewsTable.name,
+          rating: reviewsTable.rating,
+          title: reviewsTable.title,
+          body: reviewsTable.body,
+          verifiedPurchase: reviewsTable.verifiedPurchase,
+          createdAt: reviewsTable.createdAt,
+        })
+        .from(reviewsTable)
+        .where(eq(reviewsTable.productId, productId))
+        .orderBy(desc(reviewsTable.createdAt))
+        .limit(limit)
+        .offset(offset);
 
-    // Read the cached aggregate written by `refreshProductReviewSummary`
-    // on every insert. Falls back to zero when no review has ever been
-    // recorded for the product (no summary row exists).
-    const summary = await db
-      .select({
-        count: productReviewSummaryTable.count,
-        average: productReviewSummaryTable.average,
-      })
-      .from(productReviewSummaryTable)
-      .where(eq(productReviewSummaryTable.productId, productId))
-      .limit(1);
+      // Read the cached aggregate written by `refreshProductReviewSummary`
+      // on every insert. Falls back to zero when no review has ever been
+      // recorded for the product (no summary row exists).
+      const summary = await db
+        .select({
+          count: productReviewSummaryTable.count,
+          average: productReviewSummaryTable.average,
+        })
+        .from(productReviewSummaryTable)
+        .where(eq(productReviewSummaryTable.productId, productId))
+        .limit(1);
 
-    const summaryRow = summary[0];
-    const count = summaryRow?.count ?? 0;
-    const average = summaryRow ? Number(summaryRow.average) : 0;
+      const summaryRow = summary[0];
+      count = summaryRow?.count ?? 0;
+      average = summaryRow ? Number(summaryRow.average) : 0;
+    } catch (err) {
+      if (!reviewsWarnedOnce) {
+        reviewsWarnedOnce = true;
+        console.warn(
+          "[storefront/reviews] failed to load reviews; returning empty:",
+          (err as Error).message,
+        );
+      }
+    }
     res.json({
       reviews: rows.map((r: (typeof rows)[number]) => ({
         id: r.id,

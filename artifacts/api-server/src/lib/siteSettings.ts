@@ -30,3 +30,45 @@ export function invalidateSiteSettings(): void {
   cache = null;
   cacheUntil = 0;
 }
+
+const FALLBACK_SETTINGS: SiteSettings = {
+  id: 1,
+  announcementText: "",
+  announcementActive: false,
+  defaultSort: "featured",
+  freeShippingThresholdCents: 15000,
+  currencySymbol: "$",
+  maintenanceMode: false,
+  storeName: "VELOUR",
+  tagline: "Women's Fashion Store",
+  emailFromAddress: null,
+  emailFromName: null,
+  emailReplyTo: null,
+  heroAutoAdvance: true,
+  allowGuestReviews: false,
+  updatedAt: new Date(0),
+};
+
+let storefrontWarnedOnce = false;
+
+/**
+ * Storefront-only variant: never throws. If the underlying
+ * `site_settings` table is missing/unreachable, logs once and serves
+ * the static {@link FALLBACK_SETTINGS} so the public storefront keeps
+ * rendering. Admin and email/checkout flows must continue to call
+ * {@link getSiteSettings} directly so DB outages remain visible.
+ */
+export async function getSiteSettingsForStorefront(): Promise<SiteSettings> {
+  try {
+    return await getSiteSettings();
+  } catch (err) {
+    if (!storefrontWarnedOnce) {
+      storefrontWarnedOnce = true;
+      console.warn(
+        "[siteSettings] failed to load site_settings for storefront; serving defaults:",
+        (err as Error).message,
+      );
+    }
+    return FALLBACK_SETTINGS;
+  }
+}
