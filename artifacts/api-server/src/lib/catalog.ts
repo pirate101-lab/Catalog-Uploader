@@ -110,44 +110,98 @@ const EMPTY_BUCKETS: BucketDerivation = {
   buckets: [],
 };
 
-// Derive bucket flags for the women's catalog deterministically.
-// Top 30% by numeric id → new_in, every product with hash%2==0 → collection (~50%),
-// hash%4==0 → tiktok_verified (~25%), top 30% by trendScore → trending.
-// Buckets overlap on purpose so each tab still surfaces a deep grid.
+interface UpstreamFlag {
+  isNewIn: boolean;
+  isCollection: boolean;
+  isTikTokVerified: boolean;
+  isTrending: boolean;
+  trendScore: number;
+  observed: boolean;
+}
+
+interface UpstreamFlagsFile {
+  _meta?: Record<string, unknown>;
+  flags: Record<string, UpstreamFlag>;
+}
+
+// Load per-product bucket flags pulled from Trendsi's home-product API
+// (see scripts/enrich-women-buckets.py). Returns null when the snapshot
+// file is missing — callers fall back to deterministic synthesis.
+function loadUpstreamFlags(): Map<string, UpstreamFlag> | null {
+  const dataPath = resolve(__dirname, "../data", "catalog_buckets.json");
+  if (!existsSync(dataPath)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(dataPath, "utf-8")) as UpstreamFlagsFile;
+    if (!parsed || typeof parsed !== "object" || !parsed.flags) return null;
+    return new Map(Object.entries(parsed.flags));
+  } catch {
+    return null;
+  }
+}
+
+// Derive bucket flags for the women's catalog. Prefers real upstream
+// flags from catalog_buckets.json when a product is "observed" there,
+// and falls back to deterministic synthesis (top 30% by numeric id →
+// new_in, hash%2==0 → collection, hash%4==0 → tiktok_verified, top
+// 30% by trendScore → trending) for any product without coverage.
 function deriveWomenBuckets(rows: ProductRow[]): void {
   if (rows.length === 0) return;
+  const upstream = loadUpstreamFlags();
+
   const nidSorted = [...rows]
     .map((r) => ({ id: r.id, nid: numericIdPart(r.id) }))
     .sort((a, b) => b.nid - a.nid);
   const newInCutoff = Math.max(1, Math.floor(rows.length * 0.3));
-  const newInIds = new Set(nidSorted.slice(0, newInCutoff).map((x) => x.id));
+  const synthNewInIds = new Set(nidSorted.slice(0, newInCutoff).map((x) => x.id));
 
-  // trendScore = blend of stable hash + price-tier kicker so trending
-  // skews toward mid-priced viral hits, not random or only-expensive.
+  // Synthesised trendScore = blend of stable hash + price-tier kicker
+  // so trending skews toward mid-priced viral hits, not random or
+  // only-expensive. Used both as the trending sort key (mixed with
+  // upstream scores) and as the synth-fallback membership signal.
   const scored = rows.map((r) => {
     const h = hash01(r.id);
     const price = Number(r.price);
-    // Mid-tier ($25–$60) gets a small boost; very cheap or pricey items
-    // tilt slightly down. Result stays in [0, 1].
     const tierBoost = price >= 25 && price <= 60 ? 0.15 : 0;
     const trendScore = Math.min(1, h * 0.85 + tierBoost);
     return { id: r.id, trendScore, h };
   });
   const scoreMap = new Map(scored.map((s) => [s.id, s]));
-  const trendCutoff = Math.max(1, Math.floor(rows.length * 0.3));
-  const trendingIds = new Set(
+  const synthTrendCutoff = Math.max(1, Math.floor(rows.length * 0.3));
+  const synthTrendingIds = new Set(
     [...scored].sort((a, b) => b.trendScore - a.trendScore)
-      .slice(0, trendCutoff)
+      .slice(0, synthTrendCutoff)
       .map((x) => x.id),
   );
 
   for (const r of rows) {
     const s = scoreMap.get(r.id)!;
-    const hashBucket = Math.floor(s.h * 1000);
-    const isCollection = hashBucket % 2 === 0;
-    const isTikTokVerified = hashBucket % 4 === 0;
-    const isNewIn = newInIds.has(r.id);
-    const isTrending = trendingIds.has(r.id);
+    // Strip the gender prefix (women products carry no "m-") so we can
+    // look up the raw upstream id; women rows already keep the bare id.
+    const upstreamFlag = upstream?.get(r.id);
+    let isNewIn: boolean;
+    let isCollection: boolean;
+    let isTikTokVerified: boolean;
+    let isTrending: boolean;
+    let trendScore: number;
+    if (upstreamFlag && upstreamFlag.observed) {
+      isNewIn = upstreamFlag.isNewIn;
+      isCollection = upstreamFlag.isCollection;
+      isTikTokVerified = upstreamFlag.isTikTokVerified;
+      isTrending = upstreamFlag.isTrending;
+      // Upstream trendScore is 0 for most rows (raw maxEarn signal is
+      // sparse), so blend in a small synthesised tiebreaker to keep the
+      // trending sort stable and avoid huge equal-score plateaus.
+      trendScore = upstreamFlag.trendScore > 0
+        ? upstreamFlag.trendScore
+        : s.trendScore * 0.5;
+    } else {
+      const hashBucket = Math.floor(s.h * 1000);
+      isCollection = hashBucket % 2 === 0;
+      isTikTokVerified = hashBucket % 4 === 0;
+      isNewIn = synthNewInIds.has(r.id);
+      isTrending = synthTrendingIds.has(r.id);
+      trendScore = s.trendScore;
+    }
     const buckets: BucketKey[] = [];
     if (isNewIn) buckets.push("new_in");
     if (isCollection) buckets.push("collection");
@@ -157,7 +211,7 @@ function deriveWomenBuckets(rows: ProductRow[]): void {
     r.isCollection = isCollection;
     r.isTikTokVerified = isTikTokVerified;
     r.isTrending = isTrending;
-    r.trendScore = s.trendScore;
+    r.trendScore = trendScore;
     r.buckets = buckets;
   }
 }
