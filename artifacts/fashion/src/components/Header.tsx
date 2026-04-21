@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ShoppingBag, Search, Heart, Menu, Sun, Moon, X, User, LogIn } from 'lucide-react';
-import { Show, useUser } from '@clerk/react';
+import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -13,6 +13,7 @@ export function Header() {
   const { totalItems, setIsCartOpen } = useCart();
   const { count: wishlistCount } = useWishlist();
   const { theme, toggle: toggleTheme } = useTheme();
+  const { isSignedIn } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
   const [wishOpen, setWishOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -166,19 +167,20 @@ export function Header() {
               <Link href="/wishlist" onClick={() => setMobileOpen(false)}>
                 Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
               </Link>
-              <Show when="signed-in">
+              {isSignedIn ? (
                 <Link href="/profile" onClick={() => setMobileOpen(false)}>
                   My account
                 </Link>
-              </Show>
-              <Show when="signed-out">
-                <Link href="/sign-in" onClick={() => setMobileOpen(false)}>
-                  Sign in
-                </Link>
-                <Link href="/sign-up" onClick={() => setMobileOpen(false)}>
-                  Create account
-                </Link>
-              </Show>
+              ) : (
+                <>
+                  <Link href="/sign-in" onClick={() => setMobileOpen(false)}>
+                    Sign in
+                  </Link>
+                  <Link href="/sign-up" onClick={() => setMobileOpen(false)}>
+                    Create account
+                  </Link>
+                </>
+              )}
             </nav>
           </div>
         )}
@@ -195,46 +197,46 @@ export function Header() {
 }
 
 function AuthHeaderButton({ iconBtn }: { iconBtn: string }) {
-  const { user } = useUser();
+  const { user, isSignedIn } = useAuth();
+  if (isSignedIn) {
+    return (
+      <Link
+        href="/profile"
+        className={iconBtn}
+        aria-label="My account"
+        data-testid="button-profile"
+      >
+        {user?.profileImageUrl ? (
+          <img
+            src={user.profileImageUrl}
+            alt=""
+            className="w-6 h-6 rounded-full object-cover ring-1 ring-border"
+          />
+        ) : (
+          <User className="w-5 h-5" />
+        )}
+      </Link>
+    );
+  }
   return (
     <>
-      <Show when="signed-in">
-        <Link
-          href="/profile"
-          className={iconBtn}
-          aria-label="My account"
-          data-testid="button-profile"
-        >
-          {user?.imageUrl ? (
-            <img
-              src={user.imageUrl}
-              alt=""
-              className="w-6 h-6 rounded-full object-cover ring-1 ring-border"
-            />
-          ) : (
-            <User className="w-5 h-5" />
-          )}
-        </Link>
-      </Show>
-      <Show when="signed-out">
-        <Link
-          href="/sign-in"
-          className={`${iconBtn} hidden sm:inline-flex items-center gap-1 text-sm font-medium`}
-          aria-label="Sign in"
-          data-testid="button-signin"
-        >
-          <LogIn className="w-5 h-5" />
-          <span className="hidden md:inline">Sign in</span>
-        </Link>
-        <Link
-          href="/sign-in"
-          className={`${iconBtn} sm:hidden`}
-          aria-label="Sign in"
-          data-testid="button-signin-mobile"
-        >
-          <LogIn className="w-5 h-5" />
-        </Link>
-      </Show>
+      <Link
+        href="/sign-in"
+        className={`${iconBtn} hidden sm:inline-flex items-center gap-1 text-sm font-medium`}
+        aria-label="Sign in"
+        data-testid="button-signin"
+      >
+        <LogIn className="w-5 h-5" />
+        <span className="hidden md:inline">Sign in</span>
+      </Link>
+      <Link
+        href="/sign-in"
+        className={`${iconBtn} sm:hidden`}
+        aria-label="Sign in"
+        data-testid="button-signin-mobile"
+      >
+        <LogIn className="w-5 h-5" />
+      </Link>
     </>
   );
 }

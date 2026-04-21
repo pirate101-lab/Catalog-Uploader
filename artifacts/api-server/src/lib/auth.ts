@@ -9,11 +9,18 @@ export const ISSUER_URL = process.env.ISSUER_URL ?? "https://replit.com/oidc";
 export const SESSION_COOKIE = "sid";
 export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 
+export type AuthProvider = "oidc" | "password";
+
 export interface SessionData {
   user: AuthUser;
   access_token: string;
   refresh_token?: string;
   expires_at?: number;
+  // Identifies how this session was authenticated. Only "oidc" sessions
+  // are considered for admin authorization — storefront password
+  // sessions (which have no email-ownership proof) must never gain
+  // admin access even if their email matches the allowlist.
+  authProvider?: AuthProvider;
 }
 
 let oidcConfig: client.Configuration | null = null;

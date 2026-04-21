@@ -1,22 +1,20 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { getAuth } from "@clerk/express";
 import { and, desc, eq } from "drizzle-orm";
 import { db, addressesTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
 interface AuthedRequest extends Request {
-  clerkUserId?: string;
+  authedUserId?: string;
 }
 
 function requireAuth(req: AuthedRequest, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
+  const userId = req.user?.id;
   if (!userId) {
     res.status(401).json({ error: "unauthorized" });
     return;
   }
-  req.clerkUserId = userId;
+  req.authedUserId = userId;
   next();
 }
 
@@ -50,7 +48,7 @@ router.get("/addresses", requireAuth, async (req: AuthedRequest, res) => {
   const rows = await db
     .select()
     .from(addressesTable)
-    .where(eq(addressesTable.userId, req.clerkUserId!))
+    .where(eq(addressesTable.userId, req.authedUserId!))
     .orderBy(desc(addressesTable.isDefault), desc(addressesTable.updatedAt));
   res.json({ addresses: rows });
 });
@@ -67,11 +65,11 @@ router.post("/addresses", requireAuth, async (req: AuthedRequest, res): Promise<
     await db
       .update(addressesTable)
       .set({ isDefault: false })
-      .where(eq(addressesTable.userId, req.clerkUserId!));
+      .where(eq(addressesTable.userId, req.authedUserId!));
   }
   const [row] = await db
     .insert(addressesTable)
-    .values({ ...payload, userId: req.clerkUserId! })
+    .values({ ...payload, userId: req.authedUserId! })
     .returning();
   res.status(201).json({ address: row });
 });
@@ -89,12 +87,12 @@ router.patch("/addresses/:id", requireAuth, async (req: AuthedRequest, res): Pro
     await db
       .update(addressesTable)
       .set({ isDefault: false })
-      .where(eq(addressesTable.userId, req.clerkUserId!));
+      .where(eq(addressesTable.userId, req.authedUserId!));
   }
   const [row] = await db
     .update(addressesTable)
     .set(payload)
-    .where(and(eq(addressesTable.id, id), eq(addressesTable.userId, req.clerkUserId!)))
+    .where(and(eq(addressesTable.id, id), eq(addressesTable.userId, req.authedUserId!)))
     .returning();
   if (!row) {
     res.status(404).json({ error: "not_found" });
@@ -107,7 +105,7 @@ router.delete("/addresses/:id", requireAuth, async (req: AuthedRequest, res): Pr
   const id = String(req.params.id);
   const result = await db
     .delete(addressesTable)
-    .where(and(eq(addressesTable.id, id), eq(addressesTable.userId, req.clerkUserId!)))
+    .where(and(eq(addressesTable.id, id), eq(addressesTable.userId, req.authedUserId!)))
     .returning({ id: addressesTable.id });
   if (result.length === 0) {
     res.status(404).json({ error: "not_found" });

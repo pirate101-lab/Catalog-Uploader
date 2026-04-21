@@ -10,7 +10,7 @@ import {
   useElements,
   useStripe,
 } from '@stripe/react-stripe-js';
-import { useUser } from '@clerk/react';
+import { useAuth } from '@/context/AuthContext';
 import { useCart, type CartItem } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -124,7 +124,7 @@ function splitName(full: string): { firstName: string; lastName: string } {
 
 export function CheckoutPage() {
   const { items, subtotal, clearCart } = useCart();
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn, user } = useAuth();
   const [, navigate] = useLocation();
   const [submitted, setSubmitted] = useState(false);
   const [orderId, setOrderId] = useState('');
@@ -193,7 +193,7 @@ export function CheckoutPage() {
         setSavedAddress(def);
         const { firstName, lastName } = splitName(def.fullName);
         form.reset({
-          email: form.getValues('email') || user?.primaryEmailAddress?.emailAddress || '',
+          email: form.getValues('email') || user?.email || '',
           firstName,
           lastName,
           address: [def.line1, def.line2].filter(Boolean).join(', '),

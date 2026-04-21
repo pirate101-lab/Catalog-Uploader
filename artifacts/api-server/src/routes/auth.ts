@@ -1,4 +1,6 @@
 import * as oidc from "openid-client";
+import bcrypt from "bcryptjs";
+import { eq } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   GetCurrentAuthUserResponse,
@@ -91,14 +93,15 @@ router.get("/auth/user", (req: Request, res: Response) => {
 });
 
 router.get("/auth/admin-status", async (req: Request, res: Response) => {
-  const { isAdminEmail } = await import("../middlewares/adminGuard");
+  const { isOidcAdmin } = await import("../middlewares/adminGuard");
   if (!req.isAuthenticated()) {
     res.json({ authenticated: false, isAdmin: false });
     return;
   }
   res.json({
     authenticated: true,
-    isAdmin: isAdminEmail(req.user.email),
+    // Mirror requireAdmin: only OIDC sessions can ever be admin.
+    isAdmin: isOidcAdmin(req),
     email: req.user.email ?? null,
   });
 });
@@ -193,6 +196,7 @@ router.get("/callback", async (req: Request, res: Response) => {
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
     expires_at: tokens.expiresIn() ? now + tokens.expiresIn()! : claims.exp,
+    authProvider: "oidc",
   };
 
   const sid = await createSession(sessionData);
@@ -263,6 +267,7 @@ router.post(
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_at: tokens.expiresIn() ? now + tokens.expiresIn()! : claims.exp,
+        authProvider: "oidc",
       };
 
       const sid = await createSession(sessionData);
@@ -273,6 +278,127 @@ router.post(
     }
   },
 );
+
+// ─── Storefront email/password auth ──────────────────────────────────────
+// Self-hosted password authentication used by the public storefront.
+// Admin login still uses /api/login (OIDC) above.
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const trimmed = v.trim().toLowerCase();
+  return EMAIL_RE.test(trimmed) && trimmed.length <= 191 ? trimmed : null;
+}
+
+function safeName(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const trimmed = v.trim().slice(0, 80);
+  return trimmed || null;
+}
+
+router.post("/auth/register", async (req: Request, res: Response) => {
+  const email = normalizeEmail(req.body?.email);
+  const password = typeof req.body?.password === "string" ? req.body.password : "";
+  const firstName = safeName(req.body?.firstName);
+  const lastName = safeName(req.body?.lastName);
+
+  if (!email) {
+    res.status(400).json({ error: "invalid_email" });
+    return;
+  }
+  if (password.length < 8 || password.length > 200) {
+    res.status(400).json({ error: "weak_password", message: "Password must be 8–200 characters." });
+    return;
+  }
+
+  // Never silently bind a password to an existing user row. If a row
+  // already exists for this email — whether from a prior password
+  // signup OR from an OIDC sign-in — registration MUST fail. Allowing
+  // password attachment to an unverified email would let an attacker
+  // take over any pre-existing account (including admins) by guessing
+  // their email address.
+  const [existing] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.email, email));
+
+  if (existing) {
+    res.status(409).json({ error: "email_taken" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  const [userRow] = await db
+    .insert(usersTable)
+    .values({ email, passwordHash, firstName, lastName })
+    .returning();
+
+  const sessionData: SessionData = {
+    user: {
+      id: userRow.id,
+      email: userRow.email,
+      firstName: userRow.firstName,
+      lastName: userRow.lastName,
+      profileImageUrl: userRow.profileImageUrl,
+    },
+    access_token: "password",
+    authProvider: "password",
+  };
+
+  const sid = await createSession(sessionData);
+  setSessionCookie(res, sid);
+  res.status(201).json({ user: sessionData.user });
+});
+
+router.post("/auth/login", async (req: Request, res: Response) => {
+  const email = normalizeEmail(req.body?.email);
+  const password = typeof req.body?.password === "string" ? req.body.password : "";
+
+  if (!email || !password) {
+    res.status(400).json({ error: "invalid_credentials" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.email, email));
+
+  if (!user?.passwordHash) {
+    res.status(401).json({ error: "invalid_credentials" });
+    return;
+  }
+
+  const ok = await bcrypt.compare(password, user.passwordHash);
+  if (!ok) {
+    res.status(401).json({ error: "invalid_credentials" });
+    return;
+  }
+
+  const sessionData: SessionData = {
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      profileImageUrl: user.profileImageUrl,
+    },
+    access_token: "password",
+    authProvider: "password",
+  };
+
+  const sid = await createSession(sessionData);
+  setSessionCookie(res, sid);
+  res.json({ user: sessionData.user });
+});
+
+router.post("/auth/logout", async (req: Request, res: Response) => {
+  const sid = getSessionId(req);
+  await clearSession(res, sid);
+  res.json({ ok: true });
+});
 
 router.post("/mobile-auth/logout", async (req: Request, res: Response) => {
   const sid = getSessionId(req);

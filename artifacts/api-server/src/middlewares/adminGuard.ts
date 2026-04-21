@@ -19,6 +19,14 @@ export function requireAdmin(
     res.status(401).json({ error: "Authentication required" });
     return;
   }
+  // Admin access is only granted to OIDC-authenticated identities. Storefront
+  // password sessions have no email-ownership proof, so an attacker who
+  // registers with an admin email must NEVER gain admin access through
+  // matching the allowlist alone.
+  if (req.authProvider !== "oidc") {
+    res.status(403).json({ error: "Admin access requires SSO sign-in" });
+    return;
+  }
   const allowlist = getAdminEmails();
   const email = (req.user.email ?? "").toLowerCase();
   // If allowlist is empty, allow any authenticated user in development so the
@@ -53,4 +61,11 @@ export function isAdminEmail(email: string | null | undefined): boolean {
   const allowlist = getAdminEmails();
   if (allowlist.size === 0) return process.env["NODE_ENV"] !== "production";
   return allowlist.has(email.toLowerCase());
+}
+
+// Convenience for the /api/auth/admin-status endpoint: only OIDC sessions
+// can ever be admins, mirroring the requireAdmin middleware.
+export function isOidcAdmin(req: { authProvider?: string; user?: { email?: string | null } | null }): boolean {
+  if (req.authProvider !== "oidc") return false;
+  return isAdminEmail(req.user?.email ?? null);
 }

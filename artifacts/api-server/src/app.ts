@@ -2,14 +2,9 @@ import express, { type Express } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
-import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { authMiddleware } from "./middlewares/authMiddleware";
-import {
-  CLERK_PROXY_PATH,
-  clerkProxyMiddleware,
-} from "./middlewares/clerkProxyMiddleware";
 import { createProxyMiddleware } from "http-proxy-middleware";
 
 const app: Express = express();
@@ -34,18 +29,13 @@ app.use(
   }),
 );
 
-// Clerk proxy must be mounted BEFORE body parsers — it streams raw bytes.
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-
 app.use(cors({ credentials: true, origin: true }));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Clerk session middleware — populates `getAuth(req)` for downstream routes.
-app.use(clerkMiddleware());
-
-// Existing Replit-Auth middleware for the legacy admin auth flow.
+// Session middleware — populates req.user for both OIDC (admin) and
+// password-based (storefront) sessions stored in the sessions table.
 app.use(authMiddleware);
 
 app.use("/api", router);

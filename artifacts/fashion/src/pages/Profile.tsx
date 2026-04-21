@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Show, useUser, useClerk } from '@clerk/react';
 import { Link, useLocation } from 'wouter';
 import { LogOut, MapPin, Plus, Trash2, Edit2, Check } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 
@@ -50,9 +50,9 @@ const COUNTRY_DIAL_CODES = [
 ];
 
 function ProfileInner() {
-  const { user, isLoaded } = useUser();
-  const { signOut } = useClerk();
+  const { user, isLoaded, signOut } = useAuth();
   const [, navigate] = useLocation();
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -85,7 +85,7 @@ function ProfileInner() {
     setEditingId(null);
     setForm({
       ...EMPTY_FORM,
-      fullName: user?.fullName || '',
+      fullName: fullName || '',
     });
     setShowForm(true);
   };
@@ -149,20 +149,19 @@ function ProfileInner() {
   return (
     <div className="container mx-auto px-4 py-10 max-w-3xl">
       <div className="flex items-center gap-4 mb-8">
-        {user?.imageUrl ? (
-          <img src={user.imageUrl} alt="" className="w-16 h-16 rounded-full object-cover border border-border" />
+        {user?.profileImageUrl ? (
+          <img src={user.profileImageUrl} alt="" className="w-16 h-16 rounded-full object-cover border border-border" />
         ) : (
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center text-2xl font-bold text-muted-foreground">
-            {(user?.firstName?.[0] || user?.primaryEmailAddress?.emailAddress?.[0] || 'U').toUpperCase()}
+            {(user?.firstName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
           </div>
         )}
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-serif font-bold truncate">
-            {user?.fullName || user?.primaryEmailAddress?.emailAddress || 'Account'}
+            {fullName || user?.email || 'Account'}
           </h1>
           <p className="text-sm text-muted-foreground truncate">
-            {user?.primaryEmailAddress?.emailAddress}
-            {user?.primaryPhoneNumber?.phoneNumber ? ` · ${user.primaryPhoneNumber.phoneNumber}` : ''}
+            {user?.email}
           </p>
         </div>
         <button
@@ -332,27 +331,25 @@ function Field({ label, children, wide = false }: { label: string; children: Rea
 }
 
 export function ProfilePage() {
-  const [, navigate] = useLocation();
+  const { isLoaded, isSignedIn } = useAuth();
+  if (!isLoaded) {
+    return <div className="container mx-auto px-4 py-12 text-muted-foreground">Loading…</div>;
+  }
+  if (isSignedIn) {
+    return <ProfileInner />;
+  }
   return (
-    <>
-      <Show when="signed-in">
-        <ProfileInner />
-      </Show>
-      <Show when="signed-out">
-        <div className="container mx-auto px-4 py-12 text-center">
-          <h1 className="text-2xl font-serif font-bold mb-2">Sign in to view your profile</h1>
-          <p className="text-muted-foreground mb-6">
-            Manage your delivery addresses and account details.
-          </p>
-          <Link
-            href="/sign-in"
-            className="inline-block bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-medium"
-            onClick={() => navigate('/sign-in')}
-          >
-            Sign in
-          </Link>
-        </div>
-      </Show>
-    </>
+    <div className="container mx-auto px-4 py-12 text-center">
+      <h1 className="text-2xl font-serif font-bold mb-2">Sign in to view your profile</h1>
+      <p className="text-muted-foreground mb-6">
+        Manage your delivery addresses and account details.
+      </p>
+      <Link
+        href="/sign-in"
+        className="inline-block bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-medium"
+      >
+        Sign in
+      </Link>
+    </div>
   );
 }
