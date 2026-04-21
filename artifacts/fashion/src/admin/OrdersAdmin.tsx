@@ -9,10 +9,27 @@ const STATUSES = ["new", "packed", "shipped", "delivered", "cancelled"];
 export function OrdersAdmin() {
   const [rows, setRows] = useState<OrderRow[] | null>(null);
   const [filter, setFilter] = useState<string>("all");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const params = filter === "all" ? {} : { status: filter };
-    adminApi.listOrders(params).then((d) => setRows(d.rows));
+    let cancelled = false;
+    setRows(null);
+    setLoadError(null);
+    adminApi
+      .listOrders(params)
+      .then((d) => {
+        if (!cancelled) setRows(d.rows);
+      })
+      .catch((e: Error) => {
+        if (!cancelled) {
+          setLoadError(e.message || "Failed to load orders.");
+          setRows([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [filter]);
 
   return (
@@ -34,6 +51,11 @@ export function OrdersAdmin() {
           </Button>
         ))}
       </div>
+      {loadError && (
+        <p className="text-destructive text-sm mb-3" role="alert">
+          {loadError}
+        </p>
+      )}
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-xs uppercase tracking-widest">
@@ -54,10 +76,17 @@ export function OrdersAdmin() {
                 </td>
               </tr>
             )}
-            {rows && rows.length === 0 && (
+            {rows && rows.length === 0 && !loadError && (
               <tr>
                 <td colSpan={6} className="p-6 text-center text-muted-foreground">
                   No orders.
+                </td>
+              </tr>
+            )}
+            {rows && rows.length === 0 && loadError && (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-muted-foreground">
+                  Couldn't load orders. See the error above.
                 </td>
               </tr>
             )}

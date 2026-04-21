@@ -795,15 +795,20 @@ router.post("/admin/payments/test", async (_req, res) => {
   const settings = await getSiteSettings();
   const { secretKey, mode } = getActivePaystackKeys(settings);
   if (!secretKey) {
-    res.status(400).json({
+    // Always 200 so the admin UI can render `ok:false + error` inline
+    // without triggering its generic adminFetch error path. The "did the
+    // request succeed?" signal is the `ok` field, not the HTTP status.
+    res.status(200).json({
       ok: false,
       mode,
       error: `No ${mode} secret key saved. Paste your sk_${mode}_… key and save before testing.`,
+      enabled: settings.paystackEnabled,
+      ready: isPaystackReady(settings),
     });
     return;
   }
   const probe = await probeSecretKey(secretKey);
-  res.status(probe.ok ? 200 : 502).json({
+  res.status(200).json({
     ok: probe.ok,
     mode,
     error: probe.error,
