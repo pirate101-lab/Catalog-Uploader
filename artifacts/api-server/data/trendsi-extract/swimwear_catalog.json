@@ -1,0 +1,75 @@
+{
+  "summary": {
+    "segment": "swimwear",
+    "source_endpoint": "home-product",
+    "raw_products": 2282,
+    "filtered_products": 8,
+    "subcategories": {
+      "cover_ups": 4,
+      "one_piece_swimwear": 4
+    },
+    "cookie_prefix": "SHOPID=654863; TOKEN=oSB..."
+  },
+  "items_by_subcategory": {
+    "cover_ups": [
+      {
+        "id": "145318",
+        "title": "Lace Open Front Cover Up",
+        "price": 23.94,
+        "main_image": "https://statics.trendsi.com/pic/product1/373660ff-d41e-4585-af0d-db91c8fd4620-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/2071fe7c-28ac-4969-b3c8-4d6c3754b727-Max.jpg"
+      },
+      {
+        "id": "166988",
+        "title": "Men's Full Size Fringe Open Front Cover-Up Plus Size",
+        "price": 29.28,
+        "main_image": "https://statics.trendsi.com/pic/product1/d889c8c4-d555-46b8-a98a-8e05e61c9a93-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/fb7bf921-08b7-40db-aeae-2f113107bbc2-Max.jpg"
+      },
+      {
+        "id": "145326",
+        "title": "Pocketed Eyelet Open Front Cover Up",
+        "price": 37.28,
+        "main_image": "https://statics.trendsi.com/pic/product1/89e7a801-b1c2-4e1e-b48c-9388779d9d82-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/16a1c8d5-81ff-40eb-a163-c9c81f0201f3-Max.jpg"
+      },
+      {
+        "id": "46379",
+        "title": "Round Neck Openwork Cover Up",
+        "price": 29.0,
+        "main_image": "https://statics.trendsi.com/pic/test/bc2377d9e4ee4b56937cc9302fcd4fb4-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/test/b233c32f994c45f1920490b82855e426-Min.webp"
+      }
+    ],
+    "one_piece_swimwear": [
+      {
+        "id": "252920",
+        "title": "Children's Christmas Gingerbread Embroidered One-Piece Bodysuit",
+        "price": 23.3,
+        "main_image": "https://statics.trendsi.com/pic/product1/235fb85f-0d7d-4fca-aede-24a91bb6d42e-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/45aefabd-a61a-4434-960b-4d5df7aca2fb-Max.jpg"
+      },
+      {
+        "id": "254968",
+        "title": "Children's Christmas One Piece Dress with Headband",
+        "price": 23.6,
+        "main_image": "https://statics.trendsi.com/product3/726acbbf0b234678ae1f26313cf5155d-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/af471650-fcb0-44cf-b61c-947b77f6e722-Max.jpg"
+      },
+      {
+        "id": "254962",
+        "title": "Children's Christmas One-Piece Dress 3 Piece Set",
+        "price": 31.42,
+        "main_image": "https://statics.trendsi.com/pic/product1/f9d28ef8-25b7-4c43-ab44-d8b393c1fc8c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/63d2c4b7-cd8f-4081-bc56-28d32bdd820c-Max.jpg"
+      },
+      {
+        "id": "256124",
+        "title": "Children's Christmas Santa Claus Hooded One-Piece",
+        "price": 25.98,
+        "main_image": "https://statics.trendsi.com/pic/product1/f7ebbc09-fc38-4e41-86ee-7cbf0aaf39dd-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/d2fdef87-52ae-4b43-bf97-9790a378a0e0-Max.jpg"
+      }
+    ]
+  }
+}

@@ -1,0 +1,1696 @@
+{
+  "summary": {
+    "segment": "shoes",
+    "source_endpoint": "home-product",
+    "raw_products": 2381,
+    "filtered_products": 237,
+    "subcategories": {
+      "boots": 72,
+      "flats": 1,
+      "heels": 5,
+      "loafers_oxfords": 6,
+      "platforms": 2,
+      "sandals": 144,
+      "slippers": 2,
+      "sneakers": 5
+    },
+    "cookie_prefix": "SHOPID=654863; TOKEN=oSB..."
+  },
+  "items_by_subcategory": {
+    "boots": [
+      {
+        "id": "254832",
+        "title": "Animal Print Lace-Up Ankle Boots",
+        "price": 53.06,
+        "main_image": "https://statics.trendsi.com/product3/4126bd1af8904543884c7249b5c33ee6-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/a0c6e293-bc48-48bb-9530-0230a771cbca-Max.jpg"
+      },
+      {
+        "id": "256224",
+        "title": "Bohemian Style Ankle Boots with Tassel Decor",
+        "price": 46.46,
+        "main_image": "https://statics.trendsi.com/product3/f510662249ea4813b99f61c27232cdfd-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/9e2edf1b-3d81-45b5-96a5-1c8b9991b234-Max.jpg"
+      },
+      {
+        "id": "135722",
+        "title": "Bootcut High Rise Pants with Pockets",
+        "price": 26.4,
+        "main_image": "https://statics.trendsi.com/pic/product1/5d227d8a-e635-4150-903c-541faa0446f4-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/fef378b5-319e-441b-b096-d8fb963a7288-Max.jpg"
+      },
+      {
+        "id": "150659",
+        "title": "Bootcut Jeans with Pockets",
+        "price": 43.22,
+        "main_image": "https://statics.trendsi.com/pic/product1/5ec304f8-3057-4aaa-8353-c19529239de7-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/8a12bb86-370f-4eba-b9d0-02e1fdaf5c46-Max.jpg"
+      },
+      {
+        "id": "254825",
+        "title": "Buckle Accent Ankle Boots",
+        "price": 34.94,
+        "main_image": "https://statics.trendsi.com/product3/4e12c2b1b34e41db80c5fa12bff4b2b9-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/b119bbd9-529b-42a1-84d7-3710adc205a3-Max.jpg"
+      },
+      {
+        "id": "256225",
+        "title": "Buckle Strap Faux Fur Trim Platform Boots",
+        "price": 36.08,
+        "main_image": "https://statics.trendsi.com/pic/product1/e81c6f96-0742-46ef-9ddf-024395456a26-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/074e34f9-2c6f-4875-9f98-5c5b3e67bffd-Max.jpg"
+      },
+      {
+        "id": "256241",
+        "title": "Cozy Plush Lined Lace-Up Platform Winter Boots",
+        "price": 41.28,
+        "main_image": "https://statics.trendsi.com/product3/f40a86d265cd4b9a91529dfdf9425e11-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/9f2f2db9-34d4-4d30-94f5-093d15786604-Max.jpg"
+      },
+      {
+        "id": "256234",
+        "title": "Cozy Plush-Lined Winter Ankle Boots",
+        "price": 41.28,
+        "main_image": "https://statics.trendsi.com/product3/62ff3a3355ea437ebc6152b65c46db2f-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/1257f348-9c0a-44a1-bdc0-95cbf642a625-Max.jpg"
+      },
+      {
+        "id": "241236",
+        "title": "Fringe Round Toe Boots",
+        "price": 47.88,
+        "main_image": "https://statics.trendsi.com/product3/40c975359b8a4a8fb9785c74845e9484-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/5e8fe58d-10cf-4431-bb69-e2fae0ca699b-Max.jpg"
+      },
+      {
+        "id": "256221",
+        "title": "Fringe Side Zipper Ankle Boots",
+        "price": 46.46,
+        "main_image": "https://statics.trendsi.com/product3/e94a7ddedb8e4424bea0e7ca840aaf1a-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/75ca1d27-40c6-485f-9348-e73e5ab95d4a-Max.jpg"
+      },
+      {
+        "id": "256831",
+        "title": "Fur Lining Platform Boots",
+        "price": 38.8,
+        "main_image": "https://statics.trendsi.com/product3/5e4da47747f943009b405614ed3bbeec-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/9b80c149-1cc6-4e89-87ea-2c339cb3a0e5-Max.jpg"
+      },
+      {
+        "id": "257856",
+        "title": "Fur Trim Round Toe Boots",
+        "price": 47.88,
+        "main_image": "https://statics.trendsi.com/product3/79c3619a8de346d68b1d48b837296d7f-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/73fdf1a0-04e1-46ca-b7c2-cb9c4c3d5787-Max.jpg"
+      },
+      {
+        "id": "210301",
+        "title": "Fur-Lined Buckle Winter Ankle Boots",
+        "price": 32.38,
+        "main_image": "https://statics.trendsi.com/product3/0bff272f84bc491c956f240f7b9d474d-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/c224f521-4cb7-462c-abbd-ea73343d3791-Max.jpg"
+      },
+      {
+        "id": "256227",
+        "title": "Fuzzy Lined Ankle Boots with Zipper",
+        "price": 41.28,
+        "main_image": "https://statics.trendsi.com/pic/product1/0968ff36-6f7a-407a-b9a6-572c5de025bb-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/f3f5e742-bc9e-4c1d-a6e7-346dc2eb3b66-Max.jpg"
+      },
+      {
+        "id": "256879",
+        "title": "Fuzzy Round Toe Platform Boots",
+        "price": 42.68,
+        "main_image": "https://statics.trendsi.com/product3/304cd905910f487f8bdf3edbf5ecdc9d-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/6e3b1ced-4de3-48d5-a44f-d06d56ad732f-Max.jpg"
+      },
+      {
+        "id": "256237",
+        "title": "Fuzzy Trim Buckle Accent Winter Boots",
+        "price": 33.52,
+        "main_image": "https://statics.trendsi.com/pic/product1/c91c0608-3561-4d09-8d78-33d1a5517aa1-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/6e9d1bdf-2990-4987-8510-35471cb9cbd0-Max.jpg"
+      },
+      {
+        "id": "256862",
+        "title": "Fuzzy Trim Lace-Up Boots",
+        "price": 67.32,
+        "main_image": "https://statics.trendsi.com/pic/product1/402d23ea-b309-450f-bbd0-b7c21d4f28a7-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/0129cd84-ad42-40c6-b9bd-175a999046bd-Max.jpg"
+      },
+      {
+        "id": "256791",
+        "title": "Fuzzy Trim Platform Boots",
+        "price": 32.38,
+        "main_image": "https://statics.trendsi.com/product3/225657b92b83486b9812630cb84e60c8-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/c9ddba6f-ac7f-4f60-b34a-28fb954ca12b-Max.jpg"
+      },
+      {
+        "id": "256229",
+        "title": "Lace Up Platform Ankle Boots",
+        "price": 50.34,
+        "main_image": "https://statics.trendsi.com/product3/de371d38c099430bbcb78e891873a926-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/67c9a901-8a50-4b79-b36b-27765595ad8d-Max.jpg"
+      },
+      {
+        "id": "254831",
+        "title": "Lace Up Platform Boots",
+        "price": 52.88,
+        "main_image": "https://statics.trendsi.com/product3/3a2e0555bb954242bb6d0638befffd42-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/eeaec700-e9b8-45bf-9a99-ba4221287fcb-Max.jpg"
+      },
+      {
+        "id": "213956",
+        "title": "Lace Up Platform Boots",
+        "price": 59.48,
+        "main_image": "https://statics.trendsi.com/product3/ff2ac30f86ea4352af36f42c0d988724-Min.webp",
+        "alt_image": "https://statics.trendsi.com/product3/2df1cca10b9149d989b64abe856e003a-Max.png"
+      },
+      {
+        "id": "257892",
+        "title": "Lace Up Round Toe Boots",
+        "price": 53.06,
+        "main_image": "https://statics.trendsi.com/product3/77efd0c837f943f1bd2b281da018382f-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/ffc2a312-0ae7-4d64-b67c-68137215ad6a-Max.jpg"
+      },
+      {
+        "id": "242939",
+        "title": "Lace Up Round Toe Platform Ankle Boots",
+        "price": 38.8,
+        "main_image": "https://statics.trendsi.com/product3/728b17e7e6c845f987c73bb7d4ec0e47-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/599d0129-480f-4599-9b08-6c3d5fc05f5f-Max.jpg"
+      },
+      {
+        "id": "254824",
+        "title": "Leopard Print Fur Lined Ankle Boots",
+        "price": 50.52,
+        "main_image": "https://statics.trendsi.com/product3/62f4a3415a5f400b9900a269881fb2ee-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/3bd8c7e2-e327-48b6-8da9-82aaba12fde7-Max.jpg"
+      },
+      {
+        "id": "150599",
+        "title": "Lightning Burst Bootcut Jeans",
+        "price": 39.64,
+        "main_image": "https://statics.trendsi.com/pic/product1/1f4aa63a-9313-428c-8df7-69f14726b909-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/ba3351bb-f6b1-4dd5-b403-8b4746362ea4-Max.jpg"
+      },
+      {
+        "id": "163434",
+        "title": "Men's Bootcut Jeans with Pockets",
+        "price": 43.22,
+        "main_image": "https://statics.trendsi.com/pic/product1/d228ac15-bc00-45ea-ac89-8a610e85ed8c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/1250c309-a2ed-4671-95d7-2b87632c73dd-Max.jpg"
+      },
+      {
+        "id": "155231",
+        "title": "Men's Contrast Bootcut Jeans",
+        "price": 79.28,
+        "main_image": "https://statics.trendsi.com/pic/product1/6b9a2a9b-c505-4a58-8043-7e782ea018e1-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/5fc6cb6a-62e8-4986-a3ae-291d94318e15-Max.jpg"
+      },
+      {
+        "id": "150743",
+        "title": "Men's Distressed Bootcut Jeans",
+        "price": 46.84,
+        "main_image": "https://statics.trendsi.com/pic/product1/8a1cf4b4-cfc0-4a4f-a447-5652acfccb32-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/304f19c8-a040-45b0-b8b9-196fe7f2ff87-Max.jpg"
+      },
+      {
+        "id": "163416",
+        "title": "Men's Frayed Hem Bootcut Jeans",
+        "price": 49.0,
+        "main_image": "https://statics.trendsi.com/pic/product1/cbc27fa1-8429-47b3-b05d-2d12bea11782-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/a65b9d9e-82f9-44a3-965d-585c97ab16da-Max.jpg"
+      },
+      {
+        "id": "163419",
+        "title": "Men's Mid Rise Bootcut Jeans",
+        "price": 44.68,
+        "main_image": "https://statics.trendsi.com/pic/product1/0bd2ab0f-fd11-4a1c-b228-8574a7591966-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/3b2c3e89-048f-4372-8ab7-352fb1e82e20-Max.jpg"
+      },
+      {
+        "id": "163310",
+        "title": "Men's Mid Rise Bootcut Jeans",
+        "price": 46.84,
+        "main_image": "https://statics.trendsi.com/pic/product1/f117d8ae-7444-4a25-92da-76e1e4a29bea-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/38b22e8b-8797-4ac1-92fe-adbddf7639ac-Max.jpg"
+      },
+      {
+        "id": "150729",
+        "title": "Men's Raw Hem Bootcut Jeans with Zip-Up Sides",
+        "price": 44.68,
+        "main_image": "https://statics.trendsi.com/pic/product1/c2513555-3e07-484e-ad5c-87b318842ff0-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/7287b26e-b6f9-4ee2-9840-cce29fbd5f87-Max.jpg"
+      },
+      {
+        "id": "163359",
+        "title": "Men's Washed Bootcut Jeans",
+        "price": 39.64,
+        "main_image": "https://statics.trendsi.com/pic/product1/0059a157-2439-4e62-9c7a-cd2766da96bb-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/fe0dd8e0-9b99-4c0e-98fa-692000d4872b-Max.jpg"
+      },
+      {
+        "id": "163376",
+        "title": "Men's Wide Leg Bootcut Jeans",
+        "price": 65.96,
+        "main_image": "https://statics.trendsi.com/pic/product1/88b911e8-599c-459a-8e77-c5fbcad001fc-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/c7f45c4b-5839-4e0c-a90d-eb0f63928632-Max.jpg"
+      },
+      {
+        "id": "254837",
+        "title": "Plush Lining Lace Up Boots",
+        "price": 50.34,
+        "main_image": "https://statics.trendsi.com/product3/064617f71bcd44dbad1687b3367a665b-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/e3accc82-2e43-4e12-834e-518b2b24779a-Max.jpg"
+      },
+      {
+        "id": "158558",
+        "title": "Point Toe Block Heel Boots",
+        "price": 39.54,
+        "main_image": "https://statics.trendsi.com/pic/product1/d3b019b4-98a2-4f7b-b048-0207740a718e-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/10f7cb99-b33e-4283-add5-f02ab877fc79-Max.jpg"
+      },
+      {
+        "id": "226592",
+        "title": "Point Toe Block Heels Boots",
+        "price": 44.38,
+        "main_image": "https://statics.trendsi.com/product3/fb70d6c5268840378475ef1c541e2fc3-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/63dbfa63-7ee9-4e5f-9cf4-dc1ed767b383-Max.jpg"
+      },
+      {
+        "id": "259172",
+        "title": "Point Toe Block Heels Boots",
+        "price": 45.32,
+        "main_image": "https://statics.trendsi.com/product3/b076c8a7147b43ee9d2865cd05feeabf-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/4290f718-2ec0-465e-b388-6e4272f74aec-Max.jpg"
+      },
+      {
+        "id": "254834",
+        "title": "Point Toe Block Heels Boots",
+        "price": 46.46,
+        "main_image": "https://statics.trendsi.com/product3/c1db0f6d91c54ed8a7e7d0b98aad503f-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/7d53bf92-b8eb-4a9d-b8a0-c1a36693458c-Max.jpg"
+      },
+      {
+        "id": "242966",
+        "title": "Point Toe Block Heels Boots",
+        "price": 49.02,
+        "main_image": "https://statics.trendsi.com/product3/4d94f7ca7cec4f1092f4fb9b815ca1df-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/a6beb868-9940-4d2b-a313-ab57d569afa1-Max.jpg"
+      },
+      {
+        "id": "242965",
+        "title": "Point Toe Block Heels Boots",
+        "price": 67.32,
+        "main_image": "https://statics.trendsi.com/product3/dd0d8d5b72fa4a33ba590049ab9f1ac7-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/e4532521-a6e2-4d15-aec3-4ad96209c325-Max.jpg"
+      },
+      {
+        "id": "226573",
+        "title": "Point Toe Lace Up Boots",
+        "price": 49.2,
+        "main_image": "https://statics.trendsi.com/product3/40bf7860fd224cf9ba6ca7cdce0967af-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/e3a301ad-92ff-4e15-8edd-9e1aad433b48-Max.jpg"
+      },
+      {
+        "id": "257885",
+        "title": "Rhinestone Platform Ankle Boots",
+        "price": 82.8,
+        "main_image": "https://statics.trendsi.com/pic/product1/a7095074-07a3-4482-b44a-be2532f13b48-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/c082168f-0ea3-4ba6-9396-8ea7a1dd104b-Max.jpg"
+      },
+      {
+        "id": "209840",
+        "title": "Round Toe Block Heels Boots",
+        "price": 45.32,
+        "main_image": "https://statics.trendsi.com/product3/3b5ad8e1272148aa85309f6c09a016c6-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/0b530972-233f-45e4-aef2-7bcd1cae1b7c-Max.jpg"
+      },
+      {
+        "id": "241231",
+        "title": "Round Toe Block Heels Boots",
+        "price": 64.68,
+        "main_image": "https://statics.trendsi.com/product3/bd87555d01e74db5b47f55b95d1e527c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/product3/a34e7918de854797b1ee792cc7f84458-Max.png"
+      },
+      {
+        "id": "256869",
+        "title": "Round Toe Fuzzy Boots",
+        "price": 45.32,
+        "main_image": "https://statics.trendsi.com/product3/5fe492a511dd4c46b1e270547896d612-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/6ee954c8-8aa0-49eb-92c8-40e62163171d-Max.jpg"
+      },
+      {
+        "id": "254835",
+        "title": "Round Toe Fuzzy Boots",
+        "price": 49.02,
+        "main_image": "https://statics.trendsi.com/pic/product1/58ef9f02-6867-4e08-a3ac-d7a805be2be7-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/4f76a5a1-24ee-4ac2-94af-a7ee4b841dc0-Max.jpg"
+      },
+      {
+        "id": "225542",
+        "title": "Round Toe Lace Up Platform Boots",
+        "price": 42.68,
+        "main_image": "https://statics.trendsi.com/product2/f447cb2aa9c9490cb9257df7931f9c9a-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/e4c5b107-e554-4ba8-8261-f29a91ba4b53-Max.jpg"
+      },
+      {
+        "id": "256238",
+        "title": "Round Toe Lace-Up Ankle Boots",
+        "price": 54.38,
+        "main_image": "https://statics.trendsi.com/pic/product1/0a9a7cb3-046e-4631-8f1a-b4d9c5d34984-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/481ca6c2-a130-4d49-bf69-e149b983bc29-Max.jpg"
+      },
+      {
+        "id": "257876",
+        "title": "Round Toe Low Heel Boots",
+        "price": 47.88,
+        "main_image": "https://statics.trendsi.com/product3/0b6b3016a0db4dd1af19d1a95c91f3f5-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/a5008aa7-b1c8-4587-a36c-735194737793-Max.jpg"
+      },
+      {
+        "id": "254839",
+        "title": "Round Toe Platform Ankle Boots",
+        "price": 34.94,
+        "main_image": "https://statics.trendsi.com/product3/947b08ae7cdb45309c45f25ebd4875ac-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/e20af5ac-5b61-496a-97bd-146d73e7fb66-Max.jpg"
+      },
+      {
+        "id": "226689",
+        "title": "Round Toe Platform Ankle Boots",
+        "price": 36.26,
+        "main_image": "https://statics.trendsi.com/product3/61ad0ca67ffe465bbbe43c70e429170a-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/4bf9170f-5601-44b2-8d3e-07a698824e6f-Max.jpg"
+      },
+      {
+        "id": "256871",
+        "title": "Round Toe Platform Boots",
+        "price": 27.2,
+        "main_image": "https://statics.trendsi.com/pic/product1/f6dee7d8-f684-4be1-a188-2f39a3fe66e8-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/9834bb17-5fc6-4525-b995-51be3ed22ecc-Max.jpg"
+      },
+      {
+        "id": "241244",
+        "title": "Round Toe Platform Boots",
+        "price": 34.94,
+        "main_image": "https://statics.trendsi.com/product3/df0fafaf681c475580e60cde1aada4b6-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/f3efb21c-30e0-4f3d-bd28-6df76dd40ea8-Max.jpg"
+      },
+      {
+        "id": "241279",
+        "title": "Round Toe Platform Boots",
+        "price": 34.94,
+        "main_image": "https://statics.trendsi.com/product3/081db0ad555544518ddb45c669abc15f-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/213f5348-b1a2-4c5b-893b-6b8902af7f72-Max.jpg"
+      },
+      {
+        "id": "259835",
+        "title": "Round Toe Platform Boots",
+        "price": 34.94,
+        "main_image": "https://statics.trendsi.com/product3/7372864487744cecb55059859162d257-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/3a9ef454-0a64-40e1-af1b-bf5499c039e0-Max.jpg"
+      },
+      {
+        "id": "243014",
+        "title": "Round Toe Platform Boots",
+        "price": 38.72,
+        "main_image": "https://statics.trendsi.com/product2/6838c123639940abb9f4fc289fec0e04-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/71351d70-2c4f-42cb-8053-62af9247fe6d-Max.jpg"
+      },
+      {
+        "id": "240664",
+        "title": "Round Toe Platform Boots",
+        "price": 40.12,
+        "main_image": "https://statics.trendsi.com/pic/product1/be08bb13-36fa-44f2-8d63-c173da5895ed-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/89ecfb63-9d56-4922-8310-25352a935de5-Max.jpg"
+      },
+      {
+        "id": "241387",
+        "title": "Round Toe Platform Boots",
+        "price": 53.06,
+        "main_image": "https://statics.trendsi.com/product3/04350f14c0574bf1861d6902c8322a88-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/1fb721d0-4ea0-4e36-8f4e-fa358dca726a-Max.jpg"
+      },
+      {
+        "id": "257850",
+        "title": "Round Toe Platform Boots",
+        "price": 55.62,
+        "main_image": "https://statics.trendsi.com/product3/ce7d0351c5f844de9a29bdc7e0208e76-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/2bdac769-9a69-4d5d-b19b-50829d4ff566-Max.jpg"
+      },
+      {
+        "id": "225522",
+        "title": "Round Toe Platform Wedge Boots",
+        "price": 66.0,
+        "main_image": "https://statics.trendsi.com/product2/c675132a13c54b75831b2eb0bacad819-Min.webp",
+        "alt_image": "https://statics.trendsi.com/product3/c3cc2f6e51144c93af15a652b5419ea7-Max.png"
+      },
+      {
+        "id": "259822",
+        "title": "Round Toe Plush Lined Boots",
+        "price": 37.48,
+        "main_image": "https://statics.trendsi.com/product3/f8d07907a46642949798bdf291d37011-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/63baba70-2303-40f8-b516-8270b3e8f126-Max.jpg"
+      },
+      {
+        "id": "158554",
+        "title": "Round Toe Suede Low Heel Boots",
+        "price": 38.3,
+        "main_image": "https://statics.trendsi.com/pic/product1/511bb618-e3c3-42a1-9e1b-593dce3f7ccd-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/203d5818-7b01-46f2-a267-b923823a2b24-Max.jpg"
+      },
+      {
+        "id": "257859",
+        "title": "Slouch Block Heel Boots",
+        "price": 44.0,
+        "main_image": "https://statics.trendsi.com/pic/product1/3e43d093-3533-4837-9304-002052435403-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/e4a691d5-9f31-43e0-be05-a503a29b1669-Max.jpg"
+      },
+      {
+        "id": "259964",
+        "title": "Snowflake Pattern Platform Winter Boots with Adjustable Drawstring",
+        "price": 66.0,
+        "main_image": "https://statics.trendsi.com/product3/242c992bbe874c998a184617a4e2864e-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/df81961d-49f9-4d62-8d51-1a4f21cfaa9a-Max.jpg"
+      },
+      {
+        "id": "242645",
+        "title": "Square Toe Block Heels Boots",
+        "price": 60.8,
+        "main_image": "https://statics.trendsi.com/pic/product1/80fed4c6-312c-476a-8e25-c77129e6fa56-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/cc6cda6e-4007-4ebd-8cae-0ef2dbc4e852-Max.jpg"
+      },
+      {
+        "id": "154141",
+        "title": "Star Embroidered Bootcut Jeans",
+        "price": 36.48,
+        "main_image": "https://statics.trendsi.com/pic/product1/7aa39ac0-4645-4708-9d26-55963957b946-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/740d1336-eb64-4ab1-bfc6-790df44b30f5-Max.jpg"
+      },
+      {
+        "id": "199233",
+        "title": "Studded Suede Mid-Calf Harness Boots",
+        "price": 64.68,
+        "main_image": "https://statics.trendsi.com/pic/product1/81062a26-6f11-4c70-a9d4-9727e3405c20-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/b1e17eee-9c43-4999-b0d3-bcd77c5cd33c-Max.jpg"
+      },
+      {
+        "id": "225521",
+        "title": "Tassel Point Toe Block Heels Boots",
+        "price": 81.48,
+        "main_image": "https://statics.trendsi.com/product3/108acd1d9f534cbfb759572ed65653a7-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/f892c841-091c-4cfd-87b3-eca88645ebc0-Max.jpg"
+      },
+      {
+        "id": "259833",
+        "title": "Warm Round Toe Boots",
+        "price": 41.44,
+        "main_image": "https://statics.trendsi.com/pic/product1/fe7f9f02-4334-4477-9e17-cd22aeeadaf0-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/6e11274b-4ae5-4ec6-91d7-4b59a94fc530-Max.jpg"
+      },
+      {
+        "id": "150427",
+        "title": "Washed Bootcut Men's Jeans with Pockets",
+        "price": 46.84,
+        "main_image": "https://statics.trendsi.com/pic/product1/0cf8e3c7-9aa3-488e-af79-5a4fdff91583-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/ec31fcb6-e169-4121-8b9e-fb4fa2a98b6b-Max.jpg"
+      },
+      {
+        "id": "150595",
+        "title": "Washed High Rise Bootcut Jeans",
+        "price": 45.38,
+        "main_image": "https://statics.trendsi.com/pic/product1/6e1ceee8-ca2f-4432-b32a-4b36d8dcefc3-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/7ffa50ad-679b-4f6a-9831-a7d2819cea38-Max.jpg"
+      }
+    ],
+    "flats": [
+      {
+        "id": "162708",
+        "title": "Round Toe Flats Loafers",
+        "price": 39.44,
+        "main_image": "https://statics.trendsi.com/pic/product1/44085b0c-eb69-4bb7-8561-aeb28878991c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/3663237a-00f5-4fdb-85d7-e47724ef08b6-Max.jpg"
+      }
+    ],
+    "heels": [
+      {
+        "id": "204260",
+        "title": "Lace-Up Block Heel Pumps",
+        "price": 42.36,
+        "main_image": "https://statics.trendsi.com/product3/b825fa2009544beebf457b0ad4b87134-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/dd2e33af-b845-48cf-889e-3bab25afd3a3-Max.jpg"
+      },
+      {
+        "id": "259176",
+        "title": "Plush Lined Wedge Slip-Ons",
+        "price": 46.38,
+        "main_image": "https://statics.trendsi.com/product3/fa72c92974f24d7b9360d4d377810dbb-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/6de12c15-dbc3-4d5d-90da-c33b2a80a57f-Max.jpg"
+      },
+      {
+        "id": "209892",
+        "title": "Pointed Toe Slingback Pumps",
+        "price": 36.9,
+        "main_image": "https://statics.trendsi.com/product3/780f15bf28e04c6bb6f131b473e4380a-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/926991a6-4c2b-4130-b4b1-f6f3fcd979ca-Max.jpg"
+      },
+      {
+        "id": "226745",
+        "title": "Round Toe Block Heels Loafers",
+        "price": 33.98,
+        "main_image": "https://statics.trendsi.com/product3/5eff28950c35461e9ece09faf0d46046-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/37edaf65-18dd-48f3-8f36-e5a7546e4f1b-Max.jpg"
+      },
+      {
+        "id": "264147",
+        "title": "Round Toe Wedge Loafers",
+        "price": 40.32,
+        "main_image": "https://statics.trendsi.com/product3/b7646ca2a5da40b0b508b863f43ca009-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/1f0a7e89-e96c-41c2-8afa-90682d63d33f-Max.jpg"
+      }
+    ],
+    "loafers_oxfords": [
+      {
+        "id": "201355",
+        "title": "Platform Mary Jane Loafers with Buckle Strap",
+        "price": 41.62,
+        "main_image": "https://statics.trendsi.com/product3/d8f05e3621804540a3f68861f492c97c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/75fb0c2b-9cf9-40c0-8eac-64ac386b0850-Max.jpg"
+      },
+      {
+        "id": "157463",
+        "title": "Point Toe Loafers with Bow",
+        "price": 19.98,
+        "main_image": "https://statics.trendsi.com/pic/product1/7bb5d67f-b1ca-4647-9683-a2842821c7f0-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/ffd77400-e7eb-4483-a441-a97ea59c96dc-Max.jpg"
+      },
+      {
+        "id": "211817",
+        "title": "Rhinestone Embellished Platform Loafers",
+        "price": 70.7,
+        "main_image": "https://statics.trendsi.com/product3/6befb6e991a84e28b39e9f94f65b58df-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/d2e9ab46-d446-4f04-b043-30628b9faf80-Max.jpg"
+      },
+      {
+        "id": "158180",
+        "title": "Round Toe Platform Loafers",
+        "price": 87.86,
+        "main_image": "https://statics.trendsi.com/pic/product1/1ce9ea1c-b5d9-4e02-9083-6d78f1557232-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/d4e9e59d-4ff5-4fe0-ba2f-f116ed1aac91-Max.jpg"
+      },
+      {
+        "id": "158140",
+        "title": "Round Toe Platform Loafers",
+        "price": 99.12,
+        "main_image": "https://statics.trendsi.com/pic/product1/b6043c7e-3dab-4f28-adfc-39e870ba5d7c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/c58cb0b9-8be7-4c8c-ac0e-060126e23ed0-Max.jpg"
+      },
+      {
+        "id": "211829",
+        "title": "Square Toe Buckle Detail Loafers",
+        "price": 25.22,
+        "main_image": "https://statics.trendsi.com/product3/92c1f204683f45709cc76511ee69082a-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/b8056a16-979e-4a6c-9a9d-a3c6a4c743ca-Max.jpg"
+      }
+    ],
+    "platforms": [
+      {
+        "id": "204172",
+        "title": "Pearl Embellished Platform Slip-Ons",
+        "price": 90.86,
+        "main_image": "https://statics.trendsi.com/product3/6a67540e14684c52a20df90446b934f0-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/7894596d-1ae6-4b59-8811-0218e8aa14c1-Max.jpg"
+      },
+      {
+        "id": "264175",
+        "title": "Round Toe Platform Slip-Ons",
+        "price": 42.9,
+        "main_image": "https://statics.trendsi.com/product3/e51b1694023e4f179dae01c2044e6bfa-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/11585d09-2f41-4446-9a87-46b5c00d6b1c-Max.jpg"
+      }
+    ],
+    "sandals": [
+      {
+        "id": "219871",
+        "title": "Bohemian Beaded T-Strap Flat Sandals",
+        "price": 29.66,
+        "main_image": "https://statics.trendsi.com/thirdProduct/d3029db049d04861b249b4678232e5ca-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/811e69cb-7266-4393-a4ed-2bfdbbecf0f3-Max.jpg"
+      },
+      {
+        "id": "199239",
+        "title": "Bohemian Printed Platform Sandals",
+        "price": 34.22,
+        "main_image": "https://statics.trendsi.com/thirdProduct/33396fd4d2a646d4a7caf3a6fa6163dd-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/e99b366c-4c9e-43d3-9d91-1953964229f9-Max.jpg"
+      },
+      {
+        "id": "226627",
+        "title": "Bow Open Toe Flats Sandals",
+        "price": 32.8,
+        "main_image": "https://statics.trendsi.com/product3/0d34d5e126ff40a4938f2a1cbe5819a2-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/c0689519-6ac2-4635-b3d4-90e1101a1f5b-Max.jpg"
+      },
+      {
+        "id": "216455",
+        "title": "Bow Open Toe Platform Sandals",
+        "price": 27.68,
+        "main_image": "https://statics.trendsi.com/product2/7bd2a9de36344fc58f3903a2837a19ae-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/31d1f5e2-0433-483a-b7a5-a01edc6b745c-Max.jpg"
+      },
+      {
+        "id": "216444",
+        "title": "Bow Open Toe Platform Sandals",
+        "price": 29.04,
+        "main_image": "https://statics.trendsi.com/product3/6f53a99f91fe41d6b962fc62e75ad9f2-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/718eaf89-6fb3-4b6c-8ea2-3cc884d6a610-Max.jpg"
+      },
+      {
+        "id": "213970",
+        "title": "Bow Open Toe Sandals",
+        "price": 31.62,
+        "main_image": "https://statics.trendsi.com/product3/0653750425124ce99da30d580e3ecf88-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/8fba1c85-0c4d-4736-ac1c-60493a8dbca5-Max.jpg"
+      },
+      {
+        "id": "218263",
+        "title": "Bow Printed Open Toe Flats Sandals",
+        "price": 23.74,
+        "main_image": "https://statics.trendsi.com/thirdProduct/97844df01b2d4726903038da6dc18100-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/90cbada5-0eb8-4de0-a091-bd576a9e8442-Max.jpg"
+      },
+      {
+        "id": "228142",
+        "title": "Butterfly Embellished Platform Wedge Sandals",
+        "price": 25.0,
+        "main_image": "https://statics.trendsi.com/product3/e4cf4e871f824588acfc569ad502dcbd-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/1dbbab61-7f31-481a-a6fe-63e8ef46933e-Max.jpg"
+      },
+      {
+        "id": "216462",
+        "title": "Butterfly Flat Summer Sandals",
+        "price": 26.34,
+        "main_image": "https://statics.trendsi.com/product3/f6e8af9f0e4141f4aba113cc9a0845ae-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/74f40cd8-1386-41b9-a78d-fbb9acac2cea-Max.jpg"
+      },
+      {
+        "id": "216319",
+        "title": "Casual Ankle Strap Flat Sandals",
+        "price": 35.58,
+        "main_image": "https://statics.trendsi.com/product3/e0bec6d1749e40c89241aaf56181dcd8-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/15570a7d-18b4-4351-a23c-1154e678d608-Max.jpg"
+      },
+      {
+        "id": "217054",
+        "title": "Colorful Cutout Wedge Sandals",
+        "price": 31.62,
+        "main_image": "https://statics.trendsi.com/product3/1b50f363135140aba175cd7c0ba2a29e-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/fddaad55-7161-4dac-82a8-ceb88fb73ecb-Max.jpg"
+      },
+      {
+        "id": "219867",
+        "title": "Colorful Letter Print Platform Sandals",
+        "price": 47.4,
+        "main_image": "https://statics.trendsi.com/product3/8e9097aeab864144b1946559d9a7d42c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/35a94202-9694-4319-af6a-0c6f6a6ab22e-Max.jpg"
+      },
+      {
+        "id": "227515",
+        "title": "Colorful Open Toe Flats Sandals",
+        "price": 19.98,
+        "main_image": "https://statics.trendsi.com/product3/6d3387bc53824563a431cebfac7bc76f-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/ea9a1571-578f-475d-85b6-0907a7b1fbaf-Max.jpg"
+      },
+      {
+        "id": "211695",
+        "title": "Contrast Ankle Strap Flat Sandals",
+        "price": 22.4,
+        "main_image": "https://statics.trendsi.com/product3/fec373fb59864a188de5b110b6b48a7f-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/07a83b1f-bde5-492b-a19e-d1f9bae101b1-Max.jpg"
+      },
+      {
+        "id": "226654",
+        "title": "Contrast Cross-Strap Wedge Sandals",
+        "price": 31.62,
+        "main_image": "https://statics.trendsi.com/product3/03954ea842644b67bb6900b009a9519c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/2b45f12f-9c1c-4145-a292-ae8d9a169706-Max.jpg"
+      },
+      {
+        "id": "225606",
+        "title": "Contrast Open Toe Wedge Sandals",
+        "price": 32.98,
+        "main_image": "https://statics.trendsi.com/product3/8c6a5e1f91754bb0a7baa9ad3d1cd5e9-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/35b16922-d7d1-4a8e-8d59-1cd62f93645b-Max.jpg"
+      },
+      {
+        "id": "218257",
+        "title": "Crisscross Casual Wedge Sandals",
+        "price": 31.62,
+        "main_image": "https://statics.trendsi.com/product3/066788c1a4bc458bb031977770118d76-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/0e56954a-4d1d-4134-8b62-3f1f2e3c70a0-Max.jpg"
+      },
+      {
+        "id": "213134",
+        "title": "Crocodile Pattern Platform Wedge Sandals",
+        "price": 38.16,
+        "main_image": "https://statics.trendsi.com/product3/d6c6cf4dd0a6439c85e752ea6bcce184-Min.webp",
+        "alt_image": "https://statics.trendsi.com/product3/cfac6f31361c431bbef04b1c0541dc9b-Max.png"
+      },
+      {
+        "id": "217055",
+        "title": "Cross Strap Platform Comfort Sandals",
+        "price": 36.92,
+        "main_image": "https://statics.trendsi.com/product3/3482ff515320405dbd7aa5e1646b03b7-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/56caadc1-c119-4a79-9e52-11137a0ce2c8-Max.jpg"
+      },
+      {
+        "id": "214025",
+        "title": "Cross-Strap Comfortable Flat Sandals",
+        "price": 32.98,
+        "main_image": "https://statics.trendsi.com/pic/product1/dbdc0623-6b4f-4080-bdb2-eca211e27277-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/3c757498-0509-423f-bd69-c78904e4b170-Max.jpg"
+      },
+      {
+        "id": "219901",
+        "title": "Crossover Strap Comfortable Sandals",
+        "price": 29.04,
+        "main_image": "https://statics.trendsi.com/product3/7b1d5494fa184dca82c45173d5d804b0-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/2806b525-3100-4e0f-9810-49313ec7acf1-Max.jpg"
+      },
+      {
+        "id": "219869",
+        "title": "Cutout Buckle Flat Sandals",
+        "price": 26.34,
+        "main_image": "https://statics.trendsi.com/thirdProduct/c9f636e9326349d7938876dfaaa8b3a9-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/495676d8-0473-4f2b-8ac7-3ba06577509e-Max.jpg"
+      },
+      {
+        "id": "225599",
+        "title": "Cutout Contrast Wedge Sandals",
+        "price": 34.22,
+        "main_image": "https://statics.trendsi.com/product3/5c07a65d9e974f988d221876e359f9ac-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/cc265449-41d5-4d20-8ac1-a02b5ceab06a-Max.jpg"
+      },
+      {
+        "id": "219876",
+        "title": "Cutout Lace Up Platform Wedge Sandals",
+        "price": 43.46,
+        "main_image": "https://statics.trendsi.com/pic/product1/83d47c84-b114-4e00-a859-fe2a2b3520c2-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/cf0d9a10-1384-408d-bf8b-1c329b84c7ef-Max.jpg"
+      },
+      {
+        "id": "225602",
+        "title": "Cutout Leopard Print Platform Sandals",
+        "price": 35.58,
+        "main_image": "https://statics.trendsi.com/product3/ee1492035a08497a9b8403c6db0722c6-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/7c75c886-4eb0-48cb-a2da-17c37cb1a4e8-Max.jpg"
+      },
+      {
+        "id": "225620",
+        "title": "Cutout Mesh Sandals",
+        "price": 35.58,
+        "main_image": "https://statics.trendsi.com/product2/7e2fe7e53c27438eb43d6c72583f10f2-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/de31e7fb-f4e8-4659-9d16-f2afc9d6d916-Max.jpg"
+      },
+      {
+        "id": "214138",
+        "title": "Cutout Open Toe Wedge Sandals",
+        "price": 32.98,
+        "main_image": "https://statics.trendsi.com/pic/product1/fee52cb7-1cd1-437a-b291-13c422c0afea-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/a06f29db-c244-4489-a795-2b45e741a978-Max.jpg"
+      },
+      {
+        "id": "217713",
+        "title": "Cutout Open Toe Wedge Sandals",
+        "price": 34.22,
+        "main_image": "https://statics.trendsi.com/product3/394c8c7166dc466aa9532525de16988b-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/c835db92-1833-4e97-a023-063f70d164bc-Max.jpg"
+      },
+      {
+        "id": "219950",
+        "title": "Cutout Open Toe Wedge Sandals",
+        "price": 36.92,
+        "main_image": "https://statics.trendsi.com/thirdProduct/513a52b63a1a42019094d9a7828ea6dd-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/f6f8310c-1425-4161-8794-51eedd37a767-Max.jpg"
+      },
+      {
+        "id": "217716",
+        "title": "Cutout Printed Flat Sandals",
+        "price": 25.0,
+        "main_image": "https://statics.trendsi.com/product3/c7af541daf28460eb1d565774f1659ed-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/40b152bb-a09b-461e-be74-8fdd0ce2bf1f-Max.jpg"
+      },
+      {
+        "id": "216304",
+        "title": "Cutout Sandals with Velcro Straps",
+        "price": 39.42,
+        "main_image": "https://statics.trendsi.com/product3/3d279caf84b14403964862ab71a94bfd-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/92498f35-d1a2-4cc3-873b-2f7af580a305-Max.jpg"
+      },
+      {
+        "id": "213154",
+        "title": "Cutout Velcro Straps Sandals",
+        "price": 38.16,
+        "main_image": "https://statics.trendsi.com/pic/product1/3cfdb92b-23c2-4bb4-8e03-2a652721b924-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/622a19f2-4a30-4c5d-abd2-2a6e901df6f5-Max.jpg"
+      },
+      {
+        "id": "227497",
+        "title": "Double Buckle Cork Sole Sandals",
+        "price": 42.2,
+        "main_image": "https://statics.trendsi.com/product3/a4427b0b2d0947a5b7fd4c8b03394c50-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/5d2054f5-4214-4706-897d-81e234bf3fc9-Max.jpg"
+      },
+      {
+        "id": "226620",
+        "title": "Double Buckle Flat Slide Sandals",
+        "price": 26.34,
+        "main_image": "https://statics.trendsi.com/product3/5e84e1dd1cd943259f84b5435f9a349a-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/1a380904-1e89-40bd-b7a2-1b465a5bfb09-Max.jpg"
+      },
+      {
+        "id": "213994",
+        "title": "Double Buckle Platform Sandals",
+        "price": 40.86,
+        "main_image": "https://statics.trendsi.com/pic/product1/db1c2507-a56a-403b-9079-6209de461e22-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/3734fa5e-6f38-459c-9b39-645b184594c6-Max.jpg"
+      },
+      {
+        "id": "211730",
+        "title": "Double Buckle Slide Sandals",
+        "price": 23.74,
+        "main_image": "https://statics.trendsi.com/product3/99a109b706ae47eea13c08075ae865d2-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/26382357-5250-408a-affb-e039ef9af3ee-Max.jpg"
+      },
+      {
+        "id": "214026",
+        "title": "Double Buckle Slide Sandals",
+        "price": 39.42,
+        "main_image": "https://statics.trendsi.com/product3/a0b3513b4f10494189bd64b11666e22c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/031de22b-eea3-4c13-907e-5a7c28842f10-Max.jpg"
+      },
+      {
+        "id": "213958",
+        "title": "Double Buckle Slide Sandals",
+        "price": 43.46,
+        "main_image": "https://statics.trendsi.com/pic/product1/dabfa470-e98e-4a59-8aaa-7bb57aea2ec3-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/7248ae5b-f14a-4a43-9317-4821b6566420-Max.jpg"
+      },
+      {
+        "id": "214009",
+        "title": "Double Buckle Wedge Sandals",
+        "price": 35.58,
+        "main_image": "https://statics.trendsi.com/product3/725ed1e36b994f72a1b2e19966d0650d-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/ab230db7-1acd-43be-b0e1-6a0ebf100e27-Max.jpg"
+      },
+      {
+        "id": "217047",
+        "title": "Dual-Strap Platform Sandals",
+        "price": 36.92,
+        "main_image": "https://statics.trendsi.com/product3/0a4c10b8a3b347a2828fb9c939bd34c4-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/18daaccd-aae4-4220-a5da-c3186c661e49-Max.jpg"
+      },
+      {
+        "id": "226630",
+        "title": "Floral Embellished Open Toe Sandals",
+        "price": 45.96,
+        "main_image": "https://statics.trendsi.com/product2/24d4b00e0ec746efa18270dc74132b15-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/a1b8a0de-9a1a-4cbe-9e10-42e8d768af1f-Max.jpg"
+      },
+      {
+        "id": "210302",
+        "title": "Flower Peep Toe Wedge Sandals",
+        "price": 34.22,
+        "main_image": "https://statics.trendsi.com/product3/58a683b5816a4d47ad16998ada6a5ad8-Min.webp",
+        "alt_image": "https://statics.trendsi.com/product3/153f284766e54afebfdef3cc0e11e8ec-Max.png"
+      },
+      {
+        "id": "382654",
+        "title": "Frayed Edge Buckle Sandals",
+        "price": 34.22,
+        "main_image": "https://statics.trendsi.com/product3/1bae1db9103c45df95d8a274451b9a75-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/83937451-69a0-4327-ae60-d10a8deb5803-Max.jpg"
+      },
+      {
+        "id": "213135",
+        "title": "Fuzzy Open Toe Flats Sandals",
+        "price": 22.4,
+        "main_image": "https://statics.trendsi.com/pic/product1/919b0cc3-0bef-465e-ab48-c94db2f9febe-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/1e9b15fd-f90c-47c1-9789-51a26a337f9a-Max.jpg"
+      },
+      {
+        "id": "148769",
+        "title": "Geometric Open Toe Platform Sandals",
+        "price": 38.8,
+        "main_image": "https://statics.trendsi.com/pic/product1/ebf09109-ae2b-4887-9da0-05e159658b70-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/3236ddd6-4c56-452c-a0e3-53737a8f49f0-Max.jpg"
+      },
+      {
+        "id": "213983",
+        "title": "Geometric Print Toe Post Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/pic/product1/4de47ed5-8b68-4cdf-9b50-b060760ea064-Min.webp",
+        "alt_image": "https://statics.trendsi.com/product3/c5f7409b4182433cb42d899c52b6caeb-Max.png"
+      },
+      {
+        "id": "226754",
+        "title": "Glitter Buckle Strap Sandals",
+        "price": 35.48,
+        "main_image": "https://statics.trendsi.com/product3/28ef2c2dfae34aefb3f3e52d07c43b29-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/9c0fc453-3a0d-4b29-9c23-7ed140ecda5a-Max.jpg"
+      },
+      {
+        "id": "219877",
+        "title": "Lace Up Platform Wedge Sandals",
+        "price": 47.4,
+        "main_image": "https://statics.trendsi.com/thirdProduct/d743051067ef45f3b259c2ed5da5706f-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/c07ac4f6-4e34-4a26-9f3b-faeef3bf97b4-Max.jpg"
+      },
+      {
+        "id": "220058",
+        "title": "Lace Up Wedge Sandals",
+        "price": 35.58,
+        "main_image": "https://statics.trendsi.com/thirdProduct/fadfd0a4869446ce830c2f33e6284d64-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/2b9054c6-3a00-48a4-8ab3-2484e338e2fb-Max.jpg"
+      },
+      {
+        "id": "214011",
+        "title": "Leopard Print Flat Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/pic/product1/a41f5b0b-4038-4bf1-9c63-9f1679c74253-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/c46dc979-75e1-4aab-8d64-8f51815c1dcc-Max.jpg"
+      },
+      {
+        "id": "214541",
+        "title": "Leopard Print Platform Ankle Strap Sandals",
+        "price": 36.92,
+        "main_image": "https://statics.trendsi.com/pic/product1/a24175aa-5d6b-4887-a442-9fc38a7da7e8-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/7d3ca6bb-5c9c-409c-a1d6-05c24a8bf961-Max.jpg"
+      },
+      {
+        "id": "225611",
+        "title": "Letter Print Toe Post Sandals",
+        "price": 44.8,
+        "main_image": "https://statics.trendsi.com/product3/6f52fd1c9495457894127eadcd52002b-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/8821dca7-1717-489d-8191-861855774dee-Max.jpg"
+      },
+      {
+        "id": "241059",
+        "title": "Men's Colorful Paint Splash Sandals",
+        "price": 29.54,
+        "main_image": "https://statics.trendsi.com/product3/b5356973f1c7424998caf22fee4e4f01-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/3086e54c-a2b7-4719-9873-bd57c828d2a7-Max.jpg"
+      },
+      {
+        "id": "241064",
+        "title": "Men's Lightweight Casual Sandals",
+        "price": 35.64,
+        "main_image": "https://statics.trendsi.com/product3/bdfaff416ae94148b9e1d08e686d0692-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/5a6cbb88-450c-4a6a-a9ee-989900ffa018-Max.jpg"
+      },
+      {
+        "id": "228249",
+        "title": "Men's Printed Round Toe Sandals",
+        "price": 28.88,
+        "main_image": "https://statics.trendsi.com/product3/e6542d0d8a47420d8c2f23b10608dc37-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/2c55c6f5-65d4-42e4-944f-e58b16f609cb-Max.jpg"
+      },
+      {
+        "id": "216440",
+        "title": "Mesh Open Toe Platform Sandals",
+        "price": 36.92,
+        "main_image": "https://statics.trendsi.com/pic/product1/39bab1c7-702e-4c51-a0cc-c38d428881c1-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/df069ff3-298d-47de-abe0-1d75f2ff8e8c-Max.jpg"
+      },
+      {
+        "id": "227510",
+        "title": "Mesh Open Toe Platform Sandals",
+        "price": 38.16,
+        "main_image": "https://statics.trendsi.com/product3/447dc162524042e4bc6680a959b30aec-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/7712d8bf-9393-403b-b511-cf269338b22d-Max.jpg"
+      },
+      {
+        "id": "239493",
+        "title": "Multi-Strap Platform Sandals",
+        "price": 44.72,
+        "main_image": "https://statics.trendsi.com/pic/product1/151d08c3-ca7a-48a8-aded-b4a808810422-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/32b64fd5-3330-4352-bad5-a1e7d0341da6-Max.jpg"
+      },
+      {
+        "id": "220060",
+        "title": "Multi-Strap Toe Post Sandals",
+        "price": 31.0,
+        "main_image": "https://statics.trendsi.com/thirdProduct/aa747307aff742a182da2ffe607a48c8-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/edb8cbb9-9f0b-474f-b004-2e6d78740050-Max.jpg"
+      },
+      {
+        "id": "213140",
+        "title": "Open Toe Block Heels Sandals",
+        "price": 27.68,
+        "main_image": "https://statics.trendsi.com/pic/product1/ac51f76e-025b-4890-a16b-91ae1f21b470-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/b9d31c45-209c-4c6a-9da2-c935f3af7808-Max.jpg"
+      },
+      {
+        "id": "216321",
+        "title": "Open Toe Block Heels Sandals",
+        "price": 40.86,
+        "main_image": "https://statics.trendsi.com/product3/b12e1c222e10432dad9d6b1d067ea19e-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/c720752a-b727-4933-9752-1e3a039a342d-Max.jpg"
+      },
+      {
+        "id": "382658",
+        "title": "Open Toe Crisscross Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/thirdProduct/da9fe895eee54327bfab6a0b30095519-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/78f87bdb-171c-49b7-bd43-a7614c6c93fd-Max.jpg"
+      },
+      {
+        "id": "216298",
+        "title": "Open Toe Cutout Sandals",
+        "price": 38.16,
+        "main_image": "https://statics.trendsi.com/product3/86a5732377f6469cae91e966bfa81ba7-Min.webp",
+        "alt_image": "https://statics.trendsi.com/product3/8a583efe4673432eb4f1b780a9ecba9f-Max.png"
+      },
+      {
+        "id": "226766",
+        "title": "Open Toe Double Buckle Sandals",
+        "price": 28.86,
+        "main_image": "https://statics.trendsi.com/product3/4ec1479490a94a66997261ef9780029c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/1b0bb702-6fc5-48a1-9341-07025a72d2f0-Max.jpg"
+      },
+      {
+        "id": "382646",
+        "title": "Open Toe Flat Sandals",
+        "price": 25.72,
+        "main_image": "https://statics.trendsi.com/thirdProduct/4cac57a9ec4140deb7061140f132a737-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/e5dac985-3544-45b9-9b33-812c010e2a83-Max.jpg"
+      },
+      {
+        "id": "219997",
+        "title": "Open Toe Flat Sandals",
+        "price": 27.42,
+        "main_image": "https://statics.trendsi.com/thirdProduct/bc503986149d43419912c3d0473283eb-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/216cdc75-e0ba-4578-a460-e55b0430c92a-Max.jpg"
+      },
+      {
+        "id": "219835",
+        "title": "Open Toe Flats Sandals",
+        "price": 21.06,
+        "main_image": "https://statics.trendsi.com/pic/product1/b1aac558-7fa0-435f-abe5-0d3ad7fe3685-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/bafe3d5b-2003-4e34-9449-b56605250e99-Max.jpg"
+      },
+      {
+        "id": "219873",
+        "title": "Open Toe Flats Sandals",
+        "price": 23.02,
+        "main_image": "https://statics.trendsi.com/thirdProduct/8bc11a6f8eec4080a05b095faa9a2c2b-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/14ed198f-8c3e-4337-965d-a59f8a59d31e-Max.jpg"
+      },
+      {
+        "id": "219945",
+        "title": "Open Toe Flats Sandals",
+        "price": 23.02,
+        "main_image": "https://statics.trendsi.com/thirdProduct/7738b14c767a46079fd5676a79d1e95d-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/73901d85-c356-47ba-a676-843c97cdcb57-Max.jpg"
+      },
+      {
+        "id": "220059",
+        "title": "Open Toe Flats Sandals",
+        "price": 23.02,
+        "main_image": "https://statics.trendsi.com/thirdProduct/5608f97ce5a54baaaf7d6273c2272c7c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/b95a75a9-66d8-4cab-9fed-ae22ff6b6ee1-Max.jpg"
+      },
+      {
+        "id": "169263",
+        "title": "Open Toe Flats Sandals",
+        "price": 25.14,
+        "main_image": "https://statics.trendsi.com/pic/product1/212461df-ec95-40e8-a699-4df03866256c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/5aa205f3-dd19-4c78-b3ce-639933b83499-Max.jpg"
+      },
+      {
+        "id": "201373",
+        "title": "Open Toe Flats Sandals",
+        "price": 26.08,
+        "main_image": "https://statics.trendsi.com/product3/5fa21d57373740bc9280549c28c2eeb6-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/0698a1f5-b6d9-4ea6-9ac3-ad2a84c2a0a2-Max.jpg"
+      },
+      {
+        "id": "176439",
+        "title": "Open Toe Flats Sandals",
+        "price": 26.22,
+        "main_image": "https://statics.trendsi.com/pic/product1/8367f0c8-b3bb-4641-b579-27866d405320-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/9a9fccbd-60b5-4596-975e-59532f14afe0-Max.jpg"
+      },
+      {
+        "id": "213972",
+        "title": "Open Toe Flats Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/product3/31ac45eb46194bbf9e24d6a5e318f4d5-Min.webp",
+        "alt_image": "https://statics.trendsi.com/product3/797e1f2ed84140fcb0148502cebd1de5-Max.png"
+      },
+      {
+        "id": "213981",
+        "title": "Open Toe Flats Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/pic/product1/e80733e6-0f02-4688-b9b7-2a4852bbc1fc-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/af45958e-dd7e-47ff-bf61-bf3a23a614b5-Max.jpg"
+      },
+      {
+        "id": "213995",
+        "title": "Open Toe Flats Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/pic/product1/ea8ed6c4-11cb-42f5-899e-47001dc245b8-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/52765b47-c72d-44c9-ad6d-293695aebe44-Max.jpg"
+      },
+      {
+        "id": "214007",
+        "title": "Open Toe Flats Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/product3/e54ff6cd3d0541e692b3a7218944777f-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/fc5457f9-7800-4131-a0ad-d1dae2c7df48-Max.jpg"
+      },
+      {
+        "id": "216463",
+        "title": "Open Toe Flats Sandals",
+        "price": 26.34,
+        "main_image": "https://statics.trendsi.com/product3/fdd35e8d79c64d91937ef659023b7ddb-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/08c64321-5771-4a19-8a5b-c1498e179529-Max.jpg"
+      },
+      {
+        "id": "213965",
+        "title": "Open Toe Flats Sandals",
+        "price": 29.04,
+        "main_image": "https://statics.trendsi.com/pic/product1/e3c7f324-b44b-42d7-a553-63de157e9384-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/eae89ec9-3ab1-461b-88f2-a229da075a9f-Max.jpg"
+      },
+      {
+        "id": "214033",
+        "title": "Open Toe Flats Sandals",
+        "price": 31.62,
+        "main_image": "https://statics.trendsi.com/product3/6e93bd1343e3425fbb90b9271e35816d-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/9d37b38d-0db2-40cc-9b2a-ec8b82b45707-Max.jpg"
+      },
+      {
+        "id": "214028",
+        "title": "Open Toe Flats Sandals",
+        "price": 34.22,
+        "main_image": "https://statics.trendsi.com/product3/b9bcbb6ebe1644218967c2d0a6b36347-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/7a4fe238-7588-4696-beb6-67796a6dd355-Max.jpg"
+      },
+      {
+        "id": "211752",
+        "title": "Open Toe Low Heels Sandals",
+        "price": 43.46,
+        "main_image": "https://statics.trendsi.com/product3/a6892202ca8f47f3b866e04cce51c133-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/f6d8e406-0663-4ff6-8e65-1a3b2693b6f2-Max.jpg"
+      },
+      {
+        "id": "210449",
+        "title": "Open Toe Mid Heel Sandals",
+        "price": 51.44,
+        "main_image": "https://statics.trendsi.com/pic/product1/0c761ec4-d06e-49c1-9ad0-373a514f571b-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/4c923f32-5706-46bd-864a-28298ae09bba-Max.jpg"
+      },
+      {
+        "id": "219910",
+        "title": "Open Toe Platform Sandals",
+        "price": 34.22,
+        "main_image": "https://statics.trendsi.com/thirdProduct/243297b6503f46578868a1166eb28e88-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/daa11c1d-2dbb-414a-9c33-f4f17f3247a4-Max.jpg"
+      },
+      {
+        "id": "204151",
+        "title": "Open Toe Platform Sandals",
+        "price": 36.92,
+        "main_image": "https://statics.trendsi.com/product3/63f7d60f4f3b42b2ba95393136eb8d4e-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/75886ec6-f3e9-4936-8372-3a5869d431c4-Max.jpg"
+      },
+      {
+        "id": "228177",
+        "title": "Open Toe Platform Sandals",
+        "price": 38.16,
+        "main_image": "https://statics.trendsi.com/product3/3e535fa4e3df4a469495399b5d0bdc67-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/7e4d6163-f81e-48a9-a132-2962f429f496-Max.jpg"
+      },
+      {
+        "id": "210567",
+        "title": "Open Toe Platform Wedge Sandals",
+        "price": 35.58,
+        "main_image": "https://statics.trendsi.com/product3/6ad3fa071b944ef0a23de522678bf956-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/bf426ace-0492-4b04-a8f0-5ed05f39ec42-Max.jpg"
+      },
+      {
+        "id": "225524",
+        "title": "Open Toe Platform Wedge Sandals",
+        "price": 38.16,
+        "main_image": "https://statics.trendsi.com/product3/5fc1f07a5fad4f8f9a27597be822903d-Min.webp",
+        "alt_image": "https://statics.trendsi.com/product3/ac13314c25f3412a9c323b74a2ba412a-Max.png"
+      },
+      {
+        "id": "219881",
+        "title": "Open Toe Platform Wedge Sandals",
+        "price": 48.74,
+        "main_image": "https://statics.trendsi.com/pic/product1/780a595a-9243-4101-95ac-7a9c5f43db51-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/70ab46ab-b49f-4b7a-b5f5-6a9167786bcc-Max.jpg"
+      },
+      {
+        "id": "382644",
+        "title": "Open Toe Rhinestone Sandals",
+        "price": 28.32,
+        "main_image": "https://statics.trendsi.com/product3/90d79b6a5da94def8aa3a19169c5f454-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/f16643e1-b47a-459f-9ae8-33ff74d5c28e-Max.jpg"
+      },
+      {
+        "id": "220044",
+        "title": "Open Toe Sandals with Ankle Strap",
+        "price": 36.92,
+        "main_image": "https://statics.trendsi.com/thirdProduct/87321621cf1048eba76fba0405e7bf4a-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/31d86bba-91cc-4bec-aa2d-7d0dbe021a3c-Max.jpg"
+      },
+      {
+        "id": "219853",
+        "title": "Open Toe Wedge Sandals",
+        "price": 30.28,
+        "main_image": "https://statics.trendsi.com/pic/product1/61d5d653-64bf-47bc-8460-44c6bc27f0e1-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/599366b5-1567-4a1e-b058-24fde1084ef2-Max.jpg"
+      },
+      {
+        "id": "219883",
+        "title": "Open Toe Wedge Sandals",
+        "price": 31.62,
+        "main_image": "https://statics.trendsi.com/pic/product1/2cb91c3d-93fc-413e-a310-50dcc2984792-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/8134acc3-4001-4011-90b6-a730477ef8e7-Max.jpg"
+      },
+      {
+        "id": "220068",
+        "title": "Open Toe Wedge Sandals",
+        "price": 34.22,
+        "main_image": "https://statics.trendsi.com/thirdProduct/03b58892778f40b08078c7993467d91d-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/cc2977dc-6a19-4fb7-ab58-3e42c7114110-Max.jpg"
+      },
+      {
+        "id": "225550",
+        "title": "Open Toe Wedge Sandals",
+        "price": 35.58,
+        "main_image": "https://statics.trendsi.com/product2/0a86670d465e4bb19e810c7924c7f701-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/4c035646-545c-405a-ad50-330209c9a1e9-Max.jpg"
+      },
+      {
+        "id": "381128",
+        "title": "Open Toe Wedge Sandals",
+        "price": 36.92,
+        "main_image": "https://statics.trendsi.com/thirdProduct/4a5cb4c3331a4744ab5e7eee90cb1fa3-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/ab7c674a-87af-4152-a937-ce1a9fecefa7-Max.jpg"
+      },
+      {
+        "id": "216322",
+        "title": "Peep Toe Block Heels Sandals",
+        "price": 35.58,
+        "main_image": "https://statics.trendsi.com/product3/5739853dcd5c41249fad3ee250b1caaf-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/4fc5eb33-582a-43c5-8198-724e7fcd3a4a-Max.jpg"
+      },
+      {
+        "id": "219848",
+        "title": "Peep Toe Wedge Sandals",
+        "price": 35.58,
+        "main_image": "https://statics.trendsi.com/thirdProduct/3c9f0110d9d84f45b8a12c526bf95f22-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/4a3c849b-45ac-4aaa-ab8c-f8a708e50166-Max.jpg"
+      },
+      {
+        "id": "226740",
+        "title": "Point Toe Block Heels Sandals",
+        "price": 39.42,
+        "main_image": "https://statics.trendsi.com/product3/2540b2e2400a4794bae1860ed961ff24-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/3a24b77a-8564-4af2-a2ea-54e1fb22a3c3-Max.jpg"
+      },
+      {
+        "id": "225613",
+        "title": "Printed Open Toe Wedge Sandals",
+        "price": 42.12,
+        "main_image": "https://statics.trendsi.com/product3/b1ff7fda851f4f1cb47e09ca5086146d-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/52df7077-3f30-45c6-8186-3bb8cb87c2b5-Max.jpg"
+      },
+      {
+        "id": "216496",
+        "title": "Printed Tassel Flat Sandals",
+        "price": 25.0,
+        "main_image": "https://statics.trendsi.com/product3/f77a50b2dc064be6bbde194bdaf85686-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/3c0abf19-0532-4d0a-8979-389b4d32047b-Max.jpg"
+      },
+      {
+        "id": "177563",
+        "title": "Round Toe Flats Sandals",
+        "price": 25.14,
+        "main_image": "https://statics.trendsi.com/pic/product1/567b8f99-5f4f-4846-baec-ab218633c793-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/b315c0dc-6bcb-41ea-b649-e32710fe8314-Max.jpg"
+      },
+      {
+        "id": "177518",
+        "title": "Round Toe Flats Sandals",
+        "price": 32.66,
+        "main_image": "https://statics.trendsi.com/pic/product1/be318dc1-0a26-4715-8022-eaea09e022df-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/8a265186-1d40-4d52-8ecc-382337f34f09-Max.jpg"
+      },
+      {
+        "id": "219934",
+        "title": "Round Toe Wedge Sandals",
+        "price": 32.98,
+        "main_image": "https://statics.trendsi.com/product3/11ce4182b91844d7b216ecdb4a29fa78-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/e505b882-b14c-4fe7-8f21-ee4304e25d1a-Max.jpg"
+      },
+      {
+        "id": "214157",
+        "title": "Round Toe Wedge Sandals",
+        "price": 35.58,
+        "main_image": "https://statics.trendsi.com/pic/product1/1b8b4997-d4fb-4bd8-b70d-1767770246c9-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/45f23856-7f34-43d1-b4c2-831bdf7b2024-Max.jpg"
+      },
+      {
+        "id": "214118",
+        "title": "Round Toe Wedge Sandals",
+        "price": 37.54,
+        "main_image": "https://statics.trendsi.com/pic/product1/3287cd45-1c8f-498c-be0b-5ab7400eb0ce-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/a955cfeb-3c6f-4e99-beb2-584b12cd5bf4-Max.jpg"
+      },
+      {
+        "id": "214120",
+        "title": "Round Toe Wedge Sandals",
+        "price": 42.2,
+        "main_image": "https://statics.trendsi.com/pic/product1/150b0cd8-fff8-4de5-9ca3-ed3a748cadff-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/f1afb95b-b7e5-485e-8440-10916fb4f497-Max.jpg"
+      },
+      {
+        "id": "213583",
+        "title": "Sequin Open Toe Flats Sandals",
+        "price": 23.74,
+        "main_image": "https://statics.trendsi.com/pic/product1/7b0c33d7-b8dc-49ce-9495-976dfb1a4629-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/524efcb5-4e04-405b-8485-c0b0550874ec-Max.jpg"
+      },
+      {
+        "id": "211748",
+        "title": "Sequin Platform Wedge Sandals",
+        "price": 31.62,
+        "main_image": "https://statics.trendsi.com/pic/product1/818085db-284e-4509-97cc-c7ade3387e26-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/66b78118-9168-48c7-8d4b-4b48d93a27d2-Max.jpg"
+      },
+      {
+        "id": "219911",
+        "title": "Sequin Toe Loop Flats Sandals",
+        "price": 34.22,
+        "main_image": "https://statics.trendsi.com/pic/product1/0308a025-1181-4167-b1f9-0f92a876624f-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/6417d08d-5389-48d1-bc26-c57055f11553-Max.jpg"
+      },
+      {
+        "id": "217710",
+        "title": "Star Studded Platform Comfort Sandals",
+        "price": 31.62,
+        "main_image": "https://statics.trendsi.com/product2/7f6bd39815d5420898d11980c9158c5f-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/e4edc8d4-af03-4ee6-9d84-5dc28a4ec684-Max.jpg"
+      },
+      {
+        "id": "214010",
+        "title": "Strappy Flat Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/pic/product1/e9e024ae-ca70-4b0b-8277-779c31fed9ee-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/238d4282-d84a-47ae-b4f0-920a61a2170e-Max.jpg"
+      },
+      {
+        "id": "220011",
+        "title": "Strappy Flat Sandals",
+        "price": 27.68,
+        "main_image": "https://statics.trendsi.com/thirdProduct/55fab95dc4a24861958c198f51fd5f45-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/43663046-9a10-4179-bed0-b7a22d26f73d-Max.jpg"
+      },
+      {
+        "id": "214018",
+        "title": "Studded Ankle Strap Flat Sandals",
+        "price": 39.42,
+        "main_image": "https://statics.trendsi.com/pic/product1/8c244087-5a61-4b0e-8f92-48ffe8c72ca3-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/de425f31-7df0-490c-a37b-9049e2a97e5a-Max.jpg"
+      },
+      {
+        "id": "225607",
+        "title": "Studded Double Buckle Sandals",
+        "price": 32.98,
+        "main_image": "https://statics.trendsi.com/product3/8f94a7c69aa94c9e8879125db9250aa4-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/caa46be3-978f-4144-b064-bf01e61638a9-Max.jpg"
+      },
+      {
+        "id": "226730",
+        "title": "Studded Open Toe Flats Sandals",
+        "price": 26.34,
+        "main_image": "https://statics.trendsi.com/product3/7804de19e1bb4c0985cdb6bc92dfd9f8-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/49eabe06-1f5f-4fd6-8f6c-d0b7650709fb-Max.jpg"
+      },
+      {
+        "id": "213589",
+        "title": "Studded Open Toe Flats Sandals",
+        "price": 31.62,
+        "main_image": "https://statics.trendsi.com/pic/product1/f2391747-a6a5-4092-a44f-0b18fbb028c3-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/025a02e2-7925-4db5-aa26-e8c333fa419a-Max.jpg"
+      },
+      {
+        "id": "201068",
+        "title": "Studded Wedge Platform Sandals",
+        "price": 27.68,
+        "main_image": "https://statics.trendsi.com/thirdProduct/ce76eaf2267e48098878928692fccea1-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/fa2a25ed-ffd2-423e-84ea-9f9889a9b2fe-Max.jpg"
+      },
+      {
+        "id": "214016",
+        "title": "Tassel Detail Flat Sandals",
+        "price": 32.98,
+        "main_image": "https://statics.trendsi.com/pic/product1/7551e1e9-e565-48d6-94d5-9e092d61ddd1-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/af712732-972d-4b07-bf2d-adc2d170ed7a-Max.jpg"
+      },
+      {
+        "id": "382656",
+        "title": "Tassel Open Toe Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/thirdProduct/3dd4be993d7d45daa1e980b8de79bbf1-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/975e6bf2-0b75-4484-bc69-138fb0dce398-Max.jpg"
+      },
+      {
+        "id": "225594",
+        "title": "Tassel Open Toe Sandals",
+        "price": 27.68,
+        "main_image": "https://statics.trendsi.com/product3/9d24b3a80dda43fc987225a1aa27b274-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/af839291-d1f6-45c5-87aa-c0200f6feeff-Max.jpg"
+      },
+      {
+        "id": "382660",
+        "title": "Toe Loop Ankle Strap Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/thirdProduct/4758c4d82e1542feb5a2695d1ccef642-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/96d069a1-3309-405c-aa50-73f5b7df5bb3-Max.jpg"
+      },
+      {
+        "id": "214003",
+        "title": "Toe Loop Buckle Flats Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/product3/92182786b16a4eda911aeb120a36aeb9-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/8d88ec1a-e7dd-43cc-98b1-2c6d490f0e57-Max.jpg"
+      },
+      {
+        "id": "219838",
+        "title": "Toe Loop Flat Sandals",
+        "price": 35.58,
+        "main_image": "https://statics.trendsi.com/pic/product1/bad0148f-add0-406d-bc19-b7cf628edb82-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/bb3e31f6-0ead-4cec-87f5-87301c4ef968-Max.jpg"
+      },
+      {
+        "id": "168707",
+        "title": "Toe Loop Flats Sandals",
+        "price": 20.56,
+        "main_image": "https://statics.trendsi.com/pic/product1/4c695895-c679-40b2-8eca-8d822bf88efb-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/87191c27-a1e8-4d06-8394-803fd3654175-Max.jpg"
+      },
+      {
+        "id": "219860",
+        "title": "Toe Loop Flats Sandals",
+        "price": 25.0,
+        "main_image": "https://statics.trendsi.com/thirdProduct/2cdb84b72c274b6dad98f3b1457c3aa7-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/d0720f69-24e1-4861-a17e-fd09adb06407-Max.jpg"
+      },
+      {
+        "id": "382645",
+        "title": "Toe Loop Flats Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/thirdProduct/f84f71b9804f4b87a69c4cdc405f09df-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/50ba1167-d550-4607-a55d-33beb70c84a4-Max.jpg"
+      },
+      {
+        "id": "225597",
+        "title": "Toe Loop Platform Sandals",
+        "price": 25.0,
+        "main_image": "https://statics.trendsi.com/product3/3fbaec8696d64916acccc56a7cb56f9c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/fc339a25-6026-4d02-b452-f33feeb1c6cf-Max.jpg"
+      },
+      {
+        "id": "216465",
+        "title": "Toe Post Crisscross Flat Sandals",
+        "price": 27.68,
+        "main_image": "https://statics.trendsi.com/product3/2940b23536db459ba7a4af1a98585e3d-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/216d2c7f-5e30-4d7e-8ff9-219eff903509-Max.jpg"
+      },
+      {
+        "id": "382642",
+        "title": "Toe Post Flats Sandals",
+        "price": 22.4,
+        "main_image": "https://statics.trendsi.com/thirdProduct/017092a591a943c6a53a5e57e4417215-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/5fb0775a-9a51-4961-ba16-4a21b15707c2-Max.jpg"
+      },
+      {
+        "id": "213999",
+        "title": "Toe Post Flats Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/pic/product1/3f36f9f2-75e5-4ec9-a6c7-58719ff78496-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/8cddb398-8dc9-42d6-8c49-055ffb8b2bef-Max.jpg"
+      },
+      {
+        "id": "214123",
+        "title": "Toe Post Flats Sandals",
+        "price": 26.26,
+        "main_image": "https://statics.trendsi.com/product3/40d9468d78db4bfe919cf955c0ae8b35-Min.webp",
+        "alt_image": "https://statics.trendsi.com/product3/10cb5cbf9e2f447ab47c0ccf55c3ec59-Max.png"
+      },
+      {
+        "id": "211690",
+        "title": "Toe Post Flats Sandals",
+        "price": 30.28,
+        "main_image": "https://statics.trendsi.com/product3/bd4d0ae29e714009b5108b0797f8d611-Min.webp",
+        "alt_image": "https://statics.trendsi.com/product3/b6864199c2f243d3a43bed5222d544c3-Max.png"
+      },
+      {
+        "id": "382640",
+        "title": "Toe Post Flats Sandals",
+        "price": 36.92,
+        "main_image": "https://statics.trendsi.com/thirdProduct/2bc522270fc04ad880df77959816fe43-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/bafb51e4-c6bf-4b08-a16b-818b245aeba4-Max.jpg"
+      },
+      {
+        "id": "216436",
+        "title": "Toe Post Platform Wedge Sandals",
+        "price": 40.86,
+        "main_image": "https://statics.trendsi.com/product3/5b3df0160495484ea1e77e0ca0f9eacb-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/7259ebb8-93c4-41f8-b30c-ca06aac1e4c4-Max.jpg"
+      },
+      {
+        "id": "216324",
+        "title": "Toe Post Platform Wedge Sandals",
+        "price": 52.68,
+        "main_image": "https://statics.trendsi.com/product3/effdc2c00411445ead87e0ae1afa5b1b-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/324c864d-bc4b-409f-9ed1-7a1c5e28fa46-Max.jpg"
+      },
+      {
+        "id": "273151",
+        "title": "Toe Post Wedge Sandals",
+        "price": 35.58,
+        "main_image": "https://statics.trendsi.com/product3/f20ee96d882c4ad2ac921a4912ec2eb2-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/2d7af7cf-08c3-401b-8a5a-5de0b177038f-Max.jpg"
+      },
+      {
+        "id": "220072",
+        "title": "Toe Post Wedge Sandals",
+        "price": 36.92,
+        "main_image": "https://statics.trendsi.com/thirdProduct/403cee99b8a0451e8523ee57c1d39996-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/0e79f2d2-440f-4ed8-b998-645741e18676-Max.jpg"
+      },
+      {
+        "id": "273142",
+        "title": "Toe Post Wedge Sandals",
+        "price": 36.92,
+        "main_image": "https://statics.trendsi.com/pic/product1/a7a78e70-735f-40b4-875b-d55c5f45885b-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/514ab1c9-7ced-47c8-98f1-ac459e58bd4f-Max.jpg"
+      },
+      {
+        "id": "214027",
+        "title": "Triple Buckle Flat Sandals",
+        "price": 39.42,
+        "main_image": "https://statics.trendsi.com/product3/f96611994bd44f64bb99d8570d7f8e4a-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/f0f37e07-f0a1-443e-9049-b18ac4209506-Max.jpg"
+      },
+      {
+        "id": "214124",
+        "title": "Two-Tone Crisscross Strap Sandals",
+        "price": 27.68,
+        "main_image": "https://statics.trendsi.com/pic/product1/825c2a3c-0c51-496f-8da7-110ddfe2b06e-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/53c12447-fd33-487e-a665-d09f2fad7291-Max.jpg"
+      },
+      {
+        "id": "227509",
+        "title": "Velcro Strap Open Toe Sandals",
+        "price": 42.2,
+        "main_image": "https://statics.trendsi.com/product3/69790cb9cb3a4e90b4ece42f4e9d11e2-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/5671858f-2e3d-4f32-8686-c765be74c3ed-Max.jpg"
+      },
+      {
+        "id": "226640",
+        "title": "Woven Cross Strap Flat Sandals",
+        "price": 22.32,
+        "main_image": "https://statics.trendsi.com/pic/product1/aa107f4d-628c-480f-b1c8-8810325a5d68-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/70e00587-06c4-430b-afe1-aa5231e10a6b-Max.jpg"
+      },
+      {
+        "id": "226638",
+        "title": "Woven Cross-Strap Comfort Sandals",
+        "price": 27.68,
+        "main_image": "https://statics.trendsi.com/thirdProduct/d9d4b2694a9c448b80b0e9f6e45615dd-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/967d90bc-dd95-4d8e-87e8-670aff6bc22f-Max.jpg"
+      }
+    ],
+    "slippers": [
+      {
+        "id": "256228",
+        "title": "Buckle Decor Plush Lined Warm Slippers",
+        "price": 31.56,
+        "main_image": "https://statics.trendsi.com/product3/2bc895ad58be419aa01c595c4a495240-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/52acbfd9-9090-41e1-a5c8-f064fe794d54-Max.jpg"
+      },
+      {
+        "id": "256223",
+        "title": "Fuzzy Buckle Accent Plush Slippers",
+        "price": 80.76,
+        "main_image": "https://statics.trendsi.com/product3/2c38b7360190491382883ab265fa6390-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/862db4bd-1721-49eb-bcbd-2b50b2b8b764-Max.jpg"
+      }
+    ],
+    "sneakers": [
+      {
+        "id": "204746",
+        "title": "Breathable Mesh Lace Up Sneakers",
+        "price": 37.04,
+        "main_image": "https://statics.trendsi.com/product3/255a22fea5364846a542aa64c1fa050c-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/7da7de5d-1655-4476-a544-ebdaef57f2f5-Max.jpg"
+      },
+      {
+        "id": "242619",
+        "title": "Contrast Lace Up Casual Sneakers",
+        "price": 26.64,
+        "main_image": "https://statics.trendsi.com/pic/product1/5a168252-1add-42ad-9505-1c39ba60a715-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/80eeb4a0-c24f-43d7-802b-b3e9cf3616ba-Max.jpg"
+      },
+      {
+        "id": "264156",
+        "title": "Cutout Zipper Wedge Sneakers",
+        "price": 37.04,
+        "main_image": "https://statics.trendsi.com/pic/product1/b03571fd-f0a2-4787-ad50-2307e4471aae-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/8df768b4-1e06-49ae-a281-4d019a903d74-Max.jpg"
+      },
+      {
+        "id": "254823",
+        "title": "Sparkling Lace Up Sneakers",
+        "price": 38.22,
+        "main_image": "https://statics.trendsi.com/product3/37d91965de924a65a91ddbb674555d3d-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/0d12ede4-e32f-4d36-857d-c0f8091b3cec-Max.jpg"
+      },
+      {
+        "id": "202411",
+        "title": "Star Pattern Lace Up Sneakers",
+        "price": 52.16,
+        "main_image": "https://statics.trendsi.com/product3/a1adc7e2358c4a2888f9098ed676cb5d-Min.webp",
+        "alt_image": "https://statics.trendsi.com/pic/product1/77e90dd6-07ff-44ea-8952-6053216af6b4-Max.jpg"
+      }
+    ]
+  }
+}
