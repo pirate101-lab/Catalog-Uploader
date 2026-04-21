@@ -9,6 +9,28 @@ args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
 [workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=25246 BASE_PATH=/ API_PROXY_TARGET=http://localhost:8080 pnpm --filter @workspace/fashion run dev & PORT=8080 pnpm --filter @workspace/api-server run dev & wait"
+waitForPort = 25246
 
 [agent]
 stack = "PNPM_WORKSPACE"
