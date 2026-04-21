@@ -560,13 +560,12 @@ export function HomePage() {
           (lg+) layout keeps the full sidebar rail. */}
       <div className="lg:hidden sticky top-16 md:top-[68px] z-30 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-4 py-2 md:py-3 flex flex-col gap-2 md:gap-3">
-          {/* Row 1 — sort + Filters (Sort pushed far left on mobile);
-              gender pills hidden on phones, shown from md up. */}
+          {/* Row 1 — gender pills + active count + sort + Filters. */}
           <div className="flex items-center gap-2 flex-wrap">
             <div
               role="radiogroup"
               aria-label="Shop for"
-              className="hidden md:flex rounded-full border border-border overflow-hidden bg-background h-11"
+              className="flex rounded-full border border-border overflow-hidden bg-background h-11"
             >
               {GENDER_OPTIONS.map((g) => {
                 const active = filters.gender === g.value;

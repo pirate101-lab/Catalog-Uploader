@@ -1,5 +1,5 @@
 import { useLocation, useSearch } from 'wouter';
-import { TOP_LEVEL, TOP_LEVEL_BUCKETS } from '@/data/taxonomy';
+import { TOP_LEVEL, TOP_LEVEL_BUCKETS, TOP_LEVEL_CATEGORY } from '@/data/taxonomy';
 
 /**
  * Trendsi-style horizontal top-level category bar that sits directly under
@@ -32,6 +32,14 @@ export function SecondaryNav() {
 
   const onClick = (label: string) => {
     const bucket = TOP_LEVEL_BUCKETS[label];
+    const category = TOP_LEVEL_CATEGORY[label];
+    if (category) {
+      // Real product category (e.g. "Shoes") — route directly to the
+      // category-filtered shop view rather than treating the label as
+      // a bucket alias.
+      navigate(`/shop?category=${encodeURIComponent(category)}`);
+      return;
+    }
     if (!bucket) {
       navigate('/shop');
       return;

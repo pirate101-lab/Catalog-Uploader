@@ -17,16 +17,28 @@ export const TOP_LEVEL: string[] = [
   'Collection',
   'TikTok Verified',
   'Trending',
+  'Shoes',
 ];
 
 // Maps a TOP_LEVEL nav label to the synthesised merch bucket the
 // API understands. 'Category' has no bucket — it just opens /shop.
+// 'Shoes' is a true product category (not a bucket) — see
+// TOP_LEVEL_CATEGORY below for how the nav routes it.
 export const TOP_LEVEL_BUCKETS: Record<string, string | null> = {
   Category: null,
   'New In': 'new_in',
   Collection: 'collection',
   'TikTok Verified': 'tiktok_verified',
   Trending: 'trending',
+  Shoes: null,
+};
+
+// Maps a TOP_LEVEL nav label to a real catalog category. Most labels
+// are merch buckets (handled via TOP_LEVEL_BUCKETS); 'Shoes' is the
+// only entry today that drops the user straight into a category-
+// filtered /shop view, with both women's and men's shoes available.
+export const TOP_LEVEL_CATEGORY: Record<string, string | null> = {
+  Shoes: 'Shoes',
 };
 
 /**
@@ -43,18 +55,21 @@ export const MEN_RAIL_LEAFS: string[] = ['All'];
 // the top-level category — clicking "Casual Dresses" vs "Maxi Dresses"
 // returned identical product grids, which was confusing. Each entry is now
 // a single leaf that maps directly to a real category in the catalog.
+// Swimwear and Loungewear & Intimates were removed because the
+// underlying women's catalog has zero items in those categories — the
+// sidebar links produced an empty grid. Shoes was added (women catalog
+// has 277 entries) so it's discoverable from the rail too.
 export const RAIL_GROUPS: TaxonomyGroup[] = [
   { label: 'Tops' },
   { label: 'Dresses' },
   { label: 'Jeans & Denim' },
-  { label: 'Swimwear' },
   { label: 'Jumpsuits & Rompers' },
   { label: 'Bottoms' },
   { label: 'Two-Piece Sets' },
   { label: 'Activewear' },
   { label: 'Sweaters & Knitwear' },
   { label: 'Outerwear' },
-  { label: 'Loungewear & Intimates' },
+  { label: 'Shoes' },
   { label: 'Graphic' },
 ];
 
