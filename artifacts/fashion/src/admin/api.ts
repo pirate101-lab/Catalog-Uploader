@@ -251,6 +251,17 @@ export interface ProductRow {
   featured?: boolean;
 }
 
+export type AdminRoleValue = "admin" | "super_admin";
+
+export interface AdminUserRow {
+  id: number;
+  username: string;
+  role: AdminRoleValue;
+  createdAt: string;
+  createdById: number | null;
+  lastLoginAt: string | null;
+}
+
 export const adminApi = {
   /* Hero */
   listHero: () => adminFetch<HeroSlide[]>("/admin/hero-slides"),
@@ -451,6 +462,29 @@ export const adminApi = {
       offset: number;
     }>(`/admin/products?${q.toString()}`);
   },
+
+  /* Admin users (super_admin only) */
+  listAdminUsers: () =>
+    adminFetch<{ rows: AdminUserRow[] }>("/admin-users"),
+  createAdminUser: (data: {
+    username: string;
+    password: string;
+    role: AdminRoleValue;
+  }) =>
+    adminFetch<AdminUserRow>("/admin-users", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateAdminUser: (
+    id: number,
+    data: { role?: AdminRoleValue; password?: string },
+  ) =>
+    adminFetch<AdminUserRow>(`/admin-users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  deleteAdminUser: (id: number) =>
+    adminFetch<{ ok: true }>(`/admin-users/${id}`, { method: "DELETE" }),
 
   requestUploadUrl: (name: string) =>
     fetch("/api/storage/uploads/request-url", {

@@ -52,6 +52,9 @@ const SettingsAdmin = lazy(() =>
 const PaymentsAdmin = lazy(() =>
   import("@/admin/PaymentsAdmin").then((m) => ({ default: m.PaymentsAdmin })),
 );
+const AdminsAdmin = lazy(() =>
+  import("@/admin/AdminsAdmin").then((m) => ({ default: m.AdminsAdmin })),
+);
 const AdminLogin = lazy(() =>
   import("@/admin/AdminLogin").then((m) => ({ default: m.AdminLogin })),
 );
@@ -116,6 +119,7 @@ function AppRoutes() {
           <Route path="/admin/reviews" component={ReviewsAdmin} />
           <Route path="/admin/emails" component={EmailsAdmin} />
           <Route path="/admin/payments" component={PaymentsAdmin} />
+          <Route path="/admin/admins" component={AdminsAdmin} />
           <Route path="/admin/settings" component={SettingsAdmin} />
           <Route path="/admin/:rest*" component={AdminDashboard} />
           <Route>

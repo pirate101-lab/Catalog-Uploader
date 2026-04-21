@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "wouter";
-import { AdminShell, AdminPageHeader } from "./AdminShell";
+import { AdminShell, AdminPageHeader, useAdminIdentity } from "./AdminShell";
 import {
   adminApi,
   fmtCents,
@@ -37,6 +37,12 @@ import {
 type SaveablePatch = Partial<SiteSettings>;
 
 export function PaymentsAdmin() {
+  // General admins get a read-only view of payment events for support
+  // work, but never see Paystack keys, callback/webhook URLs or bank
+  // account material. Anything mutating those (PUT /admin/settings,
+  // /admin/payments/test, etc.) is also blocked server-side.
+  const me = useAdminIdentity();
+  const isSuper = me?.role === "super_admin" || me == null;
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [urls, setUrls] = useState<PaymentsUrls | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -52,7 +58,14 @@ export function PaymentsAdmin() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([adminApi.getSettings(), adminApi.getPaymentsUrls()])
+    // Settings is required for both roles; the URLs endpoint is
+    // super-admin only, so general admins must tolerate a 403 there
+    // without breaking the rest of the page (read-only payment events
+    // is the whole point of this view for them).
+    const urlsPromise = isSuper
+      ? adminApi.getPaymentsUrls().catch(() => null)
+      : Promise.resolve(null);
+    Promise.all([adminApi.getSettings(), urlsPromise])
       .then(([s, u]) => {
         if (cancelled) return;
         setSettings(s);
@@ -63,7 +76,7 @@ export function PaymentsAdmin() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isSuper]);
 
   const updateDraft = (patch: SaveablePatch) =>
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
@@ -118,29 +131,38 @@ export function PaymentsAdmin() {
         <div className="text-sm text-muted-foreground">Loading payment settings…</div>
       ) : (
         <div className="space-y-8 max-w-3xl">
-          <PaystackSection
-            draft={draft}
-            settings={settings}
-            saving={saving}
-            testing={testing}
-            testResult={testResult}
-            onChange={updateDraft}
-            onSave={() => save()}
-            onTest={runTest}
-            onToggleEnabled={(v) => save({ paystackEnabled: v })}
-            onToggleTestMode={(v) => save({ paystackTestMode: v })}
-          />
+          {isSuper ? (
+            <PaystackSection
+              draft={draft}
+              settings={settings}
+              saving={saving}
+              testing={testing}
+              testResult={testResult}
+              onChange={updateDraft}
+              onSave={() => save()}
+              onTest={runTest}
+              onToggleEnabled={(v) => save({ paystackEnabled: v })}
+              onToggleTestMode={(v) => save({ paystackTestMode: v })}
+            />
+          ) : null}
 
-          <UrlsSection urls={urls} />
+          {isSuper ? <UrlsSection urls={urls} /> : null}
 
           <PaymentEventsSection />
 
-          <BankSection
-            draft={draft}
-            saving={saving}
-            onChange={updateDraft}
-            onSave={() => save()}
-          />
+          {isSuper ? (
+            <BankSection
+              draft={draft}
+              saving={saving}
+              onChange={updateDraft}
+              onSave={() => save()}
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Paystack keys, callback URLs and bank-transfer details are
+              managed by super admins only.
+            </p>
+          )}
         </div>
       )}
     </AdminShell>

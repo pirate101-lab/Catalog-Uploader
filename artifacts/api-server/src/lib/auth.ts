@@ -21,6 +21,12 @@ export interface SessionData {
   // sessions (which have no email-ownership proof) must never gain
   // admin access even if their email matches the allowlist.
   authProvider?: AuthProvider;
+  /** For admin-local sessions: the row id in admin_users this session
+   *  belongs to, plus the role at sign-in time. Role is re-read from
+   *  the DB on every privileged action so a demotion takes effect
+   *  without forcing a re-login. */
+  adminUserId?: number;
+  adminRole?: "admin" | "super_admin";
 }
 
 let oidcConfig: client.Configuration | null = null;

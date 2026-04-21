@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AdminShell, AdminPageHeader } from "./AdminShell";
+import { AdminShell, AdminPageHeader, useAdminIdentity } from "./AdminShell";
 import {
   adminApi,
   type SiteSettings,
@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 export function SettingsAdmin() {
+  const me = useAdminIdentity();
+  const isSuper = me?.role === "super_admin" || me == null;
   const [s, setS] = useState<SiteSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [testTo, setTestTo] = useState("");
@@ -313,6 +315,7 @@ export function SettingsAdmin() {
             </div>
           </Section>
 
+          {isSuper ? (
           <Section title="SMTP mailbox (Titan, Zoho, Workspace, …)">
             <p className="text-xs text-muted-foreground -mt-2">
               When SMTP is configured, all order and test emails are sent
@@ -423,6 +426,9 @@ export function SettingsAdmin() {
             ) : null}
           </Section>
 
+          ) : null}
+
+          {isSuper ? (
           <Section title="Operator alerts">
             <p className="text-xs text-muted-foreground -mt-2">
               Email operators when a high-severity Paystack failure fires
@@ -476,6 +482,8 @@ export function SettingsAdmin() {
               ) : null}
             </Field>
           </Section>
+
+          ) : null}
 
           <Section title="Storefront behavior">
             <div className="flex items-center gap-3">

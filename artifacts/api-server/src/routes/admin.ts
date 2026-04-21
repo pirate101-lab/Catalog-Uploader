@@ -18,7 +18,7 @@ import {
   type PaymentEvent,
 } from "@workspace/db";
 import { paymentEventBus } from "../lib/paymentEvents";
-import { requireAdmin } from "../middlewares/adminGuard";
+import { getAdminRole, requireAdmin, requireSuperAdmin } from "../middlewares/adminGuard";
 import { invalidateOverrides } from "../lib/overrides";
 import { invalidateSiteSettings, getSiteSettings } from "../lib/siteSettings";
 import { getAllProducts } from "../lib/catalog";
@@ -668,8 +668,38 @@ router.get("/admin/customers", async (_req, res) => {
  * the operator knows a key is saved without it being recoverable from
  * the page source / network tab.
  */
+// Fields that hold credentials/secrets or operator-alert configuration
+// — visible and editable by super_admin only. General admins see them
+// stripped/blanked from GET /admin/settings and any attempt to mutate
+// them through PUT is silently dropped.
+const SUPER_ADMIN_ONLY_FIELDS = [
+  "paystackEnabled",
+  "paystackTestMode",
+  "paystackLivePublicKey",
+  "paystackLiveSecretKey",
+  "paystackTestPublicKey",
+  "paystackTestSecretKey",
+  "paystackLiveSecretKeySet",
+  "paystackTestSecretKeySet",
+  "smtpHost",
+  "smtpPort",
+  "smtpSecure",
+  "smtpUsername",
+  "smtpPassword",
+  "smtpPasswordSet",
+  "bankName",
+  "bankAccountName",
+  "bankAccountNumber",
+  "bankSwiftCode",
+  "bankRoutingNumber",
+  "bankInstructions",
+  "paymentAlertMode",
+  "paymentAlertRecipients",
+] as const;
+
 function shapeSettingsForAdmin(
   s: Awaited<ReturnType<typeof getSiteSettings>>,
+  role: "admin" | "super_admin",
 ) {
   // Strip credential material before returning to the browser. The
   // bcrypt hash never needs to leave the server, and the username is
@@ -683,7 +713,7 @@ function shapeSettingsForAdmin(
   void _hash;
   void _username;
   void _smtpPwd;
-  return {
+  const full = {
     ...rest,
     paystackLiveSecretKey: maskSecret(s.paystackLiveSecretKey),
     paystackTestSecretKey: maskSecret(s.paystackTestSecretKey),
@@ -694,17 +724,38 @@ function shapeSettingsForAdmin(
     smtpPassword: maskSecret(s.smtpPassword),
     smtpPasswordSet: !!s.smtpPassword,
   };
+  if (role === "super_admin") return full;
+  // General admin view: blank out every super-admin-only field so the
+  // browser never even sees a masked indicator. Numeric/boolean fields
+  // still need to satisfy the SiteSettings TS type on the client, so we
+  // substitute neutral defaults rather than deleting them outright.
+  const stripped: Record<string, unknown> = { ...full };
+  for (const key of SUPER_ADMIN_ONLY_FIELDS) {
+    const current = (full as Record<string, unknown>)[key];
+    if (typeof current === "boolean") stripped[key] = false;
+    else if (typeof current === "number") stripped[key] = 0;
+    else stripped[key] = key === "paymentAlertMode" ? "off" : null;
+  }
+  return stripped;
 }
 
-router.get("/admin/settings", async (_req, res) => {
+router.get("/admin/settings", async (req, res) => {
+  const role = (await getAdminRole(req)) ?? "admin";
   const settings = await getSiteSettings();
-  res.json(shapeSettingsForAdmin(settings));
+  res.json(shapeSettingsForAdmin(settings, role));
 });
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 router.put("/admin/settings", async (req, res) => {
-  const body = req.body ?? {};
+  const body = { ...(req.body ?? {}) } as Record<string, unknown>;
+  const role = (await getAdminRole(req)) ?? "admin";
+  if (role !== "super_admin") {
+    // Defence-in-depth: silently drop any super-admin-only field from
+    // the patch so a manipulated browser request can never overwrite
+    // secrets. The UI hides these inputs entirely for general admins.
+    for (const key of SUPER_ADMIN_ONLY_FIELDS) delete body[key];
+  }
   const allowed = [
     "announcementText",
     "announcementActive",
@@ -881,19 +932,19 @@ router.put("/admin/settings", async (req, res) => {
     });
   invalidateSiteSettings();
   const settings = await getSiteSettings();
-  res.json(shapeSettingsForAdmin(settings));
+  res.json(shapeSettingsForAdmin(settings, role));
 });
 
 /* ---------------- Payments admin ---------------- */
 
-router.get("/admin/payments/urls", (req, res) => {
+router.get("/admin/payments/urls", requireSuperAdmin, (req, res) => {
   res.json({
     callbackUrl: getCallbackUrl(req),
     webhookUrl: getWebhookUrl(req),
   });
 });
 
-router.post("/admin/payments/test", async (_req, res) => {
+router.post("/admin/payments/test", requireSuperAdmin, async (_req, res) => {
   const settings = await getSiteSettings();
   const { secretKey, mode } = getActivePaystackKeys(settings);
   if (!secretKey) {
@@ -968,7 +1019,7 @@ function checkTestSendQuota(key: string): { ok: true } | { ok: false; retryAfter
 
 const TEST_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-router.post("/admin/settings/test-email", async (req, res) => {
+router.post("/admin/settings/test-email", requireSuperAdmin, async (req, res) => {
   const to = typeof req.body?.to === "string" ? req.body.to.trim() : "";
   if (!to || !TEST_EMAIL_RE.test(to)) {
     res.status(400).json({ ok: false, error: "Enter a valid email address." });
@@ -998,7 +1049,7 @@ router.post("/admin/settings/test-email", async (req, res) => {
  * accept the username + password before relying on order-confirmation
  * delivery. Always 200 so the UI renders the result inline.
  */
-router.post("/admin/settings/verify-smtp", async (_req, res) => {
+router.post("/admin/settings/verify-smtp", requireSuperAdmin, async (_req, res) => {
   const settings = await getSiteSettings();
   const result = await verifySmtp(settings);
   res.status(200).json(result);

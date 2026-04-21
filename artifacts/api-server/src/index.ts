@@ -1,7 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { ObjectStorageService } from "./lib/objectStorage";
-import { ensureAdminCredentials } from "./lib/adminCredentials";
+import { migrateAdminCredentials } from "./lib/adminCredentials";
 
 const rawPort = process.env["PORT"];
 
@@ -27,11 +27,11 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 
-  // Bootstrap admin username/password (no-op if already set). Done
-  // post-listen so a transient DB hiccup doesn't keep the API down,
-  // and so the credential banner appears right after "Server listening".
-  ensureAdminCredentials().catch((err) => {
-    logger.error({ err }, "Failed to bootstrap admin credentials");
+  // One-time migration of legacy site_settings credentials into the
+  // admin_users table. No-op once it has run, and never auto-creates an
+  // admin row — first-run setup happens via the registration UI now.
+  migrateAdminCredentials().catch((err) => {
+    logger.error({ err }, "Failed to migrate admin credentials");
   });
 
   if (storageConfigured) {

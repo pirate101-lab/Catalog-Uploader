@@ -273,3 +273,41 @@ export const productReviewSummaryTable = pgTable("product_review_summary", {
 
 export type ProductReviewSummary = typeof productReviewSummaryTable.$inferSelect;
 export type InsertProductReviewSummary = typeof productReviewSummaryTable.$inferInsert;
+
+/**
+ * Local admin user accounts. Replaces the single
+ * site_settings.admin_username/admin_password_hash pair so we can have
+ * multiple operators with distinct sign-ins and a role split:
+ *   - super_admin: full access including credentials/secrets and
+ *     management of other admins.
+ *   - admin: day-to-day operations only; cannot view secrets or manage
+ *     other admins.
+ *
+ * Username uniqueness is enforced case-insensitively via a unique index
+ * on lower(username), so "Texas99" and "texas99" cannot both exist.
+ */
+export const adminUsersTable = pgTable(
+  "admin_users",
+  {
+    id: serial("id").primaryKey(),
+    username: text("username").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    role: varchar("role", { length: 16 }).notNull().default("admin"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    createdById: integer("created_by_id"),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("UX_admin_users_username_lower").on(sql`lower(${table.username})`),
+    check("CK_admin_users_role", sql`role IN ('admin','super_admin')`),
+  ],
+);
+
+export type AdminUser = typeof adminUsersTable.$inferSelect;
+export type InsertAdminUser = typeof adminUsersTable.$inferInsert;

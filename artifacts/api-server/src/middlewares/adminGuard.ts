@@ -1,4 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
+import { findAdminById, type AdminRole } from "../lib/adminCredentials";
+import { clearSession, getSession, getSessionId } from "../lib/auth";
 
 function getAdminEmails(): Set<string> {
   const raw = process.env["ADMIN_EMAILS"] ?? "";
@@ -10,19 +12,35 @@ function getAdminEmails(): Set<string> {
   );
 }
 
-export function requireAdmin(
+export async function requireAdmin(
   req: Request,
   res: Response,
   next: NextFunction,
-): void {
+): Promise<void> {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  // The local admin account (username/password stored in site_settings)
-  // is always authorised — its existence already means the operator
-  // proved knowledge of the admin password.
+  // For local-admin sessions, re-validate that the underlying
+  // admin_users row still exists. Without this check a deleted admin
+  // could continue using their cookie until it expires — a textbook
+  // session-revocation bug. We also clear the cookie so the browser
+  // immediately bounces them to the login screen.
   if (req.authProvider === "admin-local") {
+    const sid = getSessionId(req);
+    const session = sid ? await getSession(sid) : null;
+    const adminUserId = session?.adminUserId;
+    if (!adminUserId) {
+      await clearSession(res, sid);
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    const row = await findAdminById(adminUserId);
+    if (!row) {
+      await clearSession(res, sid);
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
     next();
     return;
   }
@@ -78,4 +96,49 @@ export function isOidcAdmin(req: { authProvider?: string; user?: { email?: strin
   if (req.authProvider === "admin-local") return true;
   if (req.authProvider !== "oidc") return false;
   return isAdminEmail(req.user?.email ?? null);
+}
+
+/**
+ * Resolve the effective admin role for a request:
+ *   - admin-local sessions read from admin_users.role (fresh from DB,
+ *     so a demotion applied moments earlier takes effect immediately)
+ *   - OIDC admins are treated as super_admin (legacy operators
+ *     configured outside the dashboard) so the dashboard remains fully
+ *     usable for them after the migration.
+ *   - Anything else has no role.
+ */
+export async function getAdminRole(
+  req: Request,
+): Promise<AdminRole | null> {
+  if (!req.isAuthenticated()) return null;
+  if (req.authProvider === "admin-local") {
+    const sid = getSessionId(req);
+    if (!sid) return null;
+    const session = await getSession(sid);
+    const id = session?.adminUserId;
+    if (!id) return null;
+    const row = await findAdminById(id);
+    if (!row) return null;
+    return row.role as AdminRole;
+  }
+  if (isOidcAdmin(req)) return "super_admin";
+  return null;
+}
+
+/**
+ * Express middleware: only allow super_admin (or OIDC admin). Returns
+ * 403 with `{ error: "super_admin_required" }` so the UI can surface a
+ * specific message.
+ */
+export async function requireSuperAdmin(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const role = await getAdminRole(req);
+  if (role !== "super_admin") {
+    res.status(403).json({ error: "super_admin_required" });
+    return;
+  }
+  next();
 }
