@@ -7,8 +7,7 @@
     "subcategories": {
       "cover_ups": 4,
       "one_piece_swimwear": 4
-    },
-    "cookie_prefix": "SHOPID=654863; TOKEN=oSB..."
+    }
   },
   "items_by_subcategory": {
     "cover_ups": [
@@ -36,7 +35,7 @@
       {
         "id": "46379",
         "title": "Round Neck Openwork Cover Up",
-        "price": 29.0,
+        "price": 29,
         "main_image": "https://statics.trendsi.com/pic/test/bc2377d9e4ee4b56937cc9302fcd4fb4-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/test/b233c32f994c45f1920490b82855e426-Min.webp"
       }

@@ -13,15 +13,14 @@
       "shorts": 15,
       "sweaters": 19,
       "tops": 467
-    },
-    "cookie_prefix": "SHOPID=654863; TOKEN=oSB..."
+    }
   },
   "items_by_subcategory": {
     "bottoms": [
       {
         "id": "163316",
         "title": "Men's Baggy Jeans with Cargo Pockets",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/9708795e-f11f-4da8-95c9-ac86e62aee32-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/fcb5f208-9829-4b8c-ad2a-0560947b0ca1-Max.jpg"
       },
@@ -350,7 +349,7 @@
       {
         "id": "163994",
         "title": "Men's Mid Rise Jeans with Cargo Pockets",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/36242bc8-a3fc-433f-ab94-9dcb3eafd521-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/9d7b89c9-06a6-443c-94ce-8a589f15796f-Max.jpg"
       },
@@ -371,7 +370,7 @@
       {
         "id": "150739",
         "title": "Men's Multi Pocketed Cargo Jeans",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/480baccc-2b23-498c-a45e-1ff78f284a7f-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/1237a248-6482-4942-bf68-7d4005375713-Max.jpg"
       },
@@ -623,7 +622,7 @@
       {
         "id": "150730",
         "title": "Men's Washed Straight Cargo Jeans",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product/ddd43c6afee0489296cf6c5652d86675-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/eb93617d-9e5b-4ae2-afc6-8d23568bcc1d-Max.jpg"
       },
@@ -665,7 +664,7 @@
       {
         "id": "200494",
         "title": "Men's Wide Leg Cargo Pants",
-        "price": 64.0,
+        "price": 64,
         "main_image": "https://statics.trendsi.com/pic/product1/e2fbdf00-d69f-43fb-9719-f3fa1153a39b-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/0fec36fc-a416-4de0-961d-88b157c09227-Max.jpg"
       },
@@ -881,7 +880,7 @@
       },
       {
         "id": "212763",
-        "title": "Men's \u2019Wide Leg High Waist Pants",
+        "title": "Men's ’Wide Leg High Waist Pants",
         "price": 82.78,
         "main_image": "https://statics.trendsi.com/product3/18b7def9a316417d8919ac50caa4fbc3-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/caf5bff1-ce1c-45cf-9517-3b1bc834a8ab-Max.jpg"
@@ -947,7 +946,7 @@
       {
         "id": "163085",
         "title": "Men's Baggy Jeans with Pockets",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/853acb24-b895-4d8b-844c-96b840031085-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/b6f23804-a18a-43f8-8cc3-dd29d283c68d-Max.jpg"
       },
@@ -1003,7 +1002,7 @@
       {
         "id": "163096",
         "title": "Men's Contrast Wide Leg Jeans",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/7dc1687b-ebdd-4c4b-aa35-5af31f85f01f-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/a8fd0c5d-2bb0-4727-922e-1dd7755d327e-Max.jpg"
       },
@@ -1031,7 +1030,7 @@
       {
         "id": "150676",
         "title": "Men's Distressed Backward Jeans",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product/02411a66bfe240ee84eb46b322ac94a1-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/ab484420-b5b1-4eec-b408-4864c02e9d18-Max.jpg"
       },
@@ -1346,7 +1345,7 @@
       {
         "id": "163416",
         "title": "Men's Frayed Hem Bootcut Jeans",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/cbc27fa1-8429-47b3-b05d-2d12bea11782-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/a65b9d9e-82f9-44a3-965d-585c97ab16da-Max.jpg"
       },
@@ -1416,7 +1415,7 @@
       {
         "id": "163318",
         "title": "Men's Mid Rise Baggy Jeans",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/2055a333-fdab-4cd1-94ab-bc8702c28638-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/5bdd617e-b8f5-47c3-a320-89f262b4d8e1-Max.jpg"
       },
@@ -1465,7 +1464,7 @@
       {
         "id": "163418",
         "title": "Men's Mid Rise Jeans with Pockets",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/c7b2d8e1-4e01-4768-b814-25ebcfcf2008-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/a487ce9b-b0b5-40a7-a8b8-d361b98908eb-Max.jpg"
       },
@@ -2011,14 +2010,14 @@
       {
         "id": "150695",
         "title": "Men's Washed Wide Leg Jeans",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/f105a450-e833-4b1b-85fe-07f8d3834a48-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/6de85ad4-69cd-4c11-9043-573e1263280b-Max.jpg"
       },
       {
         "id": "163086",
         "title": "Men's Washed Wide Leg Jeans",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/d25d1964-9db2-40da-a17d-449d371f1c54-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/d652a5dc-0089-47ba-ac92-dd50d508ea32-Max.jpg"
       },
@@ -2256,7 +2255,7 @@
       {
         "id": "163413",
         "title": "Men's Wide Leg Jeans with Pockets",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/279207e3-d727-4790-b1a4-1bcca561494a-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/6b72fa23-3478-4d19-91ab-125b06e2dbf6-Max.jpg"
       },
@@ -2361,7 +2360,7 @@
       {
         "id": "150741",
         "title": "Men's Zip Decor Straight Leg Jeans",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/ff6c45e0-fdff-43af-971d-a954485b494c-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/c70b1bf7-4de3-4198-b641-57bba481d801-Max.jpg"
       },
@@ -2375,14 +2374,14 @@
       {
         "id": "150433",
         "title": "Mid Rise Men's Jeans with Pockets",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/c6e19e9b-d7d6-4d82-83c3-2ca5651dcfce-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/0ea79c16-8f9f-49a4-a2f0-352378003f8b-Max.jpg"
       },
       {
         "id": "150464",
         "title": "Mid Rise Men's Jeans with Pockets",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/4a96362f-88d9-45c8-9018-c56c634550e3-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/d078de22-98c8-45fc-b74f-7afd4dac6c6f-Max.jpg"
       },
@@ -2431,7 +2430,7 @@
       {
         "id": "150455",
         "title": "Wide Leg Men's Jeans with Pockets",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/49ca103a-ebc5-4666-87f0-91d9b44bb8a0-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/0a72c43d-4d72-4080-b20a-3b66af746681-Max.jpg"
       }
@@ -2440,14 +2439,14 @@
       {
         "id": "200624",
         "title": "Men's Button Detail Short Sleeve Blouse",
-        "price": 34.0,
+        "price": 34,
         "main_image": "https://statics.trendsi.com/thirdProduct/4964b9f4f182471f800a72f48c3ab41e-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/12a6c687-0860-42a7-b6a6-a8671eff4c93-Max.jpg"
       },
       {
         "id": "200625",
         "title": "Men's Button Detail Short Sleeve Blouse",
-        "price": 34.0,
+        "price": 34,
         "main_image": "https://statics.trendsi.com/thirdProduct/6bcc3691b41446629ccc6c8f3d8da560-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/d11131a6-5521-4df5-8496-04665df895d2-Max.jpg"
       },
@@ -2461,7 +2460,7 @@
       {
         "id": "200687",
         "title": "Men's Casual Short Sleeve Henley Blouse",
-        "price": 34.0,
+        "price": 34,
         "main_image": "https://statics.trendsi.com/thirdProduct/94008e68214c4cf894d6479ba897749c-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/a496a730-22ca-45ac-88c4-ff576fe28e64-Max.jpg"
       },
@@ -2643,7 +2642,7 @@
       {
         "id": "200600",
         "title": "Men's Plus Size Textured Short Sleeve Blouse",
-        "price": 34.0,
+        "price": 34,
         "main_image": "https://statics.trendsi.com/thirdProduct/ec352217a4f44c49be63d51a9de3f6ca-Min.webp",
         "alt_image": "https://statics.trendsi.com/product3/0d474ba4525f404daf423f6a6a26d685-Max.png"
       },
@@ -2992,7 +2991,7 @@
       {
         "id": "155579",
         "title": "Men's Washed Denim Bermuda Shorts",
-        "price": 58.0,
+        "price": 58,
         "main_image": "https://statics.trendsi.com/pic/product1/add7a10e-0679-45a7-96fb-80c5e5eec41c-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/a5c429b9-c5d9-4505-867e-dcf9772cb088-Max.jpg"
       },
@@ -3020,7 +3019,7 @@
       {
         "id": "238684",
         "title": "Men's Wide-Leg Denim Shorts",
-        "price": 59.0,
+        "price": 59,
         "main_image": "https://statics.trendsi.com/pic/product1/0fd77d94-0af6-4b68-b5b0-48fe93f7671c-Min.webp",
         "alt_image": "https://statics.trendsi.com/product3/ed650d57b1324b57bf1dd0acdbb3936c-Max.png"
       }
@@ -3092,7 +3091,7 @@
       {
         "id": "212785",
         "title": "Men's Plus Size Button Up Long Sleeve Cardigan",
-        "price": 59.0,
+        "price": 59,
         "main_image": "https://statics.trendsi.com/product3/4662c6a40e71456081bc2c34ec7cb265-Min.webp",
         "alt_image": "https://statics.trendsi.com/product3/c981076e18714600abc6add7e814fdb4-Max.png"
       },
@@ -3262,7 +3261,7 @@
       {
         "id": "208525",
         "title": "Men's Buttone Down Short Sleeve Striped Shirt",
-        "price": 67.0,
+        "price": 67,
         "main_image": "https://statics.trendsi.com/product3/546b911d280d40199fc8f8ab8d59fec5-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/29c28460-62bd-486b-8a8d-9750b0572312-Max.jpg"
       },
@@ -3395,7 +3394,7 @@
       {
         "id": "203494",
         "title": "Men's Contrast Sleeve Round Neck Sweatshirt",
-        "price": 121.0,
+        "price": 121,
         "main_image": "https://statics.trendsi.com/product3/f05e8d722c8d45b7a53a2be1a177d78c-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/100941cc-da1b-4973-b48a-358168b4fdee-Max.jpg"
       },
@@ -3465,7 +3464,7 @@
       {
         "id": "170839",
         "title": "Men's Full Size Button Detail Long Sleeve Polo Plus Size",
-        "price": 26.0,
+        "price": 26,
         "main_image": "https://statics.trendsi.com/pic/product1/85653f84-e6ee-4667-bac8-e4f2cdcc17e3-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/6c8667e2-bd0d-4bd7-8eac-6df8900daf4d-Max.jpg"
       },
@@ -3619,7 +3618,7 @@
       {
         "id": "220319",
         "title": "Men's Full Size Button Up Long Sleeve Shirt Plus Size",
-        "price": 66.0,
+        "price": 66,
         "main_image": "https://statics.trendsi.com/pic/product1/baf41412-8c78-4e1f-8f5d-b0c969dc94e6-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/9162af30-2c2a-4134-8645-1112478bc3b5-Max.jpg"
       },
@@ -3892,7 +3891,7 @@
       {
         "id": "199248",
         "title": "Men's Full Size Long Sleeve Henley Shirt Plus Size",
-        "price": 33.0,
+        "price": 33,
         "main_image": "https://statics.trendsi.com/pic/product1/66410d30-384f-48cb-a30a-9126018f4aef-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/2110f9fb-fc70-4019-8125-6fefe68d2eb3-Max.jpg"
       },
@@ -3955,7 +3954,7 @@
       {
         "id": "221310",
         "title": "Men's Full Size Quarter-Zip Contrast Trim Sweatshirt Plus Size",
-        "price": 46.0,
+        "price": 46,
         "main_image": "https://statics.trendsi.com/product3/71cae047e8e742438fdffb3a6047b3a8-Min.webp",
         "alt_image": "https://statics.trendsi.com/product3/9869f08a6cab46dfa4facac37cbf9008-Max.png"
       },
@@ -4151,7 +4150,7 @@
       {
         "id": "202060",
         "title": "Men's Graphic Crewneck Sweatshirt with Contrast Piping",
-        "price": 91.0,
+        "price": 91,
         "main_image": "https://statics.trendsi.com/product3/b003fdb1f9204ec99b574798c5873825-Min.webp",
         "alt_image": "https://statics.trendsi.com/product3/ca0c7d05d6f643a8b94fd9a8853c25dc-Max.png"
       },
@@ -4529,7 +4528,7 @@
       {
         "id": "171099",
         "title": "Men's Letter Round Neck Long Sleeve Sweatshirt",
-        "price": 44.0,
+        "price": 44,
         "main_image": "https://statics.trendsi.com/pic/product1/f440aa1f-a4d9-4fb4-b083-879484763967-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/50bb5c6f-c5db-46bf-ad66-487894428b20-Max.jpg"
       },
@@ -4669,7 +4668,7 @@
       {
         "id": "209164",
         "title": "Men's Plaid Oversized Short Sleeve Shirt",
-        "price": 67.0,
+        "price": 67,
         "main_image": "https://statics.trendsi.com/pic/product1/35f5c7e7-5d49-49f1-92a8-c82d88b4d9d3-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/5bb6169d-b3fd-42ff-9153-98fcb01d8963-Max.jpg"
       },
@@ -4683,7 +4682,7 @@
       {
         "id": "208541",
         "title": "Men's Plaid Short Sleeve Shirt with Striped Tie",
-        "price": 67.0,
+        "price": 67,
         "main_image": "https://statics.trendsi.com/pic/product1/d82158c3-19c6-4746-84ec-e7ab749bc40e-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/d91639d3-3f8c-47cc-8fbb-f2ab2addddf7-Max.jpg"
       },
@@ -4718,7 +4717,7 @@
       {
         "id": "221458",
         "title": "Men's Plus Size Bamboo Button Up Long Sleeve Shirt",
-        "price": 34.0,
+        "price": 34,
         "main_image": "https://statics.trendsi.com/product3/327c24243d624a49a8f3bd152679f296-Min.webp",
         "alt_image": "https://statics.trendsi.com/product3/5a89aff6a5294b808b526d413fa1edf9-Max.png"
       },
@@ -4914,7 +4913,7 @@
       {
         "id": "215997",
         "title": "Men's Plus Size Button Detail Short Sleeve Shirt",
-        "price": 92.0,
+        "price": 92,
         "main_image": "https://statics.trendsi.com/pic/product1/e217efd3-b883-4b32-9129-078864165835-Min.webp",
         "alt_image": "https://statics.trendsi.com/product3/f013bd78b1dd425498800b498e452246-Max.png"
       },
@@ -5257,7 +5256,7 @@
       {
         "id": "214880",
         "title": "Men's Plus Size Diamond Pattern Knit T-Shirt",
-        "price": 51.0,
+        "price": 51,
         "main_image": "https://statics.trendsi.com/product3/a40fea9474324e3eba7247d415fd45a2-Min.webp",
         "alt_image": "https://statics.trendsi.com/product3/8febbf7144a945bf88e65bf3d5b8c757-Max.png"
       },
@@ -5446,7 +5445,7 @@
       {
         "id": "218790",
         "title": "Men's Plus Size Notched Short Sleeve T-Shirt",
-        "price": 54.0,
+        "price": 54,
         "main_image": "https://statics.trendsi.com/pic/product1/2964ca7c-4c78-48e4-bd7f-0404c7909e9c-Min.webp",
         "alt_image": "https://statics.trendsi.com/product3/9600a3e0991647b8af1325688f654a10-Max.png"
       },
@@ -5537,7 +5536,7 @@
       {
         "id": "221777",
         "title": "Men's Plus Size Printed Button Up Long Sleeve Shirt",
-        "price": 34.0,
+        "price": 34,
         "main_image": "https://statics.trendsi.com/product3/1c7afe93d9b74b6cba32c7f3ad682455-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/7409537f-cea2-430d-9b94-4bc9d72e5581-Max.jpg"
       },
@@ -5908,7 +5907,7 @@
       {
         "id": "203933",
         "title": "Men's Plus Size Striped Long Sleeve Button-Down Shirt",
-        "price": 34.0,
+        "price": 34,
         "main_image": "https://statics.trendsi.com/pic/product1/bd6c6b2c-f42d-41fa-8d43-18e8c9eb8d82-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/8ca55383-100f-4073-b63f-dbabc01ad478-Max.jpg"
       },
@@ -6076,7 +6075,7 @@
       {
         "id": "200682",
         "title": "Men's Printed Long Sleeve Button-Up Shirt",
-        "price": 34.0,
+        "price": 34,
         "main_image": "https://statics.trendsi.com/thirdProduct/f800a4f1afd044ce932be6a08b6a2696-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/fc6fac71-3b09-4b53-9f9f-847a03847e14-Max.jpg"
       },

@@ -13,8 +13,7 @@
       "sandals": 144,
       "slippers": 2,
       "sneakers": 5
-    },
-    "cookie_prefix": "SHOPID=654863; TOKEN=oSB..."
+    }
   },
   "items_by_subcategory": {
     "boots": [
@@ -217,7 +216,7 @@
       {
         "id": "163416",
         "title": "Men's Frayed Hem Bootcut Jeans",
-        "price": 49.0,
+        "price": 49,
         "main_image": "https://statics.trendsi.com/pic/product1/cbc27fa1-8429-47b3-b05d-2d12bea11782-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/a65b9d9e-82f9-44a3-965d-585c97ab16da-Max.jpg"
       },
@@ -441,7 +440,7 @@
       {
         "id": "225522",
         "title": "Round Toe Platform Wedge Boots",
-        "price": 66.0,
+        "price": 66,
         "main_image": "https://statics.trendsi.com/product2/c675132a13c54b75831b2eb0bacad819-Min.webp",
         "alt_image": "https://statics.trendsi.com/product3/c3cc2f6e51144c93af15a652b5419ea7-Max.png"
       },
@@ -462,14 +461,14 @@
       {
         "id": "257859",
         "title": "Slouch Block Heel Boots",
-        "price": 44.0,
+        "price": 44,
         "main_image": "https://statics.trendsi.com/pic/product1/3e43d093-3533-4837-9304-002052435403-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/e4a691d5-9f31-43e0-be05-a503a29b1669-Max.jpg"
       },
       {
         "id": "259964",
         "title": "Snowflake Pattern Platform Winter Boots with Adjustable Drawstring",
-        "price": 66.0,
+        "price": 66,
         "main_image": "https://statics.trendsi.com/product3/242c992bbe874c998a184617a4e2864e-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/df81961d-49f9-4d62-8d51-1a4f21cfaa9a-Max.jpg"
       },
@@ -682,7 +681,7 @@
       {
         "id": "228142",
         "title": "Butterfly Embellished Platform Wedge Sandals",
-        "price": 25.0,
+        "price": 25,
         "main_image": "https://statics.trendsi.com/product3/e4cf4e871f824588acfc569ad502dcbd-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/1dbbab61-7f31-481a-a6fe-63e8ef46933e-Max.jpg"
       },
@@ -836,7 +835,7 @@
       {
         "id": "217716",
         "title": "Cutout Printed Flat Sandals",
-        "price": 25.0,
+        "price": 25,
         "main_image": "https://statics.trendsi.com/product3/c7af541daf28460eb1d565774f1659ed-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/40b152bb-a09b-461e-be74-8fdd0ce2bf1f-Max.jpg"
       },
@@ -1039,7 +1038,7 @@
       {
         "id": "220060",
         "title": "Multi-Strap Toe Post Sandals",
-        "price": 31.0,
+        "price": 31,
         "main_image": "https://statics.trendsi.com/thirdProduct/aa747307aff742a182da2ffe607a48c8-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/edb8cbb9-9f0b-474f-b004-2e6d78740050-Max.jpg"
       },
@@ -1333,7 +1332,7 @@
       {
         "id": "216496",
         "title": "Printed Tassel Flat Sandals",
-        "price": 25.0,
+        "price": 25,
         "main_image": "https://statics.trendsi.com/product3/f77a50b2dc064be6bbde194bdaf85686-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/3c0abf19-0532-4d0a-8979-389b4d32047b-Max.jpg"
       },
@@ -1508,7 +1507,7 @@
       {
         "id": "219860",
         "title": "Toe Loop Flats Sandals",
-        "price": 25.0,
+        "price": 25,
         "main_image": "https://statics.trendsi.com/thirdProduct/2cdb84b72c274b6dad98f3b1457c3aa7-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/d0720f69-24e1-4861-a17e-fd09adb06407-Max.jpg"
       },
@@ -1522,7 +1521,7 @@
       {
         "id": "225597",
         "title": "Toe Loop Platform Sandals",
-        "price": 25.0,
+        "price": 25,
         "main_image": "https://statics.trendsi.com/product3/3fbaec8696d64916acccc56a7cb56f9c-Min.webp",
         "alt_image": "https://statics.trendsi.com/pic/product1/fc339a25-6026-4d02-b452-f33feeb1c6cf-Max.jpg"
       },
