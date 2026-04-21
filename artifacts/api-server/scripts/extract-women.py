@@ -1,13 +1,37 @@
 #!/usr/bin/env python3
-"""Build a Women catalog from Trendsi Category/All with bucketed outputs and WebP images."""
+"""Build a Women catalog from Trendsi Category/All with bucketed outputs and WebP images.
+
+Credentials
+-----------
+Trendsi requires a logged-in session token + cookie. They are NOT
+committed to this repo. Provide them at run time via environment
+variables (preferred) or CLI flags:
+
+    export TRENDSI_ACCESS_TOKEN=...   # value of the Access-Token header
+    export TRENDSI_COOKIE=...         # full Cookie header value
+    export TRENDSI_SHOP_ID=...        # numeric shop id from the cookie
+    export TRENDSI_DEVICE_ID=...      # optional; defaults to 0
+    # Optional, only if you need TikTok-Verified scraping:
+    export TRENDSI_TIKTOK_STORE_REFERER=...
+    export TRENDSI_TIKTOK_HOME_REFERER=...
+    python3 artifacts/api-server/scripts/extract-women.py
+
+To capture a fresh set, open trendsi.com in a logged-in browser, copy
+the values from any /api/store/list or /api/product/v2/home-product
+request via DevTools "Copy as cURL", and feed them into the env vars
+above. If a captured token expires, the script logs the upstream's
+"refresh credentials" sentinel (HTTP 200 with total:0).
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import re
 import shutil
+import sys
 import threading
 import time
 from collections import defaultdict
@@ -27,20 +51,6 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 API_URL_STORE_LIST = "https://www.trendsi.com/api/store/list"
 API_URL_HOME_PRODUCT = "https://www.trendsi.com/api/product/v2/home-product"
-
-DEFAULT_ACCESS_TOKEN = "oSBs76LbLYQOwFByU8lN"
-DEFAULT_COOKIE = (
-    "SHOPID=654863; TOKEN=oSBs76LbLYQOwFByU8lN; "
-    "ps_mode=trackingV2; ps_partner_key=439a9e290f36; "
-    "ps_xid=wfgg0OjKbfO5Tc; pscd=join.trendsi.com"
-)
-DEFAULT_TIKTOK_STORE_REFERER = (
-    "https://www.trendsi.com/classify/TikTok%20Verified/All?"
-    "ref_pv_id=779d0e90c6dfeda6a1503a86b9b05218"
-)
-DEFAULT_TIKTOK_HOME_REFERER = (
-    "https://www.trendsi.com/classify/Collection?ref_pv_id=41fe8d1c24f3dbefe0cfb0b7c66092df"
-)
 
 COMMON_HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
@@ -118,19 +128,41 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--save-every", type=int, default=200)
     parser.add_argument("--no-clean-output", action="store_false", dest="clean_output")
 
-    parser.add_argument("--access-token", default=DEFAULT_ACCESS_TOKEN)
-    parser.add_argument("--cookie", default=DEFAULT_COOKIE)
+    parser.add_argument(
+        "--access-token",
+        default=os.environ.get("TRENDSI_ACCESS_TOKEN"),
+        help="Trendsi Access-Token header. Defaults to $TRENDSI_ACCESS_TOKEN.",
+    )
+    parser.add_argument(
+        "--cookie",
+        default=os.environ.get("TRENDSI_COOKIE"),
+        help="Trendsi Cookie header. Defaults to $TRENDSI_COOKIE.",
+    )
     parser.add_argument("--referer", default="https://www.trendsi.com/classify/Category/All")
-    parser.add_argument("--device-id", type=int, default=657581)
+    parser.add_argument(
+        "--device-id",
+        type=int,
+        default=int(os.environ.get("TRENDSI_DEVICE_ID", "0")),
+    )
     parser.add_argument("--channel", type=int, default=3)
-    parser.add_argument("--shop-id", default="654863")
+    parser.add_argument(
+        "--shop-id",
+        default=os.environ.get("TRENDSI_SHOP_ID"),
+        help="Trendsi numeric shop id. Defaults to $TRENDSI_SHOP_ID.",
+    )
     parser.add_argument("--store-page-size", type=int, default=100)
     parser.add_argument("--home-page-size", type=int, default=90)
     parser.add_argument("--home-name", default="Women")
     parser.add_argument("--home-category-nav-id", type=int, default=0)
     parser.add_argument("--home-nav-level", type=int, default=0)
-    parser.add_argument("--tiktok-store-referer", default=DEFAULT_TIKTOK_STORE_REFERER)
-    parser.add_argument("--tiktok-home-referer", default=DEFAULT_TIKTOK_HOME_REFERER)
+    parser.add_argument(
+        "--tiktok-store-referer",
+        default=os.environ.get("TRENDSI_TIKTOK_STORE_REFERER", ""),
+    )
+    parser.add_argument(
+        "--tiktok-home-referer",
+        default=os.environ.get("TRENDSI_TIKTOK_HOME_REFERER", ""),
+    )
     parser.add_argument("--tiktok-home-name", default="TikTok Verified")
     parser.add_argument("--tiktok-home-category-nav-id", type=int, default=5324)
     parser.add_argument("--tiktok-home-nav-level", type=int, default=2)
@@ -141,7 +173,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-delay", type=float, default=2.5)
     parser.add_argument("--max-delay", type=float, default=5.5)
     parser.set_defaults(clean_output=True)
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    missing = [
+        name
+        for name, value in (
+            ("--access-token / TRENDSI_ACCESS_TOKEN", args.access_token),
+            ("--cookie / TRENDSI_COOKIE", args.cookie),
+            ("--shop-id / TRENDSI_SHOP_ID", args.shop_id),
+        )
+        if not value
+    ]
+    if missing:
+        sys.stderr.write(
+            "ERROR: Missing required Trendsi credentials: "
+            + ", ".join(missing)
+            + "\nSee the docstring at the top of this script for how to provide them.\n"
+        )
+        sys.exit(2)
+    return args
 
 
 def build_store_headers(args: argparse.Namespace) -> dict[str, str]:
