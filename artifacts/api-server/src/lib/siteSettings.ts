@@ -93,6 +93,8 @@ const FALLBACK_SETTINGS: SiteSettings = {
   smtpSecure: true,
   smtpUsername: null,
   smtpPassword: null,
+  usdToKesRate: "130.000000",
+  fxRateUpdatedAt: null,
   updatedAt: new Date(0),
 };
 

@@ -129,11 +129,29 @@ export const ordersTable = pgTable("orders", {
   customerName: text("customer_name"),
   shippingAddress: jsonb("shipping_address").notNull(),
   items: jsonb("items").notNull(),
+  // The "charge" amounts — what we actually billed the customer in
+  // `currency`. For Paystack orders charged in KES this is in KES
+  // cents; for legacy/bank orders it matches displayCurrency 1:1.
+  // Reconciliation against Paystack's verified amount uses these.
   subtotalCents: integer("subtotal_cents").notNull(),
   shippingCents: integer("shipping_cents").notNull(),
   taxCents: integer("tax_cents").notNull(),
   totalCents: integer("total_cents").notNull(),
   currency: varchar("currency", { length: 8 }).notNull().default("USD"),
+  // Display amounts — what the shopper saw on the storefront, in
+  // `displayCurrency` (USD today). Equal to the charge amounts when
+  // the FX rate is 1.0 (no conversion). Nullable for legacy rows;
+  // helpers fall back to subtotalCents/etc + currency when null.
+  displayCurrency: varchar("display_currency", { length: 8 }),
+  displaySubtotalCents: integer("display_subtotal_cents"),
+  displayShippingCents: integer("display_shipping_cents"),
+  displayTaxCents: integer("display_tax_cents"),
+  displayTotalCents: integer("display_total_cents"),
+  // The locked FX rate (display→charge) used for this order; null when
+  // no conversion happened. Stored at high precision so refunds can be
+  // computed against the same rate.
+  fxRate: numeric("fx_rate", { precision: 14, scale: 6 }),
+  fxRateLockedAt: timestamp("fx_rate_locked_at", { withTimezone: true }),
   status: varchar("status", { length: 24 }).notNull().default("new"),
   paymentProvider: varchar("payment_provider", { length: 24 }),
   paymentReference: text("payment_reference"),
@@ -206,6 +224,14 @@ export const siteSettingsTable = pgTable("site_settings", {
   smtpSecure: boolean("smtp_secure").notNull().default(true),
   smtpUsername: text("smtp_username"),
   smtpPassword: text("smtp_password"),
+  // FX (display→charge) configuration. The merchant Paystack account
+  // is locked to KES, so storefront prices are quoted in USD and we
+  // multiply by `usdToKesRate` at checkout time. Operators can edit
+  // the rate manually or refresh it from the admin Settings page.
+  usdToKesRate: numeric("usd_to_kes_rate", { precision: 14, scale: 6 })
+    .notNull()
+    .default("130.000000"),
+  fxRateUpdatedAt: timestamp("fx_rate_updated_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()

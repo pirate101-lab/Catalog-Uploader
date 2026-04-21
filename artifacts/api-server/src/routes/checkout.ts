@@ -99,13 +99,28 @@ router.post("/checkout/quote", async (req: Request, res: Response) => {
     }
     const priced = await priceCart(items);
     const settings = await getSiteSettings();
+    const fx = convertCart(priced, settings);
     res.json({
-      subtotalCents: priced.subtotalCents,
-      shippingCents: priced.shippingCents,
-      taxCents: priced.taxCents,
-      totalCents: priced.totalCents,
-      currency: settings.currencyCode,
-      currencySymbol: settings.currencySymbol ?? "$",
+      // Display totals — what the shopper sees on the storefront and
+      // in the order summary. Always USD today.
+      subtotalCents: fx.displaySubtotalCents,
+      shippingCents: fx.displayShippingCents,
+      taxCents: fx.displayTaxCents,
+      totalCents: fx.displayTotalCents,
+      currency: DISPLAY_CURRENCY,
+      currencySymbol: symbolForCurrency(DISPLAY_CURRENCY),
+      // Payment-side totals — what Paystack will actually be asked to
+      // charge after USD→KES conversion. Used by the disclosure banner
+      // shown above the Pay button so the customer knows the exact KES
+      // amount that will hit their card.
+      paymentCurrency: CHARGE_CURRENCY,
+      paymentCurrencySymbol: symbolForCurrency(CHARGE_CURRENCY),
+      paymentSubtotalCents: fx.chargeSubtotalCents,
+      paymentShippingCents: fx.chargeShippingCents,
+      paymentTaxCents: fx.chargeTaxCents,
+      paymentTotalCents: fx.chargeTotalCents,
+      fxRate: fx.fxRate,
+      fxRateAsOf: fx.fxRateAsOf?.toISOString() ?? null,
     });
   } catch (err) {
     req.log.warn({ err }, "Checkout quote failed");
