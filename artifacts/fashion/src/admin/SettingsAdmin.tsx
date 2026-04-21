@@ -229,6 +229,7 @@ export function SettingsAdmin() {
               ) : null}
             </Field>
 
+            {isSuper ? (
             <div className="border-t pt-4 mt-2">
               <Label className="text-xs uppercase tracking-widest text-muted-foreground mb-1 block">
                 Send test email
@@ -313,6 +314,7 @@ export function SettingsAdmin() {
                 </div>
               ) : null}
             </div>
+            ) : null}
           </Section>
 
           {isSuper ? (

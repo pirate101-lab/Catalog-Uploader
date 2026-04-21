@@ -19,10 +19,12 @@ import { requireAdmin, requireSuperAdmin } from "../middlewares/adminGuard";
 const router: IRouter = Router();
 
 // All admin-user management requires an admin session AND super_admin
-// role. requireAdmin runs first so unauthenticated callers see 401, not
-// 403, and so the OIDC allowlist still applies.
-router.use(requireAdmin);
-router.use(requireSuperAdmin);
+// role. We attach the guards per-route (rather than `router.use(...)`)
+// so they NEVER fire on unrelated routes that happen to flow through
+// this sub-router — Express enters every mounted sub-router regardless
+// of path, so router-level middleware here would 401 storefront
+// traffic too.
+const guards = [requireAdmin, requireSuperAdmin] as const;
 
 function shape(row: typeof adminUsersTable.$inferSelect) {
   return {
@@ -35,7 +37,7 @@ function shape(row: typeof adminUsersTable.$inferSelect) {
   };
 }
 
-router.get("/admin-users", async (_req: Request, res: Response) => {
+router.get("/admin-users", ...guards, async (_req: Request, res: Response) => {
   const rows = await db
     .select()
     .from(adminUsersTable)
@@ -43,7 +45,7 @@ router.get("/admin-users", async (_req: Request, res: Response) => {
   res.json({ rows: rows.map(shape) });
 });
 
-router.post("/admin-users", async (req: Request, res: Response) => {
+router.post("/admin-users", ...guards, async (req: Request, res: Response) => {
   const username = String(req.body?.username ?? "").trim();
   const password = String(req.body?.password ?? "");
   const role = String(req.body?.role ?? "admin");
@@ -88,7 +90,7 @@ router.post("/admin-users", async (req: Request, res: Response) => {
   }
 });
 
-router.patch("/admin-users/:id", async (req: Request, res: Response) => {
+router.patch("/admin-users/:id", ...guards, async (req: Request, res: Response) => {
   const id = Number(req.params["id"]);
   if (!Number.isFinite(id)) {
     res.status(400).json({ error: "invalid_id" });
@@ -145,7 +147,7 @@ router.patch("/admin-users/:id", async (req: Request, res: Response) => {
   res.json(shape(updated!));
 });
 
-router.delete("/admin-users/:id", async (req: Request, res: Response) => {
+router.delete("/admin-users/:id", ...guards, async (req: Request, res: Response) => {
   const id = Number(req.params["id"]);
   if (!Number.isFinite(id)) {
     res.status(400).json({ error: "invalid_id" });

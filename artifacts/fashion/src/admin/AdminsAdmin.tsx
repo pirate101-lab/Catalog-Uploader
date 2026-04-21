@@ -17,7 +17,7 @@ const ROLE_ERROR_MAP: Record<string, string> = {
     "At least one super admin must remain — promote someone else first.",
   cannot_delete_self:
     "You can't delete your own account while signed in.",
-  super_admin_required: "Super admin only.",
+  forbidden: "Super admin only.",
 };
 
 function explain(error: string | undefined, message?: string): string {

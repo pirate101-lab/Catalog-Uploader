@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { getSiteSettings } from "../lib/siteSettings";
 import {
   adminUsersCount,
   createAdmin,
@@ -68,14 +69,32 @@ function buildAdminSession(args: {
 router.get(
   "/admin-auth/setup-status",
   async (_req: Request, res: Response) => {
-    const count = await adminUsersCount();
-    res.json({ needsSetup: count === 0 });
+    // Setup is only available when BOTH stores are empty: the new
+    // admin_users table has no rows AND the legacy site_settings
+    // credentials are unset. Checking both protects against a window
+    // where migrateAdminCredentials hasn't yet run (or failed) — without
+    // this guard the UI would offer first-run registration even though
+    // a legacy super-admin still owns the dashboard.
+    const [count, settings] = await Promise.all([
+      adminUsersCount(),
+      getSiteSettings(),
+    ]);
+    const legacyConfigured = !!(
+      settings.adminUsername && settings.adminPasswordHash
+    );
+    res.json({ needsSetup: count === 0 && !legacyConfigured });
   },
 );
 
 router.post("/admin-auth/setup", async (req: Request, res: Response) => {
-  const count = await adminUsersCount();
-  if (count > 0) {
+  // Same dual check as setup-status: refuse to register a first admin
+  // if either store already has credentials. This prevents an attacker
+  // from racing the migration to seed their own super_admin.
+  const [count, settings] = await Promise.all([
+    adminUsersCount(),
+    getSiteSettings(),
+  ]);
+  if (count > 0 || (settings.adminUsername && settings.adminPasswordHash)) {
     res.status(409).json({ error: "setup_already_done" });
     return;
   }

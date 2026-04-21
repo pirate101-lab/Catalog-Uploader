@@ -137,7 +137,10 @@ export async function requireSuperAdmin(
 ): Promise<void> {
   const role = await getAdminRole(req);
   if (role !== "super_admin") {
-    res.status(403).json({ error: "super_admin_required" });
+    // Spec error contract: the dashboard expects a generic `forbidden`
+    // for every role-gated denial so smoke tests and the UI's error
+    // mapper can rely on a single token.
+    res.status(403).json({ error: "forbidden" });
     return;
   }
   next();
