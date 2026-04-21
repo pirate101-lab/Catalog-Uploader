@@ -69,6 +69,7 @@ export function AdminsAdmin() {
                 <tr>
                   <th className="px-4 py-3">Username</th>
                   <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Created</th>
                   <th className="px-4 py-3">Last sign-in</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -285,6 +286,9 @@ function AdminRow({
           </span>
         </td>
         <td className="px-4 py-3 text-xs text-muted-foreground">
+          {new Date(row.createdAt).toLocaleDateString()}
+        </td>
+        <td className="px-4 py-3 text-xs text-muted-foreground">
           {row.lastLoginAt
             ? new Date(row.lastLoginAt).toLocaleString()
             : "never"}
@@ -348,7 +352,7 @@ function AdminRow({
       </tr>
       {showPwd ? (
         <tr className="bg-muted/20">
-          <td colSpan={4} className="px-4 py-3">
+          <td colSpan={5} className="px-4 py-3">
             <div className="flex items-end gap-2">
               <div className="flex-1 space-y-1">
                 <Label htmlFor={`reset-${row.id}`} className="text-xs">
