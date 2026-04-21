@@ -28,9 +28,35 @@ export function SettingsAdmin() {
     setVerifying(true);
     setVerifyResult(null);
     try {
-      setVerifyResult(await adminApi.verifySmtp());
+      // Send the in-progress form values as an override so the operator
+      // can verify before saving. The server treats the masked password
+      // placeholder as "use the saved one".
+      setVerifyResult(
+        await adminApi.verifySmtp(
+          s
+            ? {
+                smtpHost: s.smtpHost,
+                smtpPort: s.smtpPort,
+                smtpSecure: s.smtpSecure,
+                smtpUsername: s.smtpUsername,
+                smtpPassword: s.smtpPassword,
+              }
+            : undefined,
+        ),
+      );
     } catch (e) {
-      setVerifyResult({ ok: false, configured: false, error: (e as Error).message });
+      setVerifyResult({
+        ok: false,
+        configured: false,
+        missing: [],
+        error: {
+          category: "unknown",
+          code: null,
+          statusCode: null,
+          message: (e as Error).message,
+          hint: "Could not reach the API server. Check that it's running and that you're signed in as a super admin.",
+        },
+      });
     } finally {
       setVerifying(false);
     }
@@ -432,13 +458,41 @@ export function SettingsAdmin() {
                 ) : (
                   <>
                     <p className="font-medium">
-                      {verifyResult.configured
-                        ? "Could not connect."
-                        : "SMTP not configured."}
+                      {!verifyResult.configured
+                        ? `SMTP not configured — missing: ${verifyResult.missing.join(", ") || "credentials"}.`
+                        : (() => {
+                            switch (verifyResult.error?.category) {
+                              case "auth":
+                                return "Authentication rejected by the SMTP server.";
+                              case "tls":
+                                return "TLS handshake failed.";
+                              case "dns":
+                                return "Could not resolve the SMTP host.";
+                              case "timeout":
+                                return "Connection timed out.";
+                              case "connection":
+                                return "Could not connect to the SMTP server.";
+                              default:
+                                return "Could not connect.";
+                            }
+                          })()}
                     </p>
-                    <p className="text-xs mt-1 break-words">
-                      {verifyResult.error ?? "Unknown error."}
-                    </p>
+                    {verifyResult.error?.hint ? (
+                      <p className="text-xs mt-1 break-words">
+                        {verifyResult.error.hint}
+                      </p>
+                    ) : null}
+                    {verifyResult.error?.message ? (
+                      <p className="text-xs mt-1 opacity-80 break-words font-mono">
+                        {verifyResult.error.message}
+                        {verifyResult.error.code
+                          ? ` · code ${verifyResult.error.code}`
+                          : ""}
+                        {verifyResult.error.statusCode
+                          ? ` · status ${verifyResult.error.statusCode}`
+                          : ""}
+                      </p>
+                    ) : null}
                   </>
                 )}
               </div>

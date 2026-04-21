@@ -182,10 +182,40 @@ export interface SiteSettings {
   paymentAlertRecipients: string | null;
 }
 
+export type SmtpErrorCategory =
+  | "auth"
+  | "tls"
+  | "dns"
+  | "timeout"
+  | "connection"
+  | "unknown";
+
+export type SmtpField = "host" | "port" | "username" | "password";
+
+export interface SmtpVerifyError {
+  category: SmtpErrorCategory;
+  code: string | null;
+  statusCode: number | null;
+  message: string;
+  hint: string;
+}
+
 export interface SmtpVerifyResult {
   ok: boolean;
   configured: boolean;
-  error?: string;
+  missing: SmtpField[];
+  error: SmtpVerifyError | null;
+}
+
+/** Override credentials sent to /admin/settings/verify-smtp so the
+ *  operator can verify the in-progress form values without saving
+ *  first. Anything omitted falls back to the saved DB row. */
+export interface SmtpVerifyOverrides {
+  smtpHost?: string | null;
+  smtpPort?: number | null;
+  smtpSecure?: boolean;
+  smtpUsername?: string | null;
+  smtpPassword?: string | null;
 }
 
 export interface PaymentsUrls {
@@ -417,12 +447,28 @@ export const adminApi = {
    * confirming Titan / Zoho / etc. accept the username + password
    * before relying on order-confirmation delivery.
    */
-  verifySmtp: async (): Promise<SmtpVerifyResult> => {
+  verifySmtp: async (
+    overrides?: SmtpVerifyOverrides,
+  ): Promise<SmtpVerifyResult> => {
     const res = await fetch("/api/admin/settings/verify-smtp", {
       method: "POST",
       credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(overrides ?? {}),
     });
-    return (await res.json().catch(() => ({ ok: false, configured: false }))) as SmtpVerifyResult;
+    const fallback: SmtpVerifyResult = {
+      ok: false,
+      configured: false,
+      missing: [],
+      error: {
+        category: "unknown",
+        code: null,
+        statusCode: null,
+        message: `Verify request failed (${res.status})`,
+        hint: "The server did not return a verify result. Check the API server logs.",
+      },
+    };
+    return (await res.json().catch(() => fallback)) as SmtpVerifyResult;
   },
 
   /* Stats */

@@ -308,21 +308,174 @@ export interface SmtpConfig {
   password: string;
 }
 
-/** Returns a fully-configured SMTP config or null if any required
- *  field is missing. Hosts like Titan, Zoho, Google etc. all need at
- *  minimum host + port + auth. */
-export function resolveSmtpConfig(s: SettingsLike): SmtpConfig | null {
+/** All four credentials Titan/Zoho/Google etc. require at minimum to
+ *  open and authenticate an SMTP session. Surfacing the exact subset
+ *  that's missing lets the admin UI tell the operator which input is
+ *  empty rather than a blanket "not fully configured" message. */
+export type SmtpField = "host" | "port" | "username" | "password";
+
+export interface SmtpResolution {
+  cfg: SmtpConfig | null;
+  /** Names of the required credentials that are missing/blank. Empty
+   *  array means cfg is non-null. */
+  missing: SmtpField[];
+}
+
+export function resolveSmtpConfigWithDiagnostics(
+  s: SettingsLike,
+): SmtpResolution {
   const host = (s.smtpHost ?? "").trim();
   const username = (s.smtpUsername ?? "").trim();
   const password = s.smtpPassword ?? "";
   const port = s.smtpPort ?? 0;
-  if (!host || !username || !password || !port) return null;
+  const missing: SmtpField[] = [];
+  if (!host) missing.push("host");
+  if (!port) missing.push("port");
+  if (!username) missing.push("username");
+  if (!password) missing.push("password");
+  if (missing.length > 0) return { cfg: null, missing };
   return {
-    host,
-    port,
-    secure: s.smtpSecure ?? true,
-    username,
-    password,
+    cfg: {
+      host,
+      port,
+      secure: s.smtpSecure ?? true,
+      username,
+      password,
+    },
+    missing,
+  };
+}
+
+/** Back-compat helper used by the order-email send path. Returns the
+ *  fully-validated SMTP config or null when any of host/port/username/
+ *  password is missing. */
+export function resolveSmtpConfig(s: SettingsLike): SmtpConfig | null {
+  return resolveSmtpConfigWithDiagnostics(s).cfg;
+}
+
+/** Structured error returned from {@link verifySmtp} so the admin UI
+ *  can render a category-specific hint instead of dumping the raw
+ *  nodemailer message. */
+export type SmtpErrorCategory =
+  | "auth"
+  | "tls"
+  | "dns"
+  | "timeout"
+  | "connection"
+  | "unknown";
+
+export interface SmtpVerifyError {
+  category: SmtpErrorCategory;
+  /** Underlying nodemailer / SMTP code if known (e.g. EAUTH, ECONNREFUSED). */
+  code: string | null;
+  /** SMTP response status code (e.g. 535) when the server replied. */
+  statusCode: number | null;
+  /** Raw message from nodemailer, for the "details" line. */
+  message: string;
+  /** Operator-facing hint describing how to fix the category. */
+  hint: string;
+}
+
+/** Map a nodemailer error to one of the operator-friendly categories.
+ *  Covers EAUTH (auth), ECONNREFUSED (connection), ETIMEDOUT (timeout),
+ *  ENOTFOUND (DNS), ESOCKET / certificate issues (tls). Anything else
+ *  is reported as "unknown" with the raw message preserved. */
+export function categorizeSmtpError(err: unknown): SmtpVerifyError {
+  const e = err as {
+    message?: string;
+    code?: string;
+    responseCode?: number;
+    command?: string;
+  };
+  const code = e.code ?? null;
+  const statusCode =
+    typeof e.responseCode === "number" ? e.responseCode : null;
+  const message = e.message ?? "Unknown SMTP error";
+  const lc = message.toLowerCase();
+
+  // Auth: nodemailer code EAUTH, or 5xx 535/534/501 response on AUTH.
+  if (
+    code === "EAUTH" ||
+    statusCode === 535 ||
+    statusCode === 534 ||
+    /authentication failed|auth failed|invalid login|username and password not accepted/.test(
+      lc,
+    )
+  ) {
+    return {
+      category: "auth",
+      code,
+      statusCode,
+      message,
+      hint: "Authentication failed. Double-check the SMTP username and password — most providers require an app-specific password rather than your inbox password.",
+    };
+  }
+
+  // TLS / certificate / handshake.
+  if (
+    /tls|ssl|certificate|self.signed|hostname.*mismatch|wrong version number/.test(
+      lc,
+    )
+  ) {
+    return {
+      category: "tls",
+      code,
+      statusCode,
+      message,
+      hint: "TLS handshake failed. Try toggling SSL/TLS off (uses STARTTLS on port 587) or on (uses SSL on port 465), and confirm the host matches your provider's documentation.",
+    };
+  }
+
+  // DNS resolution.
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN" || /getaddrinfo|enotfound/.test(lc)) {
+    return {
+      category: "dns",
+      code,
+      statusCode,
+      message,
+      hint: "The SMTP host could not be resolved. Check for a typo (e.g. smtp.titan.email, not smtp.titan.mail) and that DNS is reachable from this server.",
+    };
+  }
+
+  // Timeout: nodemailer ETIMEDOUT or our own greeting/socket/connection
+  // timeouts firing inside buildTransport.
+  if (
+    code === "ETIMEDOUT" ||
+    code === "ETIME" ||
+    /timed out|timeout/.test(lc)
+  ) {
+    return {
+      category: "timeout",
+      code,
+      statusCode,
+      message,
+      hint: "Connection timed out. The host may be wrong, blocked by a firewall, or using a different port. Try the alternate port (465 ↔ 587).",
+    };
+  }
+
+  // Connection refused / reset / network-level failure.
+  if (
+    code === "ECONNREFUSED" ||
+    code === "ECONNRESET" ||
+    code === "EHOSTUNREACH" ||
+    code === "ENETUNREACH" ||
+    code === "ESOCKET"
+  ) {
+    return {
+      category: "connection",
+      code,
+      statusCode,
+      message,
+      hint: "Could not open a connection to the SMTP server. Confirm the host/port and that this server is allowed to reach it (some hosts block port 25/587 by default).",
+    };
+  }
+
+  return {
+    category: "unknown",
+    code,
+    statusCode,
+    message,
+    hint: "Unrecognised SMTP error. The full message above is from your mail provider — search it in their docs to identify the next step.",
   };
 }
 
@@ -387,36 +540,51 @@ async function sendViaSmtp(args: {
   }
 }
 
-/** Run a no-op SMTP handshake to check that the saved credentials can
- *  authenticate against the configured host. Used by the admin
- *  "Verify connection" button. */
-export async function verifySmtp(s: SettingsLike): Promise<{
+export interface SmtpVerifyResult {
   ok: boolean;
-  error?: string;
+  /** True when host/port/username/password were all present at verify
+   *  time (so we actually attempted the handshake). False means the
+   *  request was rejected before any network call. */
   configured: boolean;
-}> {
-  const cfg = resolveSmtpConfig(s);
+  /** When configured=false: the names of the credentials that are
+   *  blank/missing. Empty array when configured=true. */
+  missing: SmtpField[];
+  /** Structured error when ok=false. Null on success. */
+  error: SmtpVerifyError | null;
+}
+
+/** Run a no-op SMTP handshake to check that the supplied credentials
+ *  can authenticate against the configured host. Used by the admin
+ *  "Verify connection" button. The returned result is structured so
+ *  the UI can render a category-specific hint (auth/tls/dns/timeout/
+ *  connection) rather than the raw nodemailer string. */
+export async function verifySmtp(s: SettingsLike): Promise<SmtpVerifyResult> {
+  const { cfg, missing } = resolveSmtpConfigWithDiagnostics(s);
   if (!cfg) {
+    const labels = missing.join(", ");
     return {
       ok: false,
       configured: false,
-      error:
-        "SMTP is not fully configured. Fill in host, port, username and password before testing.",
+      missing,
+      error: {
+        category: "unknown",
+        code: null,
+        statusCode: null,
+        message: `Missing required SMTP field${missing.length === 1 ? "" : "s"}: ${labels}.`,
+        hint: "Fill in host, port, username and password, save, then click Verify connection again.",
+      },
     };
   }
   const transport = buildTransport(cfg);
   try {
     await transport.verify();
-    return { ok: true, configured: true };
+    return { ok: true, configured: true, missing: [], error: null };
   } catch (err) {
-    const e = err as { message?: string; responseCode?: number; code?: string };
-    const codeBits = [e.responseCode, e.code].filter(Boolean).join(" / ");
     return {
       ok: false,
       configured: true,
-      error: codeBits
-        ? `${e.message ?? "SMTP verify failed"} (${codeBits})`
-        : (e.message ?? "SMTP verify failed"),
+      missing: [],
+      error: categorizeSmtpError(err),
     };
   } finally {
     transport.close();

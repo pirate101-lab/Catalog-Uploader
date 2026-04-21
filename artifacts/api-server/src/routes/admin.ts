@@ -1532,9 +1532,54 @@ router.post("/admin/settings/test-email", requireSuperAdmin, async (req, res) =>
  * accept the username + password before relying on order-confirmation
  * delivery. Always 200 so the UI renders the result inline.
  */
-router.post("/admin/settings/verify-smtp", requireSuperAdmin, async (_req, res) => {
+router.post("/admin/settings/verify-smtp", requireSuperAdmin, async (req, res) => {
   const settings = await getSiteSettings();
-  const result = await verifySmtp(settings);
+  // Accept the in-progress form values as an override so the operator
+  // can verify before saving. Anything missing or sent as the masked
+  // placeholder ("••••…") falls back to the saved DB value — this is
+  // the same convention the PUT /admin/settings handler uses.
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const trimmedString = (raw: unknown, fallback: string | null): string | null => {
+    if (raw === undefined) return fallback;
+    if (raw === null) return null;
+    const s = String(raw).trim();
+    return s.length === 0 ? null : s;
+  };
+  const portOverride = (raw: unknown, fallback: number | null): number | null => {
+    if (raw === undefined) return fallback;
+    if (raw === null || raw === "") return null;
+    const n = Number(raw);
+    // Invalid input: treat as missing rather than silently using the
+    // saved value so the verify result reflects the operator's typo.
+    if (!Number.isInteger(n) || n < 1 || n > 65535) return null;
+    return n;
+  };
+  const passwordOverride = (raw: unknown, fallback: string | null): string | null => {
+    if (raw === undefined) return fallback;
+    if (raw === null) return null;
+    const s = String(raw);
+    // Treat the masked placeholder we ship to the browser as "no
+    // change" so re-verifying after a partial form edit keeps using
+    // the saved password instead of clearing it.
+    if (s.includes("••••")) return fallback;
+    if (s.trim().length === 0) return null;
+    return s;
+  };
+  const merged = {
+    ...settings,
+    smtpHost: trimmedString(body["smtpHost"], settings.smtpHost),
+    smtpUsername: trimmedString(body["smtpUsername"], settings.smtpUsername),
+    smtpPort: portOverride(body["smtpPort"], settings.smtpPort),
+    // Strict boolean parse: only accept actual booleans so a payload
+    // like the string "false" never coerces to true and silently
+    // changes the TLS mode being verified.
+    smtpSecure:
+      typeof body["smtpSecure"] === "boolean"
+        ? (body["smtpSecure"] as boolean)
+        : settings.smtpSecure,
+    smtpPassword: passwordOverride(body["smtpPassword"], settings.smtpPassword),
+  };
+  const result = await verifySmtp(merged);
   res.status(200).json(result);
 });
 
