@@ -64,7 +64,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--out-dir", required=True, help="Local dir to write WebP images.")
     p.add_argument("--default-category", default=None,
                    help="If set, every row gets this category (overrides inference).")
-    p.add_argument("--page-size", type=int, default=10000)
+    p.add_argument("--page-size", type=int, default=100,
+                   help="Per-page size; upstream rejects values much above ~100.")
+    p.add_argument("--max-pages", type=int, default=200,
+                   help="Safety cap on pagination loop.")
     p.add_argument("--cur-page", type=int, default=1)
     p.add_argument("--workers", type=int, default=16)
     p.add_argument("--timeout", type=int, default=45)
@@ -75,8 +78,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--access-token", default=os.environ.get("TRENDSI_ACCESS_TOKEN"))
     p.add_argument("--cookie", default=os.environ.get("TRENDSI_COOKIE"))
     p.add_argument("--shop-id", default=os.environ.get("TRENDSI_SHOP_ID"))
-    p.add_argument("--device-id", type=int,
-                   default=int(os.environ.get("TRENDSI_DEVICE_ID", "0")))
+    _raw_dev = (os.environ.get("TRENDSI_DEVICE_ID") or "0").strip()
+    try:
+        _dev_default = int(_raw_dev)
+    except ValueError:
+        sys.stderr.write(f"WARN: TRENDSI_DEVICE_ID={_raw_dev!r} is not numeric; using 0.\n")
+        _dev_default = 0
+    p.add_argument("--device-id", type=int, default=_dev_default)
     p.add_argument("--channel", type=int, default=3)
     args = p.parse_args()
 
@@ -228,32 +236,44 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     sess = build_session(args)
-    payload = {
-        "curPage": args.cur_page,
-        "pageSize": args.page_size,
-        "device_id": args.device_id,
-        "channel": args.channel,
-        "shopId": str(args.shop_id),
-    }
+    items: list[dict[str, Any]] = []
+    page = args.cur_page
+    total_known: int | None = None
     print(f"POST {API_URL}  referer={args.referer}  pageSize={args.page_size}", flush=True)
-    resp = sess.post(API_URL, json=payload, timeout=args.timeout)
-    print(f"  -> HTTP {resp.status_code}, {len(resp.content)} bytes", flush=True)
-    if resp.status_code != 200:
-        sys.stderr.write(f"upstream returned HTTP {resp.status_code}\n")
-        return 3
-    body = resp.json()
-    items = find_items(body)
-    if not items:
-        # sometimes the body itself is a list, or wraps under page.list etc.
-        if isinstance(body, dict):
-            page = body.get("page") or {}
-            if isinstance(page, dict):
-                t = page.get("total")
-                print(f"  page meta: {t}", flush=True)
-        sys.stderr.write("no items found in response. dumping head 400 chars:\n")
-        sys.stderr.write((resp.text or "")[:400] + "\n")
-        return 4
-    print(f"  {len(items)} raw items returned", flush=True)
+    while page <= args.cur_page + args.max_pages - 1:
+        payload = {
+            "curPage": page,
+            "pageSize": args.page_size,
+            "device_id": args.device_id,
+            "channel": args.channel,
+            "shopId": str(args.shop_id),
+        }
+        resp = sess.post(API_URL, json=payload, timeout=args.timeout)
+        if resp.status_code != 200:
+            sys.stderr.write(f"page {page}: HTTP {resp.status_code}\n")
+            sys.stderr.write((resp.text or "")[:400] + "\n")
+            return 3
+        body = resp.json()
+        if total_known is None and isinstance(body, dict):
+            meta = body.get("page") or {}
+            if isinstance(meta, dict):
+                total_known = meta.get("total")
+                print(f"  upstream total = {total_known}", flush=True)
+        page_items = find_items(body)
+        if not page_items:
+            if page == args.cur_page:
+                sys.stderr.write("no items on first page; dumping head:\n")
+                sys.stderr.write((resp.text or "")[:400] + "\n")
+                return 4
+            break
+        items.extend(page_items)
+        print(f"  page {page}: +{len(page_items)} (running total {len(items)})", flush=True)
+        if total_known is not None and len(items) >= total_known:
+            break
+        if len(page_items) < args.page_size:
+            break
+        page += 1
+    print(f"  fetched {len(items)} raw items across {page - args.cur_page + 1} page(s)", flush=True)
 
     # First pass: build catalog rows (skip duplicates by id) and image jobs.
     seen: set[str] = set()

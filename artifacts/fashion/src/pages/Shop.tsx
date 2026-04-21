@@ -323,7 +323,12 @@ export function ShopPage() {
   // Depending on `reactiveSearch` is what makes pill/sidebar clicks work — it
   // updates on every history change, while `location` only fires on path change.
   useEffect(() => {
-    const next = readUrlFilters(reactiveSearch ? `?${reactiveSearch}` : '');
+    // wouter v3's useSearch() returns location.search verbatim (including the
+    // leading "?"), and URLSearchParams strips a single leading "?". Passing it
+    // through directly is correct; do NOT prepend another "?" — that would make
+    // URLSearchParams parse the first key as literally "?bucket" and silently
+    // drop every filter on every query-only navigation.
+    const next = readUrlFilters(reactiveSearch);
     setRailLabel(next.category || 'All');
     setQuery(next.q);
     setGender(next.gender);
