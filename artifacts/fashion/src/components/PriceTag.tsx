@@ -1,3 +1,5 @@
+import { useCurrency } from '@/context/CurrencyContext';
+
 interface PriceTagProps {
   amount: number;
   currencySymbol?: string;
@@ -22,11 +24,13 @@ const SIZE_CLASSES: Record<NonNullable<PriceTagProps['size']>, { whole: string; 
  */
 export function PriceTag({
   amount,
-  currencySymbol = '$',
+  currencySymbol,
   size = 'md',
   splitCents = false,
   className = '',
 }: PriceTagProps) {
+  const { symbol: contextSymbol } = useCurrency();
+  const symbol = currencySymbol ?? contextSymbol;
   const safe = Number.isFinite(amount) ? amount : 0;
   const fixed = safe.toFixed(2);
   const sizes = SIZE_CLASSES[size];

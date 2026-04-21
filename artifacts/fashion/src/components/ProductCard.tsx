@@ -9,6 +9,7 @@ import { ProductImage } from '@/components/ProductImage';
 import { PriceTag } from '@/components/PriceTag';
 import { imageUrl } from '@/lib/imageUrl';
 import { deriveStubs, formatSold } from '@/lib/productStubs';
+import { useCurrency } from '@/context/CurrencyContext';
 
 interface ProductCardProps {
   product: Product;
@@ -19,6 +20,7 @@ interface ProductCardProps {
 function ProductCardImpl({ product }: ProductCardProps) {
   const { addItem } = useCart();
   const { has: inWishlist, toggle: toggleWishlist } = useWishlist();
+  const { symbol: currencySymbol } = useCurrency();
   const wishlisted = inWishlist(product.id);
   const stubs = deriveStubs(product);
 
@@ -115,7 +117,7 @@ function ProductCardImpl({ product }: ProductCardProps) {
         <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[11px] text-muted-foreground -mt-1 mt-auto">
           <span className="inline-flex items-center gap-1">
             <span>
-              RRP <span className="line-through">${stubs.rrp.toFixed(2)}</span>
+              RRP <span className="line-through">{currencySymbol}{stubs.rrp.toFixed(2)}</span>
             </span>
             <Info className="w-3 h-3" aria-hidden="true" />
           </span>

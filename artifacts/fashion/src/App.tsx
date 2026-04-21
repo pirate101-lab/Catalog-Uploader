@@ -9,6 +9,7 @@ import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { ProductsProvider } from "@/context/ProductsContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { CurrencyProvider } from "@/context/CurrencyContext";
 import { Header } from "@/components/Header";
 import { CartDrawer } from "@/components/CartDrawer";
 import { Footer } from "@/components/Footer";
@@ -137,17 +138,19 @@ function App() {
       <ThemeProvider>
         <TooltipProvider>
           <AuthProvider>
-            <ProductsProvider>
-              <WishlistProvider>
-                <CartProvider>
-                  <Router base={baseUrl}>
-                    <AppRoutes />
-                  </Router>
-                  <Toaster />
-                  <Sonner position="top-center" />
-                </CartProvider>
-              </WishlistProvider>
-            </ProductsProvider>
+            <CurrencyProvider>
+              <ProductsProvider>
+                <WishlistProvider>
+                  <CartProvider>
+                    <Router base={baseUrl}>
+                      <AppRoutes />
+                    </Router>
+                    <Toaster />
+                    <Sonner position="top-center" />
+                  </CartProvider>
+                </WishlistProvider>
+              </ProductsProvider>
+            </CurrencyProvider>
           </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>
