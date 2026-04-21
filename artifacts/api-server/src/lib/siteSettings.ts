@@ -46,6 +46,18 @@ const FALLBACK_SETTINGS: SiteSettings = {
   emailReplyTo: null,
   heroAutoAdvance: true,
   allowGuestReviews: false,
+  paystackEnabled: false,
+  paystackTestMode: false,
+  paystackLivePublicKey: null,
+  paystackLiveSecretKey: null,
+  paystackTestPublicKey: null,
+  paystackTestSecretKey: null,
+  bankName: null,
+  bankAccountName: null,
+  bankAccountNumber: null,
+  bankSwiftCode: null,
+  bankRoutingNumber: null,
+  bankInstructions: null,
   updatedAt: new Date(0),
 };
 

@@ -20,6 +20,14 @@ import { invalidateOverrides } from "../lib/overrides";
 import { invalidateSiteSettings, getSiteSettings } from "../lib/siteSettings";
 import { getAllProducts } from "../lib/catalog";
 import {
+  getActivePaystackKeys,
+  getCallbackUrl,
+  getWebhookUrl,
+  isPaystackReady,
+  maskSecret,
+  probeSecretKey,
+} from "../lib/paystack";
+import {
   sendOrderStatusEmail,
   sendOrderConfirmationEmail,
   sendOrderEmailByKind,
@@ -648,9 +656,27 @@ router.get("/admin/customers", async (_req, res) => {
 
 /* ---------------- Settings ---------------- */
 
+/**
+ * Mask Paystack secret keys before sending settings to the admin browser.
+ * The raw secret never leaves the server. The admin UI shows the mask so
+ * the operator knows a key is saved without it being recoverable from
+ * the page source / network tab.
+ */
+function shapeSettingsForAdmin(
+  s: Awaited<ReturnType<typeof getSiteSettings>>,
+) {
+  return {
+    ...s,
+    paystackLiveSecretKey: maskSecret(s.paystackLiveSecretKey),
+    paystackTestSecretKey: maskSecret(s.paystackTestSecretKey),
+    paystackLiveSecretKeySet: !!s.paystackLiveSecretKey,
+    paystackTestSecretKeySet: !!s.paystackTestSecretKey,
+  };
+}
+
 router.get("/admin/settings", async (_req, res) => {
   const settings = await getSiteSettings();
-  res.json(settings);
+  res.json(shapeSettingsForAdmin(settings));
 });
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -671,9 +697,57 @@ router.put("/admin/settings", async (req, res) => {
     "emailReplyTo",
     "heroAutoAdvance",
     "allowGuestReviews",
+    "paystackEnabled",
+    "paystackTestMode",
+    "paystackLivePublicKey",
+    "paystackTestPublicKey",
+    "bankName",
+    "bankAccountName",
+    "bankAccountNumber",
+    "bankSwiftCode",
+    "bankRoutingNumber",
+    "bankInstructions",
   ];
   const patch: Record<string, unknown> = {};
   for (const k of allowed) if (k in body) patch[k] = body[k];
+
+  // Secret keys are write-only. The admin page sends back the masked
+  // string we previously rendered when the operator hasn't typed a new
+  // key. Treat blanks and the masked placeholder as "do not change".
+  const acceptSecret = (raw: unknown): string | null | undefined => {
+    if (raw === undefined) return undefined;
+    if (raw === null) return null;
+    const s = String(raw).trim();
+    if (s === "") return null;
+    if (s.includes("••••")) return undefined;
+    return s;
+  };
+  const liveSecret = acceptSecret(body["paystackLiveSecretKey"]);
+  if (liveSecret !== undefined) patch["paystackLiveSecretKey"] = liveSecret;
+  const testSecret = acceptSecret(body["paystackTestSecretKey"]);
+  if (testSecret !== undefined) patch["paystackTestSecretKey"] = testSecret;
+
+  // Trim+null bank string fields so blank inputs clear the row instead
+  // of saving whitespace that the storefront would render verbatim.
+  const bankStringFields = [
+    "bankName",
+    "bankAccountName",
+    "bankAccountNumber",
+    "bankSwiftCode",
+    "bankRoutingNumber",
+    "bankInstructions",
+    "paystackLivePublicKey",
+    "paystackTestPublicKey",
+  ] as const;
+  for (const k of bankStringFields) {
+    if (k in patch) {
+      const v = patch[k];
+      patch[k] =
+        v === null || v === undefined || String(v).trim() === ""
+          ? null
+          : String(v).trim();
+    }
+  }
 
   const normEmail = (v: unknown): string | null => {
     if (v === null || v === undefined) return null;
@@ -705,7 +779,37 @@ router.put("/admin/settings", async (req, res) => {
     });
   invalidateSiteSettings();
   const settings = await getSiteSettings();
-  res.json(settings);
+  res.json(shapeSettingsForAdmin(settings));
+});
+
+/* ---------------- Payments admin ---------------- */
+
+router.get("/admin/payments/urls", (_req, res) => {
+  res.json({
+    callbackUrl: getCallbackUrl(),
+    webhookUrl: getWebhookUrl(),
+  });
+});
+
+router.post("/admin/payments/test", async (_req, res) => {
+  const settings = await getSiteSettings();
+  const { secretKey, mode } = getActivePaystackKeys(settings);
+  if (!secretKey) {
+    res.status(400).json({
+      ok: false,
+      mode,
+      error: `No ${mode} secret key saved. Paste your sk_${mode}_… key and save before testing.`,
+    });
+    return;
+  }
+  const probe = await probeSecretKey(secretKey);
+  res.status(probe.ok ? 200 : 502).json({
+    ok: probe.ok,
+    mode,
+    error: probe.error,
+    enabled: settings.paystackEnabled,
+    ready: isPaystackReady(settings),
+  });
 });
 
 /* ---------------- Email test send ----------------
@@ -924,10 +1028,13 @@ router.get("/admin/overview", async (_req, res) => {
 
   const allProducts = getAllProducts();
 
+  const settings = await getSiteSettings();
+
   const [
     today,
     week,
     month,
+    paymentsTodayRow,
     funnelRows,
     topSellerResult,
     recentOrders,
@@ -937,6 +1044,19 @@ router.get("/admin/overview", async (_req, res) => {
     aggregate(startOfDay),
     aggregate(sevenDaysAgo),
     aggregate(thirtyDaysAgo),
+    db
+      .select({
+        count: sql<number>`COUNT(*)::int`,
+        revenue: sql<number>`COALESCE(SUM(${ordersTable.totalCents}), 0)::bigint`,
+      })
+      .from(ordersTable)
+      .where(
+        and(
+          gte(ordersTable.createdAt, startOfDay),
+          sql`${ordersTable.status} = 'paid'`,
+        ),
+      )
+      .then((rows) => rows[0]),
     db
       .select({
         status: ordersTable.status,
@@ -1022,10 +1142,26 @@ router.get("/admin/overview", async (_req, res) => {
     };
   });
 
+  // Paystack health pill for the dashboard header. Three states make
+  // it obvious to the operator whether checkout is wired up.
+  const { secretKey: activeSecret, publicKey: activePublic } =
+    getActivePaystackKeys(settings);
+  const paystackStatus: "enabled" | "disabled" | "keys_missing" = (() => {
+    if (!settings.paystackEnabled) return "disabled";
+    if (!activeSecret || !activePublic) return "keys_missing";
+    return "enabled";
+  })();
+
   res.json({
     today,
     week,
     month,
+    paymentsToday: {
+      count: Number(paymentsTodayRow?.count ?? 0),
+      revenueCents: Number(paymentsTodayRow?.revenue ?? 0),
+    },
+    paystackStatus,
+    paystackTestMode: !!settings.paystackTestMode,
     funnel,
     topSellers,
     recentOrders,

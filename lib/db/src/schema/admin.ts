@@ -70,6 +70,9 @@ export const ordersTable = pgTable("orders", {
   totalCents: integer("total_cents").notNull(),
   currency: varchar("currency", { length: 8 }).notNull().default("USD"),
   status: varchar("status", { length: 24 }).notNull().default("new"),
+  paymentProvider: varchar("payment_provider", { length: 24 }),
+  paymentReference: text("payment_reference"),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
@@ -97,6 +100,18 @@ export const siteSettingsTable = pgTable("site_settings", {
   emailReplyTo: text("email_reply_to"),
   heroAutoAdvance: boolean("hero_auto_advance").notNull().default(true),
   allowGuestReviews: boolean("allow_guest_reviews").notNull().default(false),
+  paystackEnabled: boolean("paystack_enabled").notNull().default(false),
+  paystackTestMode: boolean("paystack_test_mode").notNull().default(false),
+  paystackLivePublicKey: text("paystack_live_public_key"),
+  paystackLiveSecretKey: text("paystack_live_secret_key"),
+  paystackTestPublicKey: text("paystack_test_public_key"),
+  paystackTestSecretKey: text("paystack_test_secret_key"),
+  bankName: text("bank_name"),
+  bankAccountName: text("bank_account_name"),
+  bankAccountNumber: text("bank_account_number"),
+  bankSwiftCode: text("bank_swift_code"),
+  bankRoutingNumber: text("bank_routing_number"),
+  bankInstructions: text("bank_instructions"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()

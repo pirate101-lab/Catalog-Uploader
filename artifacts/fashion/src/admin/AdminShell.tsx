@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Star,
   Mail,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -20,6 +21,7 @@ const NAV: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = 
   { to: "/admin/hero", label: "Hero Slides", icon: ImageIcon },
   { to: "/admin/products", label: "Products", icon: Package },
   { to: "/admin/orders", label: "Orders", icon: ShoppingBag },
+  { to: "/admin/payments", label: "Payments", icon: CreditCard },
   { to: "/admin/customers", label: "Customers", icon: Users },
   { to: "/admin/reviews", label: "Reviews", icon: Star },
   { to: "/admin/emails", label: "Emails", icon: Mail },

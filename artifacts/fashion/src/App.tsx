@@ -49,6 +49,9 @@ const EmailsAdmin = lazy(() =>
 const SettingsAdmin = lazy(() =>
   import("@/admin/SettingsAdmin").then((m) => ({ default: m.SettingsAdmin })),
 );
+const PaymentsAdmin = lazy(() =>
+  import("@/admin/PaymentsAdmin").then((m) => ({ default: m.PaymentsAdmin })),
+);
 
 function AdminFallback() {
   return (
@@ -108,6 +111,7 @@ function AppRoutes() {
           <Route path="/admin/customers" component={CustomersAdmin} />
           <Route path="/admin/reviews" component={ReviewsAdmin} />
           <Route path="/admin/emails" component={EmailsAdmin} />
+          <Route path="/admin/payments" component={PaymentsAdmin} />
           <Route path="/admin/settings" component={SettingsAdmin} />
           <Route path="/admin/:rest*" component={AdminDashboard} />
           <Route>

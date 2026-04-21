@@ -11,6 +11,7 @@ import {
   MailWarning,
   Calculator,
   CalendarDays,
+  CreditCard,
 } from "lucide-react";
 
 const FUNNEL_LABELS: Array<{ key: string; label: string; color: string }> = [
@@ -45,6 +46,14 @@ export function AdminDashboard() {
       <AdminPageHeader
         title="Overview"
         description="Activity across the storefront."
+        action={
+          overview ? (
+            <PaystackPill
+              status={overview.paystackStatus}
+              testMode={overview.paystackTestMode}
+            />
+          ) : null
+        }
       />
       {error && <div className="text-sm text-destructive mb-4">{error}</div>}
       {!overview ? (
@@ -71,7 +80,7 @@ export function AdminDashboard() {
           </div>
 
           {/* Secondary KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
             <Kpi
               icon={<Package className="w-4 h-4" />}
               label="Products"
@@ -82,6 +91,12 @@ export function AdminDashboard() {
               label="Orders today"
               value={overview.today.count.toLocaleString()}
               sub={`${overview.week.count} this week`}
+            />
+            <Kpi
+              icon={<CreditCard className="w-4 h-4" />}
+              label="Payments today"
+              value={overview.paymentsToday.count.toLocaleString()}
+              sub={fmtCents(overview.paymentsToday.revenueCents)}
             />
             <Kpi
               icon={<AlertTriangle className="w-4 h-4" />}
@@ -263,6 +278,46 @@ function WindowCard({
         </div>
       </div>
     </div>
+  );
+}
+
+function PaystackPill({
+  status,
+  testMode,
+}: {
+  status: AdminOverview["paystackStatus"];
+  testMode: boolean;
+}) {
+  const config: Record<
+    AdminOverview["paystackStatus"],
+    { label: string; className: string }
+  > = {
+    enabled: {
+      label: testMode ? "Paystack: Test mode" : "Paystack: Live",
+      className:
+        "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+    },
+    disabled: {
+      label: "Paystack: Disabled",
+      className:
+        "bg-muted text-muted-foreground border-border",
+    },
+    keys_missing: {
+      label: "Paystack: Keys missing",
+      className:
+        "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+    },
+  };
+  const c = config[status];
+  return (
+    <Link
+      href="/admin/payments"
+      className={`inline-flex items-center gap-2 text-xs px-3 py-1.5 border rounded-full hover:opacity-90 transition ${c.className}`}
+      data-testid="dashboard-paystack-pill"
+    >
+      <CreditCard className="w-3 h-3" />
+      {c.label}
+    </Link>
   );
 }
 

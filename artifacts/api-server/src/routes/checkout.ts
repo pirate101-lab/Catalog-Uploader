@@ -1,9 +1,16 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { eq } from "drizzle-orm";
 import { db, ordersTable } from "@workspace/db";
 import { getProductById } from "../lib/catalog";
 import { getOverridesMap } from "../lib/overrides";
 import { getSiteSettings } from "../lib/siteSettings";
 import { sendOrderReceivedEmail } from "../lib/email";
+import {
+  getActivePaystackKeys,
+  getCallbackUrl,
+  initializeTransaction,
+  isPaystackReady,
+} from "../lib/paystack";
 
 const router: IRouter = Router();
 
@@ -74,39 +81,6 @@ async function priceCart(items: CartItemPayload[]) {
   return { lineItems, subtotalCents, shippingCents, taxCents, totalCents };
 }
 
-// Stripe is not configured for this storefront, so /checkout/intent and
-// /checkout/confirm are intentionally stubs that return 503. Real cart
-// submissions go through /checkout/submit (below), which persists an order
-// without taking payment so the admin Orders queue still works.
-router.post("/checkout/intent", async (req: Request, res: Response) => {
-  try {
-    const items: CartItemPayload[] = req.body?.items ?? [];
-    if (items.length === 0) {
-      res.status(400).json({ error: "Cart is empty" });
-      return;
-    }
-    const { subtotalCents, shippingCents, taxCents, totalCents } =
-      await priceCart(items);
-    res.status(503).json({
-      error: "Payments are not configured for this storefront.",
-      paymentsConfigured: false,
-      subtotalCents,
-      shippingCents,
-      taxCents,
-      totalCents,
-    });
-  } catch (err) {
-    res.status(400).json({ error: (err as Error).message });
-  }
-});
-
-router.post("/checkout/confirm", (_req: Request, res: Response) => {
-  res.status(503).json({
-    error: "Payments are not configured for this storefront.",
-    paymentsConfigured: false,
-  });
-});
-
 // New endpoint: place an order WITHOUT payment processing. Used by the
 // storefront so checkout submissions land in the admin Orders queue even
 // though Stripe is not wired up.
@@ -168,6 +142,109 @@ router.post("/checkout/submit", async (req: Request, res: Response) => {
     });
   } catch (err) {
     req.log.error({ err }, "Checkout submit failed");
+    res.status(400).json({ error: (err as Error).message });
+  }
+});
+
+/**
+ * Paystack flow:
+ *   1. Client POSTs cart + customer here.
+ *   2. We price the cart server-side and insert a pending order.
+ *   3. We call Paystack /transaction/initialize using the order id as the
+ *      reference, so the webhook can look up the order by primary key.
+ *   4. We return the authorization URL — the client redirects there.
+ */
+router.post("/checkout/paystack/init", async (req: Request, res: Response) => {
+  try {
+    const body = req.body ?? {};
+    const items: CartItemPayload[] = body.items ?? [];
+    const customer = body.customer ?? {};
+    if (!customer.email) {
+      res.status(400).json({ error: "Email is required" });
+      return;
+    }
+    if (items.length === 0) {
+      res.status(400).json({ error: "Cart is empty" });
+      return;
+    }
+    const settings = await getSiteSettings();
+    if (!isPaystackReady(settings)) {
+      res.status(503).json({
+        error:
+          "Paystack is not configured. Ask the store operator to enable it in the admin Payments page.",
+      });
+      return;
+    }
+    const { secretKey, mode } = getActivePaystackKeys(settings);
+    if (!secretKey) {
+      res.status(503).json({ error: "Paystack secret key missing" });
+      return;
+    }
+    const normalisedEmail = String(customer.email).trim().toLowerCase();
+    const priced = await priceCart(items);
+    const customerName =
+      [customer.firstName, customer.lastName].filter(Boolean).join(" ") || null;
+
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: normalisedEmail,
+        customerName,
+        shippingAddress: {
+          firstName: customer.firstName ?? null,
+          lastName: customer.lastName ?? null,
+          address: customer.address ?? null,
+          city: customer.city ?? null,
+          state: customer.state ?? null,
+          zip: customer.zip ?? null,
+          country: customer.country ?? null,
+        },
+        items: priced.lineItems,
+        subtotalCents: priced.subtotalCents,
+        shippingCents: priced.shippingCents,
+        taxCents: priced.taxCents,
+        totalCents: priced.totalCents,
+        currency: "USD",
+        status: "pending_payment",
+        paymentProvider: "paystack",
+      })
+      .returning();
+    if (!order) {
+      res.status(500).json({ error: "Could not create order" });
+      return;
+    }
+
+    const init = await initializeTransaction(secretKey, {
+      email: normalisedEmail,
+      // Paystack expects amounts in the smallest currency unit (kobo for
+      // NGN, cents for USD/GHS/ZAR/KES). Our `totalCents` is already in
+      // the smallest unit of `order.currency`, so they line up 1:1 as
+      // long as we send the matching currency code below.
+      amountKobo: order.totalCents,
+      reference: order.id,
+      callbackUrl: getCallbackUrl(),
+      currency: order.currency,
+      metadata: {
+        orderId: order.id,
+        mode,
+      },
+    });
+    if (!init.ok || !init.authorizationUrl) {
+      // Roll back the half-created order so the admin queue stays clean.
+      await db.delete(ordersTable).where(eq(ordersTable.id, order.id));
+      res.status(502).json({
+        error: init.error ?? "Could not start Paystack transaction",
+      });
+      return;
+    }
+    res.status(200).json({
+      authorizationUrl: init.authorizationUrl,
+      reference: order.id,
+      totalCents: order.totalCents,
+      currency: order.currency,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Paystack init failed");
     res.status(400).json({ error: (err as Error).message });
   }
 });

@@ -31,6 +31,13 @@ app.use(
 
 app.use(cors({ credentials: true, origin: true }));
 app.use(cookieParser());
+// Paystack webhook MUST receive the raw, unparsed body so we can verify
+// the HMAC signature byte-for-byte. Mount the raw parser before
+// express.json() so json() sees `req._body=true` and skips it.
+app.use(
+  "/api/payments/paystack/webhook",
+  express.raw({ type: "*/*", limit: "1mb" }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

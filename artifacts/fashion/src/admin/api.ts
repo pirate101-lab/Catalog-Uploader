@@ -107,6 +107,35 @@ export interface SiteSettings {
   emailReplyTo: string | null;
   heroAutoAdvance: boolean;
   allowGuestReviews: boolean;
+  paystackEnabled: boolean;
+  paystackTestMode: boolean;
+  paystackLivePublicKey: string | null;
+  /** Masked (e.g. "sk_live_••••1234") or empty string. Send back as-is to
+   *  preserve the existing key, or replace with a fresh value to update. */
+  paystackLiveSecretKey: string;
+  paystackTestPublicKey: string | null;
+  paystackTestSecretKey: string;
+  paystackLiveSecretKeySet: boolean;
+  paystackTestSecretKeySet: boolean;
+  bankName: string | null;
+  bankAccountName: string | null;
+  bankAccountNumber: string | null;
+  bankSwiftCode: string | null;
+  bankRoutingNumber: string | null;
+  bankInstructions: string | null;
+}
+
+export interface PaymentsUrls {
+  callbackUrl: string;
+  webhookUrl: string;
+}
+
+export interface PaymentsTestResult {
+  ok: boolean;
+  mode: "live" | "test";
+  error?: string;
+  enabled?: boolean;
+  ready?: boolean;
 }
 
 export interface OverviewWindow {
@@ -134,6 +163,9 @@ export interface AdminOverview {
   }>;
   emailsFailed24h: number;
   productsCount: number;
+  paymentsToday: { count: number; revenueCents: number };
+  paystackStatus: "enabled" | "disabled" | "keys_missing";
+  paystackTestMode: boolean;
 }
 
 export interface ReviewRow {
@@ -293,6 +325,11 @@ export const adminApi = {
   /* Stats */
   getStats: () => adminFetch<DashboardStats>("/admin/stats"),
   getOverview: () => adminFetch<AdminOverview>("/admin/overview"),
+
+  /* Payments */
+  getPaymentsUrls: () => adminFetch<PaymentsUrls>("/admin/payments/urls"),
+  testPayments: () =>
+    adminFetch<PaymentsTestResult>("/admin/payments/test", { method: "POST" }),
 
   /* Reviews moderation */
   listReviews: (params?: { productId?: string; limit?: number; offset?: number }) => {

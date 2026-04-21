@@ -1,21 +1,22 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { loadStripe, type Stripe as StripeJs } from '@stripe/stripe-js';
-import {
-  Elements,
-  PaymentElement,
-  useElements,
-  useStripe,
-} from '@stripe/react-stripe-js';
 import { useAuth } from '@/context/AuthContext';
 import { useCart, type CartItem } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle2, Lock, AlertTriangle, MapPin, Pencil } from 'lucide-react';
+import {
+  CheckCircle2,
+  Lock,
+  AlertTriangle,
+  MapPin,
+  Pencil,
+  CreditCard,
+  Banknote,
+} from 'lucide-react';
 import { PriceTag } from '@/components/PriceTag';
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -65,38 +66,17 @@ interface BankTransferDetails {
 interface StorefrontSettings {
   currency: string | null;
   currencySymbol: string | null;
-  stripePublishableKey: string | null;
-  paymentsConfigured: boolean;
+  paystackEnabled: boolean;
+  paystackPublicKey: string | null;
+  paystackTestMode: boolean;
   bankTransfer?: BankTransferDetails;
 }
 
-interface IntentResponse {
-  clientSecret: string;
-  paymentIntentId: string;
-  cartHash: string;
-  currency: string;
-  subtotalCents: number;
-  shippingCents: number;
-  taxCents: number;
-  totalCents: number;
-}
-
-interface ConfirmResponse {
-  orderId: string;
+interface PaystackInitResponse {
+  authorizationUrl: string;
+  reference: string;
   totalCents: number;
   currency: string;
-  paymentIntentId: string;
-  receiptEmail: string | null;
-}
-
-const stripePromiseCache = new Map<string, Promise<StripeJs | null>>();
-function getStripePromise(pk: string): Promise<StripeJs | null> {
-  let p = stripePromiseCache.get(pk);
-  if (!p) {
-    p = loadStripe(pk);
-    stripePromiseCache.set(pk, p);
-  }
-  return p;
 }
 
 // Only what the server needs. Prices/shipping/tax are NOT sent — the server
@@ -142,11 +122,14 @@ export function CheckoutPage() {
   >(null);
   const [settings, setSettings] = useState<StorefrontSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
-  const [intent, setIntent] = useState<IntentResponse | null>(null);
-  const [intentError, setIntentError] = useState<string | null>(null);
+  // When Paystack is enabled, the customer can choose between Paystack
+  // and the bank-transfer fallback. Default is Paystack.
+  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'bank'>(
+    'paystack',
+  );
 
-  // Client-side estimate, only used until the server-authoritative
-  // totals come back in the `intent`.
+  // Client-side estimates for the cart summary. Real charge amounts are
+  // computed server-side at /checkout/paystack/init or /checkout/submit.
   const estShippingCents =
     subtotal === 0 || subtotal >= FREE_SHIPPING_THRESHOLD
       ? 0
@@ -156,10 +139,13 @@ export function CheckoutPage() {
   const estTotalCents = estSubtotalCents + estShippingCents + estTaxCents;
 
   const currencySymbol = settings?.currencySymbol ?? '$';
-  const subtotalCents = intent?.subtotalCents ?? estSubtotalCents;
-  const shippingCents = intent?.shippingCents ?? estShippingCents;
-  const taxCents = intent?.taxCents ?? estTaxCents;
-  const totalCents = intent?.totalCents ?? estTotalCents;
+  const subtotalCents = estSubtotalCents;
+  const shippingCents = estShippingCents;
+  const taxCents = estTaxCents;
+  const totalCents = estTotalCents;
+  const paystackReady = !!(
+    settings?.paystackEnabled && settings.paystackPublicKey
+  );
 
   const form = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
@@ -230,91 +216,66 @@ export function CheckoutPage() {
     };
   }, []);
 
-  // Build a stable key over the cart contents so we only refresh the
-  // PaymentIntent when the cart actually changes.
-  const cartKey = useMemo(
-    () =>
-      items
-        .map(
-          (i) =>
-            `${i.productId}|${i.color}|${i.size}|${i.quantity}`,
-        )
-        .sort()
-        .join(','),
-    [items],
+  // If Paystack is unavailable, force the bank-transfer choice so the UI
+  // doesn't get stuck on a hidden tab.
+  useEffect(() => {
+    if (!paystackReady) setPaymentMethod('bank');
+  }, [paystackReady]);
+
+  const [paystackReturnError, setPaystackReturnError] = useState<string | null>(
+    null,
   );
 
-  // Create a PaymentIntent as soon as the cart + payment config are ready.
+  // Handle Paystack callback redirect: ?paid=1&order=… (success) or
+  // ?paid=0&error=… (verify failed / unknown order / abandoned).
   useEffect(() => {
-    if (!settings?.paymentsConfigured) return;
-    if (items.length === 0) return;
-    if (submitted) return;
-    let cancelled = false;
-    setIntent(null);
-    setIntentError(null);
-    fetch('/api/checkout/intent', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        email: form.getValues('email') || 'guest@example.com',
-        items: buildItemPayload(items),
-      }),
-    })
-      .then(async (r) => {
-        const data = await r.json().catch(() => null);
-        if (!r.ok) {
-          throw new Error(
-            (data && (data.message || data.error)) ||
-              `Could not start payment (HTTP ${r.status}).`,
-          );
-        }
-        return data as IntentResponse;
-      })
-      .then((data) => {
-        if (cancelled) return;
-        setIntent(data);
-      })
-      .catch((err: Error) => {
-        if (cancelled) return;
-        setIntentError(err.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    settings?.paymentsConfigured,
-    settings?.currency,
-    cartKey,
-    items,
-    submitted,
-    form,
-  ]);
-
-  const stripePromise = useMemo(() => {
-    if (!settings?.stripePublishableKey) return null;
-    return getStripePromise(settings.stripePublishableKey);
-  }, [settings?.stripePublishableKey]);
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const paid = url.searchParams.get('paid');
+    const orderQ = url.searchParams.get('order');
+    const err = url.searchParams.get('error');
+    if (paid === '1' && orderQ) {
+      setOrderId(orderQ);
+      setSubmitted(true);
+      setConfirmedTotalCents(null);
+      clearCart();
+    } else if (paid === '0' && err) {
+      setPaystackReturnError(humanizePaystackError(err));
+    }
+    if (paid !== null) {
+      url.searchParams.delete('paid');
+      url.searchParams.delete('order');
+      url.searchParams.delete('error');
+      window.history.replaceState(
+        {},
+        '',
+        url.pathname + (url.search ? `?${url.searchParams.toString()}` : ''),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (submitted) {
     const bank = settings?.bankTransfer;
-    // Always render the server-authoritative total persisted on the order;
-    // never show the client-side estimate after submit, otherwise the wire
-    // amount on the success page could disagree with what's in the database.
     const finalTotalCents = confirmedTotalCents ?? totalCents;
     const finalSymbol = confirmedCurrencySymbol ?? currencySymbol;
     const totalDisplay = fmt(finalTotalCents, finalSymbol);
+    // Was this an online (Paystack) payment? If we have no bank fallback
+    // amount it means the customer paid online and we don't need to show
+    // wire instructions.
+    const wasPaidOnline = confirmedTotalCents === null;
     return (
       <div className="pt-32 pb-24 min-h-screen bg-background">
         <div className="container mx-auto px-4 max-w-2xl">
           <div className="text-center">
             <CheckCircle2 className="w-16 h-16 mx-auto text-primary mb-6" />
             <h1 className="font-serif text-4xl md:text-5xl font-bold mb-4">
-              Order received
+              {wasPaidOnline ? 'Order paid' : 'Order received'}
             </h1>
             <p className="text-muted-foreground mb-2">
-              Your order has been recorded. Please complete payment by bank
-              transfer using the details below — once we see the deposit we'll
-              ship your order and email you a confirmation.
+              {wasPaidOnline
+                ? "Thanks — we've received your payment and will email you a receipt and shipping update shortly."
+                : "Your order has been recorded. Please complete payment by bank transfer using the details below — once we see the deposit we'll ship your order and email you a confirmation."}
             </p>
             <p className="text-sm uppercase tracking-widest mb-10">
               Order #
@@ -327,22 +288,24 @@ export function CheckoutPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-border bg-muted/20 p-8 mb-10">
-            <h2 className="text-xs font-bold uppercase tracking-widest mb-6">
-              Payment Instructions
-            </h2>
-            <BankDetailsList
-              bank={bank}
-              memo={orderId}
-              total={totalDisplay}
-            />
-            <p className="text-xs text-muted-foreground mt-6">
-              <strong>Important:</strong> use the order number{' '}
-              <span className="text-foreground font-mono">{orderId}</span> as
-              the transfer reference / memo so we can match your payment to
-              your order.
-            </p>
-          </div>
+          {wasPaidOnline ? null : (
+            <div className="rounded-2xl border border-border bg-muted/20 p-8 mb-10">
+              <h2 className="text-xs font-bold uppercase tracking-widest mb-6">
+                Payment Instructions
+              </h2>
+              <BankDetailsList
+                bank={bank}
+                memo={orderId}
+                total={totalDisplay}
+              />
+              <p className="text-xs text-muted-foreground mt-6">
+                <strong>Important:</strong> use the order number{' '}
+                <span className="text-foreground font-mono">{orderId}</span> as
+                the transfer reference / memo so we can match your payment to
+                your order.
+              </p>
+            </div>
+          )}
 
           <div className="text-center">
             <Button
@@ -537,68 +500,60 @@ export function CheckoutPage() {
                 Payment <Lock className="w-3 h-3" />
               </h2>
 
+              {paystackReturnError ? (
+                <p className="text-sm text-destructive flex items-start gap-2 mb-4" data-testid="paystack-return-error">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  {paystackReturnError}
+                </p>
+              ) : null}
+
               {settingsLoading ? (
                 <p className="text-sm text-muted-foreground">
                   Loading payment options…
                 </p>
-              ) : !settings?.paymentsConfigured ? (
-                <BankTransferSubmit
-                  form={form}
-                  items={items}
-                  bank={settings?.bankTransfer}
-                  totalLabel={`Place Order — ${fmt(totalCents, currencySymbol)}`}
-                  onSuccess={(res) => {
-                    setOrderId(res.orderId);
-                    setConfirmedTotalCents(res.totalCents);
-                    setConfirmedCurrencySymbol(currencySymbol);
-                    setSubmitted(true);
-                    clearCart();
-                    window.scrollTo({
-                      top: 0,
-                      behavior: 'instant' as ScrollBehavior,
-                    });
-                  }}
-                />
-              ) : intentError ? (
-                <p className="text-sm text-destructive flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                  {intentError}
-                </p>
-              ) : !intent || !stripePromise ? (
-                <p className="text-sm text-muted-foreground">
-                  Preparing secure payment…
-                </p>
               ) : (
-                <Elements
-                  stripe={stripePromise}
-                  options={{
-                    clientSecret: intent.clientSecret,
-                    appearance: { theme: 'stripe' },
-                  }}
-                >
-                  <StripePaymentForm
-                    form={form}
-                    intent={intent}
-                    items={items}
-                    onSuccess={(res) => {
-                      setOrderId(res.orderId);
-                      setSubmitted(true);
-                      clearCart();
-                      window.scrollTo({
-                        top: 0,
-                        behavior: 'instant' as ScrollBehavior,
-                      });
-                    }}
-                    totalLabel={`Pay ${fmt(intent.totalCents, currencySymbol)}`}
-                  />
-                </Elements>
+                <>
+                  {paystackReady ? (
+                    <PaymentMethodPicker
+                      method={paymentMethod}
+                      onChange={setPaymentMethod}
+                      testMode={!!settings?.paystackTestMode}
+                    />
+                  ) : null}
+
+                  {paystackReady && paymentMethod === 'paystack' ? (
+                    <PaystackSubmit
+                      form={form}
+                      items={items}
+                      totalLabel={`Pay ${fmt(totalCents, currencySymbol)} with Paystack`}
+                    />
+                  ) : (
+                    <BankTransferSubmit
+                      form={form}
+                      items={items}
+                      bank={settings?.bankTransfer}
+                      totalLabel={`Place Order — ${fmt(totalCents, currencySymbol)}`}
+                      onSuccess={(res) => {
+                        setOrderId(res.orderId);
+                        setConfirmedTotalCents(res.totalCents);
+                        setConfirmedCurrencySymbol(currencySymbol);
+                        setSubmitted(true);
+                        clearCart();
+                        window.scrollTo({
+                          top: 0,
+                          behavior: 'instant' as ScrollBehavior,
+                        });
+                      }}
+                    />
+                  )}
+                </>
               )}
 
               <p className="text-xs text-muted-foreground mt-4 flex items-center gap-2">
                 <Lock className="w-3 h-3" />{' '}
-                {settings?.paymentsConfigured
-                  ? 'Card details are tokenized by Stripe — they never touch our servers.'
-                  : 'No card is charged at checkout — payment is completed by bank transfer using the details shown after you place your order.'}
+                {paystackReady && paymentMethod === 'paystack'
+                  ? "You'll be redirected to Paystack's secure page — card details never touch our servers."
+                  : 'Payment is completed by bank transfer using the details shown after you place your order.'}
               </p>
             </section>
           </form>
@@ -825,108 +780,157 @@ function BankTransferSubmit({
   );
 }
 
-interface StripePaymentFormProps {
-  form: ReturnType<typeof useForm<CheckoutForm>>;
-  intent: IntentResponse;
-  items: CartItem[];
-  totalLabel: string;
-  onSuccess: (res: ConfirmResponse) => void;
+function humanizePaystackError(code: string): string {
+  switch (code) {
+    case 'missing_reference':
+      return 'Paystack returned without a reference. Please try paying again.';
+    case 'not_configured':
+      return 'Paystack is not currently configured on this store.';
+    case 'order_not_found':
+      return "Paystack accepted the payment but we couldn't find the matching order. Please contact support before retrying.";
+    case 'failed':
+      return 'Paystack reported the payment as failed. Please try a different card.';
+    case 'abandoned':
+      return 'The payment was abandoned. You can try again below.';
+    default:
+      return `Payment was not completed (${code}).`;
+  }
 }
 
-function StripePaymentForm({
+function PaymentMethodPicker({
+  method,
+  onChange,
+  testMode,
+}: {
+  method: 'paystack' | 'bank';
+  onChange: (m: 'paystack' | 'bank') => void;
+  testMode: boolean;
+}) {
+  return (
+    <div
+      className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5"
+      role="radiogroup"
+      aria-label="Choose payment method"
+    >
+      <MethodTile
+        active={method === 'paystack'}
+        onClick={() => onChange('paystack')}
+        icon={<CreditCard className="w-4 h-4" />}
+        title={`Pay with Paystack${testMode ? ' (Test mode)' : ''}`}
+        subtitle="Card, bank, USSD — secure popup"
+        testId="method-paystack"
+      />
+      <MethodTile
+        active={method === 'bank'}
+        onClick={() => onChange('bank')}
+        icon={<Banknote className="w-4 h-4" />}
+        title="Bank transfer"
+        subtitle="Place order, send wire after"
+        testId="method-bank"
+      />
+    </div>
+  );
+}
+
+function MethodTile({
+  active,
+  onClick,
+  icon,
+  title,
+  subtitle,
+  testId,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  testId: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      data-testid={testId}
+      className={`text-left rounded-xl border p-4 transition-all ${
+        active
+          ? 'border-primary bg-primary/5 shadow-sm'
+          : 'border-border hover:border-foreground/30'
+      }`}
+    >
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        {icon}
+        {title}
+      </div>
+      <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+    </button>
+  );
+}
+
+function PaystackSubmit({
   form,
-  intent,
   items,
   totalLabel,
-  onSuccess,
-}: StripePaymentFormProps) {
-  const stripe = useStripe();
-  const elements = useElements();
+}: {
+  form: ReturnType<typeof useForm<CheckoutForm>>;
+  items: CartItem[];
+  totalLabel: string;
+}) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handlePay = async () => {
+  const startPayment = async () => {
     setError(null);
     const valid = await form.trigger();
     if (!valid) {
       setError('Please complete your contact and shipping details above.');
       return;
     }
-    if (!stripe || !elements) return;
-
     setSubmitting(true);
-    const { error: submitError } = await elements.submit();
-    if (submitError) {
-      setError(submitError.message ?? 'Could not validate card details.');
-      setSubmitting(false);
-      return;
-    }
-
-    const { error: payError, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      clientSecret: intent.clientSecret,
-      redirect: 'if_required',
-      confirmParams: {
-        receipt_email: form.getValues('email'),
-      },
-    });
-
-    if (payError) {
-      setError(payError.message ?? 'Payment was declined.');
-      setSubmitting(false);
-      return;
-    }
-    if (!paymentIntent || paymentIntent.status !== 'succeeded') {
-      setError(
-        `Payment status: ${paymentIntent?.status ?? 'unknown'}. Please try again.`,
-      );
-      setSubmitting(false);
-      return;
-    }
-
     try {
       const data = form.getValues();
-      const res = await fetch('/api/checkout/confirm', {
+      const res = await fetch('/api/checkout/paystack/init', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          paymentIntentId: paymentIntent.id,
-          email: data.email,
-          customerName: `${data.firstName} ${data.lastName}`.trim(),
-          shipping: {
-            firstName: data.firstName,
-            lastName: data.lastName,
-            address: data.address,
-            city: data.city,
-            state: data.state,
-            zip: data.zip,
-            country: data.country,
-          },
           items: buildItemPayload(items),
+          customer: data,
         }),
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
           (body && (body.message || body.error)) ||
-            `Could not save order (HTTP ${res.status}).`,
+            `Could not start Paystack payment (HTTP ${res.status}).`,
         );
       }
-      onSuccess(body as ConfirmResponse);
+      const init = body as PaystackInitResponse;
+      if (!init.authorizationUrl) {
+        throw new Error('Paystack did not return an authorization URL.');
+      }
+      // Hand off to Paystack's hosted payment page. They redirect back
+      // to /api/checkout/paystack/callback?reference=… after success or
+      // failure, where the server verifies the charge before bouncing
+      // the customer back to /checkout?paid=1&order=…
+      window.location.href = init.authorizationUrl;
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? `Your card was charged but we could not save your order: ${e.message}. Please contact support.`
-          : 'Your card was charged but we could not save your order. Please contact support.',
-      );
+      setError(e instanceof Error ? e.message : 'Could not start payment.');
       setSubmitting(false);
     }
   };
 
   return (
     <div className="space-y-4">
-      <div className="border border-border p-4">
-        <PaymentElement />
+      <div className="border border-border bg-muted/20 p-5 text-sm">
+        <p className="font-medium mb-2 flex items-center gap-2">
+          <CreditCard className="w-4 h-4" /> Pay securely with Paystack
+        </p>
+        <p className="text-muted-foreground">
+          You'll be redirected to Paystack's secure payment page. Card details
+          never touch our servers.
+        </p>
       </div>
       {error ? (
         <p className="text-sm text-destructive flex items-start gap-2">
@@ -936,12 +940,12 @@ function StripePaymentForm({
       ) : null}
       <Button
         type="button"
-        onClick={handlePay}
-        disabled={submitting || !stripe || !elements}
+        onClick={startPayment}
+        disabled={submitting}
         className="w-full h-14 rounded-full text-xs tracking-widest uppercase font-bold"
         data-testid="button-place-order"
       >
-        {submitting ? 'Processing…' : totalLabel}
+        {submitting ? 'Redirecting…' : totalLabel}
       </Button>
     </div>
   );

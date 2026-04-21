@@ -4,6 +4,7 @@ import authRouter from "./auth";
 import storageRouter from "./storage";
 import storefrontRouter from "./storefront";
 import checkoutRouter from "./checkout";
+import paymentsRouter from "./payments";
 import adminRouter from "./admin";
 import addressesRouter from "./addresses";
 
@@ -14,6 +15,7 @@ router.use(authRouter);
 router.use(storageRouter);
 router.use(storefrontRouter);
 router.use(checkoutRouter);
+router.use(paymentsRouter);
 router.use(adminRouter);
 router.use(addressesRouter);
 

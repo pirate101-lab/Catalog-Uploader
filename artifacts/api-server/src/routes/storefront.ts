@@ -193,18 +193,30 @@ function searchAndSort(rows: DecoratedRow[], f: SearchFilters): DecoratedRow[] {
 
 router.get("/storefront/settings", async (_req: Request, res: Response) => {
   const s = await getSiteSettingsForStorefront();
-  // Bank-transfer payment details are read from env so they can be rotated
-  // without redeploying. All four are optional — if any are missing the
-  // storefront will display a friendly placeholder telling the customer to
-  // contact the store after placing the order.
+  // Bank-transfer details are now stored in site_settings so the operator
+  // can rotate them from the admin Payments page without redeploying.
+  // Env vars remain as a one-time fallback so existing deployments keep
+  // showing payment instructions until they save them in admin.
   const bank = {
-    bankName: process.env.BANK_NAME ?? null,
-    accountName: process.env.BANK_ACCOUNT_NAME ?? null,
-    accountNumber: process.env.BANK_ACCOUNT_NUMBER ?? null,
-    swiftCode: process.env.BANK_SWIFT_CODE ?? null,
-    routingNumber: process.env.BANK_ROUTING_NUMBER ?? null,
-    instructions: process.env.BANK_INSTRUCTIONS ?? null,
+    bankName: s.bankName ?? process.env.BANK_NAME ?? null,
+    accountName: s.bankAccountName ?? process.env.BANK_ACCOUNT_NAME ?? null,
+    accountNumber:
+      s.bankAccountNumber ?? process.env.BANK_ACCOUNT_NUMBER ?? null,
+    swiftCode: s.bankSwiftCode ?? process.env.BANK_SWIFT_CODE ?? null,
+    routingNumber:
+      s.bankRoutingNumber ?? process.env.BANK_ROUTING_NUMBER ?? null,
+    instructions: s.bankInstructions ?? process.env.BANK_INSTRUCTIONS ?? null,
   };
+  // Expose ONLY the active public key + enabled flag. Secret keys must
+  // never reach the browser.
+  const paystackActivePublicKey = s.paystackTestMode
+    ? s.paystackTestPublicKey
+    : s.paystackLivePublicKey;
+  const paystackActiveSecretKey = s.paystackTestMode
+    ? s.paystackTestSecretKey
+    : s.paystackLiveSecretKey;
+  const paystackEnabled =
+    !!s.paystackEnabled && !!paystackActivePublicKey && !!paystackActiveSecretKey;
   res.json({
     id: s.id,
     storeName: s.storeName,
@@ -217,8 +229,9 @@ router.get("/storefront/settings", async (_req: Request, res: Response) => {
     currencySymbol: s.currencySymbol,
     maintenanceMode: s.maintenanceMode,
     heroAutoAdvance: s.heroAutoAdvance,
-    stripePublishableKey: null,
-    paymentsConfigured: false,
+    paystackEnabled,
+    paystackPublicKey: paystackEnabled ? paystackActivePublicKey : null,
+    paystackTestMode: !!s.paystackTestMode,
     bankTransfer: bank,
   });
 });
