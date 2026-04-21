@@ -1,4 +1,4 @@
-import { useLocation } from 'wouter';
+import { useLocation, useSearch } from 'wouter';
 import { TOP_LEVEL, TOP_LEVEL_BUCKETS } from '@/data/taxonomy';
 
 /**
@@ -12,7 +12,10 @@ import { TOP_LEVEL, TOP_LEVEL_BUCKETS } from '@/data/taxonomy';
  */
 export function SecondaryNav() {
   const [location, navigate] = useLocation();
-  const search = typeof window !== 'undefined' ? window.location.search : '';
+  // useSearch is reactive to query-string changes — without it, clicking from
+  // ?category=Trending to ?category=TikTok+Verified would not re-render the
+  // active highlight because wouter's useLocation only tracks the pathname.
+  const search = useSearch();
   const params = new URLSearchParams(search);
   const activeCategory = params.get('category');
   const activeBucket = params.get('bucket');

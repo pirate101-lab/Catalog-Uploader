@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'wouter';
+import { Link, useLocation, useSearch } from 'wouter';
 import { ALL_SIZES, type Product } from '@/data/products';
 import type { GenderKey } from '@/lib/homeFilters';
 import { useProducts } from '@/context/ProductsContext';
@@ -82,9 +82,10 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
 }
 
 function useQueryParam(key: string): string {
-  const [location] = useLocation();
-  const search = typeof window !== 'undefined' ? window.location.search : '';
-  void location;
+  // wouter's useSearch is reactive to query-string changes (unlike useLocation
+  // which only fires on pathname change), so this re-renders whenever the URL
+  // search changes — including via navigate('/shop?bucket=trending').
+  const search = useSearch();
   const params = new URLSearchParams(search);
   return params.get(key) ?? '';
 }
@@ -265,6 +266,10 @@ export function ShopPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [location, navigate] = useLocation();
+  // Reactive query string — wouter's useLocation only tracks pathname, so
+  // we depend on this to re-sync filter state when the user clicks a bucket
+  // pill / sidebar leaf / gender pill that changes only the search.
+  const reactiveSearch = useSearch();
 
   // Mirror current filter state into the URL (replace, not push) so a refresh,
   // share, or browser-back keeps the user on the same view.
@@ -312,11 +317,13 @@ export function ShopPage() {
   const [pageLoading, setPageLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // Re-sync filter state when the URL changes (e.g., user clicks a homepage
-  // CTA that points to /shop?gender=men&sizes=M, or uses browser back/forward).
+  // Re-sync filter state when EITHER the pathname OR the query string changes
+  // (e.g., user clicks a homepage CTA that points to /shop?gender=men&sizes=M,
+  // a bucket pill that flips ?bucket=trending, or uses browser back/forward).
+  // Depending on `reactiveSearch` is what makes pill/sidebar clicks work — it
+  // updates on every history change, while `location` only fires on path change.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const next = readUrlFilters(window.location.search);
+    const next = readUrlFilters(reactiveSearch ? `?${reactiveSearch}` : '');
     setRailLabel(next.category || 'All');
     setQuery(next.q);
     setGender(next.gender);
@@ -325,7 +332,7 @@ export function ShopPage() {
     setPriceRange([next.priceMin, next.priceMax]);
     setSort(next.sort);
     setBucket(next.bucket);
-  }, [location]);
+  }, [location, reactiveSearch]);
 
   const effectiveCategory = RAIL_TO_CATEGORY[railLabel] ?? 'All';
 
