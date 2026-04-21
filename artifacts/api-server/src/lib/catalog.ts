@@ -42,9 +42,11 @@ export interface ProductRow {
    * Bucket flags — synthesised deterministically at boot from the
    * existing catalog (the live Trendsi feed is gated behind expired
    * credentials, so the four merch buckets are derived from numeric
-   * id + price + a stable hash of the id rather than scraped). Only
-   * women's products get bucket flags; men's products are always empty
-   * because the women-only nav exposes these tabs.
+   * id + price + a stable hash of the id rather than scraped). Both
+   * women and men receive bucket flags — the top nav exposes the tabs
+   * for women only, but the homepage "today's featured edit" grid
+   * filters by tiktok_verified for whichever gender is active, so the
+   * men pool needs the flags too.
    */
   isNewIn: boolean;
   isCollection: boolean;
@@ -139,12 +141,15 @@ function loadUpstreamFlags(): Map<string, UpstreamFlag> | null {
   }
 }
 
-// Derive bucket flags for the women's catalog. Prefers real upstream
-// flags from catalog_buckets.json when a product is "observed" there,
-// and falls back to deterministic synthesis (top 30% by numeric id →
+// Derive bucket flags for a single-gender catalog slice. Prefers real
+// upstream flags from catalog_buckets.json when a product is "observed"
+// there (women only — the men catalog has no upstream coverage), and
+// falls back to deterministic synthesis (top 30% by numeric id →
 // new_in, hash%2==0 → collection, hash%4==0 → tiktok_verified, top
-// 30% by trendScore → trending) for any product without coverage.
-function deriveWomenBuckets(rows: ProductRow[]): void {
+// 30% by trendScore → trending) for any product without coverage. Run
+// per-gender so each gender's "top 30%" is computed within its own pool
+// and one gender doesn't crowd the other out of the merch buckets.
+function deriveBuckets(rows: ProductRow[]): void {
   if (rows.length === 0) return;
   const upstream = loadUpstreamFlags();
 
@@ -240,9 +245,13 @@ function loadOne(fileName: string, gender: Gender): ProductRow[] {
 function loadCatalog(): ProductRow[] {
   const women = loadOne("catalog_lite.json", "women");
   const men = loadOne("catalog_men_lite.json", "men");
-  // Synthesise the four merch buckets for women only — the nav tabs
-  // (New In / Collection / TikTok Verified / Trending) are women-only.
-  deriveWomenBuckets(women);
+  // Synthesise the four merch buckets for both catalogs. The top-nav
+  // tabs (New In / Collection / TikTok Verified / Trending) are
+  // women-only, but the homepage featured grid filters by
+  // tiktok_verified for whichever gender is active — so the men pool
+  // also needs bucket flags or the men's edit grid renders empty.
+  deriveBuckets(women);
+  deriveBuckets(men);
   // Default sort: gender → category → title (stable, readable when paginated).
   const all = [...women, ...men];
   all.sort((a, b) => {

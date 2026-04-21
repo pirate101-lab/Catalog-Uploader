@@ -7,7 +7,7 @@ import { HomeFilters } from '@/components/HomeFilters';
 import { ProductCardSkeleton } from '@/components/ProductCardSkeleton';
 import { Button } from '@/components/ui/button';
 import { useProducts } from '@/context/ProductsContext';
-import { RAIL_GROUPS, RAIL_LEAFS } from '@/data/taxonomy';
+import { RAIL_GROUPS, RAIL_LEAFS, MEN_RAIL_GROUPS, getRailGroups, getRailLeafs } from '@/data/taxonomy';
 import type { SortKey } from '@/lib/homeFilters';
 import { ArrowRight, SlidersHorizontal, X } from 'lucide-react';
 import {
@@ -78,7 +78,8 @@ const FALLBACK_HERO_SLIDES: HeroSlide[] = [
 ];
 
 // Same fine→coarse mapping as the Shop page so the rail filters the
-// preview grid sensibly.
+// preview grid sensibly. Includes both women-rail and men-rail labels
+// so the homepage works regardless of the active gender filter.
 const RAIL_TO_CATEGORY: Record<string, string> = {
   All: 'All',
   'Plus Size': 'All',
@@ -94,8 +95,16 @@ const RAIL_TO_CATEGORY: Record<string, string> = {
   Outerwear: 'Outerwear',
   'Loungewear & Intimates': 'Lingerie',
   Graphic: 'Tops',
+  // Men-rail labels mapped to the catalog category strings the API expects.
+  Shoes: 'Shoes',
+  Shorts: 'Shorts',
+  Formal: 'Formal',
+  Accessories: 'Accessories',
 };
-for (const g of RAIL_GROUPS) {
+for (const g of [...RAIL_GROUPS, ...MEN_RAIL_GROUPS]) {
+  if (RAIL_TO_CATEGORY[g.label] === undefined) {
+    RAIL_TO_CATEGORY[g.label] = g.label;
+  }
   for (const item of g.items ?? []) {
     if (RAIL_TO_CATEGORY[item] === undefined) {
       RAIL_TO_CATEGORY[item] = RAIL_TO_CATEGORY[g.label] ?? 'All';
@@ -501,6 +510,7 @@ export function HomePage() {
 
       <CategoryRail
         active={filters.category}
+        gender={filters.gender}
         onChange={(label) => {
           updateFilters({ category: label });
           setMobileFiltersOpen(false);
@@ -638,12 +648,16 @@ export function HomePage() {
           <div className="relative -mx-4">
             <div className="overflow-x-auto px-4">
               <div className="flex items-center gap-2 whitespace-nowrap">
-                {([...RAIL_LEAFS, ...RAIL_GROUPS.map((g) => g.label)] as string[]).map((label) => {
+                {(() => {
+                  const railLeafs = getRailLeafs(filters.gender);
+                  const railGroups = getRailGroups(filters.gender);
+                  const labels = [...railLeafs, ...railGroups.map((g) => g.label)] as string[];
+                  return labels.map((label) => {
                   // Resolve active through rail hierarchy so a selected leaf
                   // (e.g. "T-Shirts") still highlights its parent group chip.
                   const parentForActive = (() => {
                     if (filters.category === label) return label;
-                    const grp = RAIL_GROUPS.find((g) => g.items?.includes(filters.category));
+                    const grp = railGroups.find((g) => g.items?.includes(filters.category));
                     return grp?.label;
                   })();
                   const active = parentForActive === label;
@@ -661,7 +675,8 @@ export function HomePage() {
                       {label}
                     </button>
                   );
-                })}
+                  });
+                })()}
               </div>
             </div>
             {/* Right-edge fade hints there's more to scroll */}
