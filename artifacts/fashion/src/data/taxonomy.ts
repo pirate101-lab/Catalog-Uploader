@@ -34,6 +34,11 @@ export const TOP_LEVEL_BUCKETS: Record<string, string | null> = {
  */
 export const RAIL_LEAFS: string[] = ['All', 'Plus Size'];
 
+/**
+ * Men-only rail leaves (no Plus Size — separate ladies-only sizing concept).
+ */
+export const MEN_RAIL_LEAFS: string[] = ['All'];
+
 export const RAIL_GROUPS: TaxonomyGroup[] = [
   {
     label: 'Tops',
@@ -86,3 +91,33 @@ export const RAIL_GROUPS: TaxonomyGroup[] = [
     items: ['Graphic Tees', 'Graphic Sweatshirts & Hoodies', 'Graphic Sweatpants'],
   },
 ];
+
+/**
+ * Men's rail. Mirrors the men catalog categories actually present in the
+ * data file (tops, denim, knitwear, shoes, bottoms, accessories, shorts,
+ * outerwear, sets, formal, activewear) so every link in the sidebar
+ * resolves to a non-empty grid.
+ */
+export const MEN_RAIL_GROUPS: TaxonomyGroup[] = [
+  { label: 'Tops', items: ['T-Shirts', 'Polos', 'Shirts', 'Sweatshirts & Hoodies'] },
+  { label: 'Jeans & Denim' },
+  { label: 'Sweaters & Knitwear' },
+  { label: 'Shoes' },
+  { label: 'Bottoms', items: ['Pants', 'Joggers'] },
+  { label: 'Shorts' },
+  { label: 'Outerwear', items: ['Jackets', 'Coats', 'Vests'] },
+  { label: 'Two-Piece Sets' },
+  { label: 'Formal' },
+  { label: 'Activewear' },
+  { label: 'Accessories' },
+];
+
+export type GenderForTaxonomy = 'women' | 'men' | 'all';
+
+export function getRailGroups(gender: GenderForTaxonomy): TaxonomyGroup[] {
+  return gender === 'men' ? MEN_RAIL_GROUPS : RAIL_GROUPS;
+}
+
+export function getRailLeafs(gender: GenderForTaxonomy): string[] {
+  return gender === 'men' ? MEN_RAIL_LEAFS : RAIL_LEAFS;
+}

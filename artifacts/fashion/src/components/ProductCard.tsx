@@ -69,23 +69,26 @@ function ProductCardImpl({ product }: ProductCardProps) {
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (product.colors.length > 0 && product.sizes.length > 0) {
-      addItem({
-        productId: product.id,
-        color: product.colors[0].name,
-        size: product.sizes[0],
-        price: product.price,
-        title: product.title,
-        image: imageUrl(product.colors[0].image || product.image, {
-          category: product.category,
-          id: product.id,
-          w: 200,
-        }),
-      });
-      toast.success(`${product.title} added to cart`);
-    } else {
-      toast.error('This piece is unavailable right now.');
-    }
+    // Most catalog rows come from upstream with no color variants and a
+    // generic size grid — fall back to sensible defaults so the bag-icon
+    // quick-add always succeeds. Shoppers can still pick exact options on
+    // the product page; this just gets the item into the bag immediately.
+    const firstColor = product.colors[0];
+    const color = firstColor?.name ?? 'Default';
+    const size = product.sizes[0] ?? 'One Size';
+    addItem({
+      productId: product.id,
+      color,
+      size,
+      price: product.price,
+      title: product.title,
+      image: imageUrl(firstColor?.image || product.image, {
+        category: product.category,
+        id: product.id,
+        w: 200,
+      }),
+    });
+    toast.success(`${product.title} added to cart`);
   };
 
   const handleWishlist = (e: React.MouseEvent) => {

@@ -1,25 +1,48 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { RAIL_GROUPS, RAIL_LEAFS } from '@/data/taxonomy';
+import {
+  RAIL_GROUPS,
+  getRailGroups,
+  getRailLeafs,
+  type GenderForTaxonomy,
+} from '@/data/taxonomy';
 
 interface Props {
   /** Currently active category label (top-level group OR child sub-category OR "All"). */
   active: string;
   onChange: (label: string) => void;
+  /** Switches between women's and men's rail. Defaults to women. */
+  gender?: GenderForTaxonomy;
 }
 
 const RAIL_GROUP_LABELS = RAIL_GROUPS.map((g) => g.label);
 
-export function CategoryRail({ active, onChange }: Props) {
+export function CategoryRail({ active, onChange, gender = 'all' }: Props) {
+  const groups = getRailGroups(gender);
+  const leafs = getRailLeafs(gender);
+
   // Start with the active group's parent expanded so the user can see context.
   const initiallyOpen = (() => {
     const set = new Set<string>();
-    for (const g of RAIL_GROUPS) {
+    for (const g of groups) {
       if (g.label === active || g.items?.includes(active)) set.add(g.label);
     }
     return set;
   })();
   const [open, setOpen] = useState<Set<string>>(initiallyOpen);
+
+  // Re-seed expansion when the gender (and therefore the visible rail) changes
+  // so that switching from women → men doesn't leave a women-only group
+  // (e.g. "Dresses") permanently expanded — and so the active men group
+  // re-opens correctly.
+  useEffect(() => {
+    const next = new Set<string>();
+    for (const g of groups) {
+      if (g.label === active || g.items?.includes(active)) next.add(g.label);
+    }
+    setOpen(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gender]);
 
   const toggle = (label: string) => {
     setOpen((prev) => {
@@ -37,7 +60,7 @@ export function CategoryRail({ active, onChange }: Props) {
       <h3 className="text-xs font-bold uppercase tracking-widest mb-4 text-foreground">Category</h3>
 
       <ul className="space-y-1 mb-4">
-        {RAIL_LEAFS.map((leaf) => (
+        {leafs.map((leaf) => (
           <li key={leaf}>
             <button
               onClick={() => onChange(leaf)}
@@ -55,7 +78,7 @@ export function CategoryRail({ active, onChange }: Props) {
       </ul>
 
       <ul className="space-y-1">
-        {RAIL_GROUPS.map((group) => {
+        {groups.map((group) => {
           const expanded = open.has(group.label) || group.items === undefined;
           const groupActive = isActive(group.label);
           const childActive = group.items?.includes(active) ?? false;

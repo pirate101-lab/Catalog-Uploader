@@ -6,7 +6,7 @@ import { useProducts } from '@/context/ProductsContext';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductCardSkeleton } from '@/components/ProductCardSkeleton';
 import { CategoryRail } from '@/components/CategoryRail';
-import { RAIL_GROUPS } from '@/data/taxonomy';
+import { RAIL_GROUPS, MEN_RAIL_GROUPS } from '@/data/taxonomy';
 import {
   Select,
   SelectContent,
@@ -57,8 +57,16 @@ const RAIL_TO_CATEGORY: Record<string, string> = {
   Outerwear: 'Outerwear',
   'Loungewear & Intimates': 'Lingerie',
   Graphic: 'Tops',
+  // Men-rail labels mapped to the catalog category strings the API expects.
+  Shoes: 'Shoes',
+  Shorts: 'Shorts',
+  Formal: 'Formal',
+  Accessories: 'Accessories',
 };
-for (const g of RAIL_GROUPS) {
+for (const g of [...RAIL_GROUPS, ...MEN_RAIL_GROUPS]) {
+  if (RAIL_TO_CATEGORY[g.label] === undefined) {
+    RAIL_TO_CATEGORY[g.label] = g.label; // fallback: label === category name
+  }
   for (const item of g.items ?? []) {
     if (RAIL_TO_CATEGORY[item] === undefined) {
       RAIL_TO_CATEGORY[item] = RAIL_TO_CATEGORY[g.label] ?? 'All';
@@ -490,8 +498,13 @@ export function ShopPage() {
     writeUrl({ category: label });
   };
   const updateGender = (g: GenderKey) => {
+    // When the shopper switches gender, reset the rail to "All" so we never
+    // leave a women-only label like "Dresses" selected while showing men's
+    // products (which would render an empty grid). The sidebar itself is
+    // re-keyed on gender below so the shape changes as well.
     setGender(g);
-    writeUrl({ gender: g });
+    setRailLabel('All');
+    writeUrl({ gender: g, category: 'All' });
   };
   const updateSort = (s: SortKey) => {
     setSort(s);
@@ -536,7 +549,7 @@ export function ShopPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-10">
           <aside className="hidden lg:block lg:sticky lg:top-32 lg:self-start lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto pr-2 space-y-10">
-            <CategoryRail active={railLabel} onChange={updateRail} />
+            <CategoryRail active={railLabel} onChange={updateRail} gender={gender} />
             <FilterPanel
               selectedSizes={selectedSizes}
               toggleSize={toggleSize}
@@ -720,6 +733,7 @@ export function ShopPage() {
             </div>
             <CategoryRail
               active={railLabel}
+              gender={gender}
               onChange={(l) => {
                 updateRail(l);
                 setMobileFiltersOpen(false);
