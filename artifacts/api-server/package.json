@@ -8,7 +8,8 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check:featured-bucket": "node ./scripts/check-featured-bucket.mjs"
+    "check:featured-bucket": "node ./scripts/check-featured-bucket.mjs",
+    "ci:check-featured-bucket": "pnpm run build && node ./scripts/ci-check-featured-bucket.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1032.0",

@@ -20,6 +20,10 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "check-featured-bucket"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -31,6 +35,17 @@ outputType = "webview"
 task = "shell.exec"
 args = "PORT=25246 BASE_PATH=/ API_PROXY_TARGET=http://localhost:8080 pnpm --filter @workspace/fashion run dev & PORT=8080 pnpm --filter @workspace/api-server run dev & wait"
 waitForPort = 25246
+
+[[workflows.workflow]]
+name = "check-featured-bucket"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run ci:check-featured-bucket"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 stack = "PNPM_WORKSPACE"
