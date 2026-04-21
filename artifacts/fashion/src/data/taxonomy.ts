@@ -39,57 +39,23 @@ export const RAIL_LEAFS: string[] = ['All', 'Plus Size'];
  */
 export const MEN_RAIL_LEAFS: string[] = ['All'];
 
+// Sub-categories were removed because the storefront API only filters by
+// the top-level category — clicking "Casual Dresses" vs "Maxi Dresses"
+// returned identical product grids, which was confusing. Each entry is now
+// a single leaf that maps directly to a real category in the catalog.
 export const RAIL_GROUPS: TaxonomyGroup[] = [
-  {
-    label: 'Tops',
-    items: ['T-Shirts', 'Tank Tops & Camis', 'Blouses', 'Shirts', 'Knit Tops', 'Bodysuits', 'Sweatshirts & Hoodies'],
-  },
-  {
-    label: 'Dresses',
-    items: ['Casual Dresses', 'Cocktail Dresses', 'Maxi Dresses', 'Formal & Evening Dresses'],
-  },
-  {
-    label: 'Jeans & Denim',
-    items: ['Jeans', 'Denim Tops & Jackets', 'Denim Dresses & Skirts', 'Denim Shorts', 'Denim Overalls'],
-  },
-  {
-    label: 'Swimwear',
-    items: ['Bikinis & Tankinis', 'One-Pieces', 'Cover-Ups', 'Swim Bottoms', 'Swim Tops', 'Swim Sets'],
-  },
+  { label: 'Tops' },
+  { label: 'Dresses' },
+  { label: 'Jeans & Denim' },
+  { label: 'Swimwear' },
   { label: 'Jumpsuits & Rompers' },
-  {
-    label: 'Bottoms',
-    items: ['Shorts', 'Leggings', 'Pants', 'Skirts', 'Sweatpants'],
-  },
+  { label: 'Bottoms' },
   { label: 'Two-Piece Sets' },
-  {
-    label: 'Activewear',
-    items: ['Active Tops', 'Active Bottoms', 'Active Sets'],
-  },
-  {
-    label: 'Sweaters & Knitwear',
-    items: ['Sweater Pullover', 'Cardigans', 'Knit Tops', 'Sweater Dresses', 'Sweater Hoodies', 'Ponchos', 'Sweater Two-Piece Sets'],
-  },
-  {
-    label: 'Outerwear',
-    items: ['Jackets', 'Coats', 'Blazers', 'Cardigans', 'Trench Coats', 'Faux Fur Jackets', 'Vests'],
-  },
-  {
-    label: 'Loungewear & Intimates',
-    items: [
-      'Loungewear Sets',
-      'Sleep Dresses',
-      'Bras & Bra Sets',
-      'Intimates Bras & Pantie Set',
-      'Intimates Teddies & Bodysuits',
-      'Intimates Lingerie',
-      'Lounge Tops & Bottoms',
-    ],
-  },
-  {
-    label: 'Graphic',
-    items: ['Graphic Tees', 'Graphic Sweatshirts & Hoodies', 'Graphic Sweatpants'],
-  },
+  { label: 'Activewear' },
+  { label: 'Sweaters & Knitwear' },
+  { label: 'Outerwear' },
+  { label: 'Loungewear & Intimates' },
+  { label: 'Graphic' },
 ];
 
 /**
@@ -99,13 +65,13 @@ export const RAIL_GROUPS: TaxonomyGroup[] = [
  * resolves to a non-empty grid.
  */
 export const MEN_RAIL_GROUPS: TaxonomyGroup[] = [
-  { label: 'Tops', items: ['T-Shirts', 'Polos', 'Shirts', 'Sweatshirts & Hoodies'] },
+  { label: 'Tops' },
   { label: 'Jeans & Denim' },
   { label: 'Sweaters & Knitwear' },
   { label: 'Shoes' },
-  { label: 'Bottoms', items: ['Pants', 'Joggers'] },
+  { label: 'Bottoms' },
   { label: 'Shorts' },
-  { label: 'Outerwear', items: ['Jackets', 'Coats', 'Vests'] },
+  { label: 'Outerwear' },
   { label: 'Two-Piece Sets' },
   { label: 'Formal' },
   { label: 'Activewear' },
