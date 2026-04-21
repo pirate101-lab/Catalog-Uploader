@@ -135,13 +135,6 @@ export function SettingsAdmin() {
                 onChange={(e) => set("tagline", e.target.value)}
               />
             </Field>
-            <Field label="Currency symbol">
-              <Input
-                value={s.currencySymbol}
-                onChange={(e) => set("currencySymbol", e.target.value)}
-                className="w-24"
-              />
-            </Field>
             <LogoField
               value={s.logoUrl ?? ""}
               onChange={(v) => set("logoUrl", v.trim().length === 0 ? null : v)}
@@ -166,6 +159,26 @@ export function SettingsAdmin() {
           </Section>
 
           <Section title="Shop">
+            {isSuper ? (
+              <Field label="Store currency">
+                <select
+                  value={s.currencyCode}
+                  onChange={(e) => set("currencyCode", e.target.value)}
+                  className="w-full h-10 rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="USD">US Dollar (USD — $)</option>
+                  <option value="NGN">Nigerian Naira (NGN — ₦)</option>
+                  <option value="GHS">Ghanaian Cedi (GHS — GH₵)</option>
+                  <option value="ZAR">South African Rand (ZAR — R)</option>
+                  <option value="KES">Kenyan Shilling (KES — KSh)</option>
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Drives storefront prices and the currency sent to
+                  Paystack on checkout. Existing orders keep their
+                  original currency.
+                </p>
+              </Field>
+            ) : null}
             <Field label="Default sort">
               <select
                 value={s.defaultSort}

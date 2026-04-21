@@ -227,7 +227,7 @@ router.get("/storefront/settings", async (_req: Request, res: Response) => {
     announcementActive: s.announcementActive,
     defaultSort: s.defaultSort,
     freeShippingThresholdCents: s.freeShippingThresholdCents,
-    currency: "USD",
+    currency: s.currencyCode,
     currencySymbol: s.currencySymbol,
     maintenanceMode: s.maintenanceMode,
     heroAutoAdvance: s.heroAutoAdvance,

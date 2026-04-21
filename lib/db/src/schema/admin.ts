@@ -157,6 +157,11 @@ export const siteSettingsTable = pgTable("site_settings", {
     .notNull()
     .default(15000),
   currencySymbol: varchar("currency_symbol", { length: 8 }).notNull().default("$"),
+  // ISO currency code that drives the storefront price formatting AND
+  // the currency we send to Paystack on charge initialization. Must be
+  // one of Paystack's supported codes; the symbol above is derived
+  // server-side from this whenever it is updated.
+  currencyCode: varchar("currency_code", { length: 8 }).notNull().default("USD"),
   maintenanceMode: boolean("maintenance_mode").notNull().default(false),
   storeName: text("store_name").notNull().default("VELOUR"),
   tagline: text("tagline").default("Women's Fashion Store"),

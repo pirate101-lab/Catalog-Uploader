@@ -25,7 +25,13 @@ import { randomUUID } from "node:crypto";
 import { paymentEventBus } from "../lib/paymentEvents";
 import { getAdminRole, requireAdmin, requireSuperAdmin } from "../middlewares/adminGuard";
 import { invalidateOverrides } from "../lib/overrides";
-import { invalidateSiteSettings, getSiteSettings } from "../lib/siteSettings";
+import {
+  invalidateSiteSettings,
+  getSiteSettings,
+  isPaystackCurrency,
+  symbolForCurrency,
+  PAYSTACK_CURRENCIES,
+} from "../lib/siteSettings";
 import { getAllProducts } from "../lib/catalog";
 import {
   getMergedProducts,
@@ -1094,6 +1100,11 @@ const SUPER_ADMIN_ONLY_FIELDS = [
   "bankInstructions",
   "paymentAlertMode",
   "paymentAlertRecipients",
+  // Store currency drives Paystack charge initialization, so only the
+  // super-admin should be able to switch it (the symbol is derived
+  // server-side from this code so it is also gated indirectly).
+  "currencyCode",
+  "currencySymbol",
 ] as const;
 
 function shapeSettingsForAdmin(
@@ -1160,7 +1171,6 @@ router.put("/admin/settings", async (req, res) => {
     "announcementActive",
     "defaultSort",
     "freeShippingThresholdCents",
-    "currencySymbol",
     "maintenanceMode",
     "storeName",
     "tagline",
@@ -1188,6 +1198,21 @@ router.put("/admin/settings", async (req, res) => {
   ];
   const patch: Record<string, unknown> = {};
   for (const k of allowed) if (k in body) patch[k] = body[k];
+
+  // Store currency: validate against the Paystack-supported set and
+  // ALWAYS recompute the matching symbol server-side so the storefront
+  // and email templates can never drift out of sync with the code.
+  if ("currencyCode" in body) {
+    const code = String(body["currencyCode"] ?? "").toUpperCase();
+    if (!isPaystackCurrency(code)) {
+      res.status(400).json({
+        error: `currencyCode must be one of: ${Object.keys(PAYSTACK_CURRENCIES).join(", ")}`,
+      });
+      return;
+    }
+    patch["currencyCode"] = code;
+    patch["currencySymbol"] = symbolForCurrency(code);
+  }
 
   // Operator alert mode is enum-validated rather than free-form text
   // so the DB only ever sees one of the three known values.

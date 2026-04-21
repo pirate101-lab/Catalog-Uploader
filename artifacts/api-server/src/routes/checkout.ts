@@ -104,7 +104,7 @@ router.post("/checkout/quote", async (req: Request, res: Response) => {
       shippingCents: priced.shippingCents,
       taxCents: priced.taxCents,
       totalCents: priced.totalCents,
-      currency: "USD",
+      currency: settings.currencyCode,
       currencySymbol: settings.currencySymbol ?? "$",
     });
   } catch (err) {
@@ -133,6 +133,7 @@ router.post("/checkout/submit", async (req: Request, res: Response) => {
       return;
     }
     const priced = await priceCart(items);
+    const submitSettings = await getSiteSettings();
 
     const customerName = [customer.firstName, customer.lastName]
       .filter(Boolean)
@@ -157,7 +158,7 @@ router.post("/checkout/submit", async (req: Request, res: Response) => {
         shippingCents: priced.shippingCents,
         taxCents: priced.taxCents,
         totalCents: priced.totalCents,
-        currency: "USD",
+        currency: submitSettings.currencyCode,
         status: "new",
       })
       .returning();
@@ -236,7 +237,7 @@ router.post("/checkout/paystack/init", async (req: Request, res: Response) => {
         shippingCents: priced.shippingCents,
         taxCents: priced.taxCents,
         totalCents: priced.totalCents,
-        currency: "USD",
+        currency: settings.currencyCode,
         status: "pending_payment",
         paymentProvider: "paystack",
       })
@@ -264,8 +265,13 @@ router.post("/checkout/paystack/init", async (req: Request, res: Response) => {
     if (!init.ok || !init.authorizationUrl) {
       // Roll back the half-created order so the admin queue stays clean.
       await db.delete(ordersTable).where(eq(ordersTable.id, order.id));
+      // Surface a stable error code (e.g. "currency_not_supported") so
+      // the storefront can render a tailored, actionable hint instead
+      // of Paystack's raw message.
       res.status(502).json({
         error: init.error ?? "Could not start Paystack transaction",
+        ...(init.code ? { code: init.code } : {}),
+        currency: order.currency,
       });
       return;
     }

@@ -74,6 +74,21 @@ export interface PaystackInitResult {
   accessCode?: string;
   reference?: string;
   error?: string;
+  /** Stable, machine-readable hint for the storefront UI when the
+   *  failure is a known class of error. Currently only emitted for the
+   *  "currency not enabled / not supported by this merchant" case so we
+   *  can render a tailored message on the checkout page. */
+  code?: "currency_not_supported";
+}
+
+/** Paystack returns this class of message when the merchant account
+ *  hasn't enabled the requested currency. We pattern-match on the
+ *  text so we can show the operator a tailored, actionable error. */
+function classifyInitError(message: string | undefined): PaystackInitResult["code"] {
+  if (!message) return undefined;
+  const m = message.toLowerCase();
+  if (m.includes("currency")) return "currency_not_supported";
+  return undefined;
 }
 
 export async function initializeTransaction(
@@ -113,10 +128,9 @@ export async function initializeTransaction(
       };
     };
     if (!r.ok || !data.status || !data.data?.authorization_url) {
-      return {
-        ok: false,
-        error: data.message ?? `Paystack returned HTTP ${r.status}`,
-      };
+      const error = data.message ?? `Paystack returned HTTP ${r.status}`;
+      const code = classifyInitError(data.message);
+      return code ? { ok: false, error, code } : { ok: false, error };
     }
     return {
       ok: true,

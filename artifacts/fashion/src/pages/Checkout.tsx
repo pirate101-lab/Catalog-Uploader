@@ -367,6 +367,9 @@ export function CheckoutPage() {
                 bank={bank}
                 memo={orderId}
                 total={totalDisplay}
+                currencyCode={
+                  (quote?.currency ?? settings?.currency) || undefined
+                }
               />
               <p className="text-xs text-muted-foreground mt-6">
                 <strong>Important:</strong> use the order number{' '}
@@ -612,6 +615,7 @@ export function CheckoutPage() {
                       form={form}
                       items={items}
                       bank={settings?.bankTransfer}
+                      currencyCode={quote?.currency ?? settings?.currency}
                       totalLabel={
                         pricingReady
                           ? `Place Order — ${fmt(totalCents, currencySymbol)}`
@@ -703,10 +707,12 @@ function BankDetailsList({
   bank,
   memo,
   total,
+  currencyCode,
 }: {
   bank: BankTransferDetails | null | undefined;
   memo: string;
   total?: string;
+  currencyCode?: string;
 }) {
   // Hide a row entirely when its env var is unset, so the list doesn't show
   // empty fields like "Account number: —". If the entire bank block is
@@ -744,7 +750,7 @@ function BankDetailsList({
       {total ? (
         <>
           <dt className="text-xs uppercase tracking-widest text-muted-foreground">
-            Amount (USD)
+            Amount{currencyCode ? ` (${currencyCode})` : ''}
           </dt>
           <dd className="font-mono font-bold">{total}</dd>
         </>
@@ -770,12 +776,14 @@ function BankTransferSubmit({
   items,
   bank,
   totalLabel,
+  currencyCode,
   onSuccess,
 }: {
   form: ReturnType<typeof useForm<CheckoutForm>>;
   items: CartItem[];
   bank: BankTransferDetails | null | undefined;
   totalLabel: string;
+  currencyCode?: string | null;
   onSuccess: (res: { orderId: string; totalCents: number; currency: string }) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
@@ -829,7 +837,7 @@ function BankTransferSubmit({
           <Lock className="w-4 h-4" /> Pay by bank transfer
         </p>
         <p className="text-muted-foreground mb-4">
-          Place your order now, then send the total in USD to the account
+          Place your order now, then send the total{currencyCode ? ` in ${currencyCode}` : ''} to the account
           below. We'll ship as soon as the deposit clears (typically the same
           business day for ACH, 1–3 days for international wires).
         </p>
@@ -968,9 +976,33 @@ function PaystackSubmit({
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // When Paystack rejects the chosen store currency we surface a
+  // dedicated, actionable hint instead of the generic error message.
+  const [currencyError, setCurrencyError] = useState<{
+    currency: string;
+  } | null>(null);
+  // Detect whether the visitor is signed in to the admin so we can
+  // include a one-click link to the settings page where the operator
+  // can switch currencies. Non-admins just see the explanation.
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/admin-auth/me', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data && (data.role === 'admin' || data.role === 'super_admin')) {
+          setIsAdmin(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const startPayment = async () => {
     setError(null);
+    setCurrencyError(null);
     const valid = await form.trigger();
     if (!valid) {
       setError('Please complete your contact and shipping details above.');
@@ -987,10 +1019,20 @@ function PaystackSubmit({
           customer: data,
         }),
       });
-      const body = await res.json().catch(() => null);
+      const body = (await res.json().catch(() => null)) as
+        | (PaystackInitResponse & { code?: string; currency?: string })
+        | { error?: string; message?: string; code?: string; currency?: string }
+        | null;
       if (!res.ok) {
+        if (body && (body as { code?: string }).code === 'currency_not_supported') {
+          setCurrencyError({
+            currency: (body as { currency?: string }).currency ?? 'this currency',
+          });
+          setSubmitting(false);
+          return;
+        }
         throw new Error(
-          (body && (body.message || body.error)) ||
+          (body && ((body as { message?: string }).message || (body as { error?: string }).error)) ||
             `Could not start Paystack payment (HTTP ${res.status}).`,
         );
       }
@@ -1020,6 +1062,48 @@ function PaystackSubmit({
           never touch our servers.
         </p>
       </div>
+      {currencyError ? (
+        <div
+          className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+          role="alert"
+          data-testid="paystack-currency-error"
+        >
+          <p className="font-medium flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>
+              Your Paystack account isn't enabled for {currencyError.currency}.
+            </span>
+          </p>
+          <p className="mt-2 text-xs">
+            {isAdmin ? (
+              <>
+                Switch to a supported currency in{' '}
+                <a
+                  href={`${basePath}/admin/settings`}
+                  className="underline font-semibold"
+                >
+                  admin settings
+                </a>
+                , or enable {currencyError.currency} in your{' '}
+                <a
+                  href="https://support.paystack.com/hc/en-us/articles/360009973319"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  Paystack dashboard
+                </a>
+                .
+              </>
+            ) : (
+              <>
+                Please choose bank transfer below, or contact the store team to
+                update their payment settings.
+              </>
+            )}
+          </p>
+        </div>
+      ) : null}
       {error ? (
         <p className="text-sm text-destructive flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />

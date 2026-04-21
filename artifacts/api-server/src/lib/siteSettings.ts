@@ -1,6 +1,30 @@
 import { db, siteSettingsTable, type SiteSettings } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
+/**
+ * The full set of currencies Paystack accepts on charge initialization.
+ * Each entry maps to the symbol the storefront should render. Adding a
+ * new code requires Paystack supporting it on the merchant account too.
+ */
+export const PAYSTACK_CURRENCIES = {
+  USD: "$",
+  NGN: "₦",
+  GHS: "GH₵",
+  ZAR: "R",
+  KES: "KSh",
+} as const;
+
+export type PaystackCurrency = keyof typeof PAYSTACK_CURRENCIES;
+
+export function isPaystackCurrency(v: unknown): v is PaystackCurrency {
+  return typeof v === "string" && v in PAYSTACK_CURRENCIES;
+}
+
+export function symbolForCurrency(code: string | null | undefined): string {
+  if (code && isPaystackCurrency(code)) return PAYSTACK_CURRENCIES[code];
+  return "$";
+}
+
 let cache: SiteSettings | null = null;
 let cacheUntil = 0;
 const TTL_MS = 5_000;
@@ -38,6 +62,7 @@ const FALLBACK_SETTINGS: SiteSettings = {
   defaultSort: "featured",
   freeShippingThresholdCents: 15000,
   currencySymbol: "$",
+  currencyCode: "USD",
   maintenanceMode: false,
   storeName: "VELOUR",
   tagline: "Women's Fashion Store",

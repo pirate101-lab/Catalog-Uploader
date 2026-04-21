@@ -143,6 +143,9 @@ export interface SiteSettings {
   defaultSort: string;
   freeShippingThresholdCents: number;
   currencySymbol: string;
+  /** Paystack-supported ISO currency code (USD/NGN/GHS/ZAR/KES). The
+   *  symbol is derived server-side from this and updated on save. */
+  currencyCode: string;
   maintenanceMode: boolean;
   storeName: string;
   tagline: string | null;
