@@ -4,7 +4,7 @@ import {
   type Request,
   type Response,
 } from "express";
-import { eq, sql, desc, asc, and, gte } from "drizzle-orm";
+import { eq, sql, desc, asc, and, gte, lte, or, ilike } from "drizzle-orm";
 import {
   db,
   heroSlidesTable,
@@ -1302,10 +1302,49 @@ router.get("/admin/payment-events", async (req: Request, res: Response) => {
   const limit = Math.min(Number(req.query["limit"] ?? 50) || 50, 200);
   const offset = Math.max(Number(req.query["offset"] ?? 0) || 0, 0);
   const kindRaw = typeof req.query["kind"] === "string" ? req.query["kind"] : "";
-  const where =
-    kindRaw === "success" || kindRaw === "failed" || kindRaw === "abandoned"
-      ? eq(paymentEventsTable.kind, kindRaw)
-      : sql`TRUE`;
+  const fromRaw = typeof req.query["from"] === "string" ? req.query["from"] : "";
+  const toRaw = typeof req.query["to"] === "string" ? req.query["to"] : "";
+  const qRaw = typeof req.query["q"] === "string" ? req.query["q"].trim() : "";
+
+  const conds = [] as Array<ReturnType<typeof eq>>;
+  if (kindRaw === "success" || kindRaw === "failed" || kindRaw === "abandoned") {
+    conds.push(eq(paymentEventsTable.kind, kindRaw));
+  }
+  // Date range — `from` is inclusive (start of that day in the caller's
+  // local time, sent as ISO), `to` is inclusive (we treat it as the END
+  // of that day so picking the same date twice still matches that day).
+  if (fromRaw) {
+    const d = new Date(fromRaw);
+    if (!Number.isNaN(d.getTime())) {
+      conds.push(gte(paymentEventsTable.createdAt, d));
+    }
+  }
+  if (toRaw) {
+    const d = new Date(toRaw);
+    if (!Number.isNaN(d.getTime())) {
+      conds.push(lte(paymentEventsTable.createdAt, d));
+    }
+  }
+  // Free-text search: match against the Paystack reference, the linked
+  // order id, or — via a correlated subquery — the customer email on the
+  // linked order. We use ILIKE for case-insensitive contains-matching.
+  if (qRaw) {
+    const pattern = `%${qRaw.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const emailMatch = sql`EXISTS (
+      SELECT 1 FROM ${ordersTable}
+      WHERE ${ordersTable.id} = ${paymentEventsTable.orderId}
+        AND ${ordersTable.email} ILIKE ${pattern}
+    )`;
+    conds.push(
+      or(
+        ilike(paymentEventsTable.reference, pattern),
+        ilike(paymentEventsTable.orderId, pattern),
+        emailMatch,
+      )!,
+    );
+  }
+
+  const where = conds.length > 0 ? and(...conds) : sql`TRUE`;
   const rows = await db
     .select()
     .from(paymentEventsTable)

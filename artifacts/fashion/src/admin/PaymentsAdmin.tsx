@@ -29,6 +29,9 @@ import {
   Activity,
   XCircle,
   Clock,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 type SaveablePatch = Partial<SiteSettings>;
@@ -530,12 +533,46 @@ function BankSection({
  * refresh. Failed and abandoned rows are the main reason this panel
  * exists — they used to be log-only and easy to miss.
  */
+const PAGE_SIZE = 50;
+
 function PaymentEventsSection() {
   const [rows, setRows] = useState<PaymentEventRow[] | null>(null);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "success" | "failed" | "abandoned">(
     "all",
   );
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+
+  // Debounce the search box so we don't hammer the API on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Reset pagination whenever any filter (other than page itself) changes.
+  useEffect(() => {
+    setPage(0);
+  }, [filter, from, to]);
+
+  // `to` is a calendar date; treat it as inclusive by sending end-of-day.
+  const toIso = useMemo(() => {
+    if (!to) return undefined;
+    const d = new Date(`${to}T23:59:59.999`);
+    return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+  }, [to]);
+  const fromIso = useMemo(() => {
+    if (!from) return undefined;
+    const d = new Date(`${from}T00:00:00`);
+    return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+  }, [from]);
 
   useEffect(() => {
     let cancelled = false;
@@ -543,29 +580,38 @@ function PaymentEventsSection() {
     setError(null);
     adminApi
       .listPaymentEvents({
-        limit: 50,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
         kind: filter === "all" ? undefined : filter,
+        from: fromIso,
+        to: toIso,
+        q: search || undefined,
       })
       .then((r) => {
         if (cancelled) return;
         setRows(r.rows);
+        setTotal(r.total);
         setError(null);
       })
       .catch((e) => !cancelled && setError((e as Error).message));
     return () => {
       cancelled = true;
     };
-  }, [filter]);
+  }, [filter, fromIso, toIso, search, page]);
 
-  // Live updates via SSE — prepend new events that match the active
-  // filter, capped to keep the panel snappy.
+  // Live updates via SSE — only prepend on the first page when no
+  // search/date filters are active, otherwise pagination + filtering
+  // would be misleading. We still keep the listener alive so toggling
+  // back to defaults immediately resumes live behavior.
+  const liveOk = page === 0 && !search && !fromIso && !toIso;
   usePaymentEventStream((ev) => {
+    if (!liveOk) return;
     setRows((prev) => {
       if (!prev) return prev;
       if (filter !== "all" && ev.kind !== filter) return prev;
-      // Avoid duplicating an event that we may have just fetched.
       if (prev.some((r) => r.id === ev.id)) return prev;
-      return [ev, ...prev].slice(0, 50);
+      setTotal((t) => t + 1);
+      return [ev, ...prev].slice(0, PAGE_SIZE);
     });
   });
 
@@ -578,6 +624,12 @@ function PaymentEventsSection() {
     ],
     [],
   );
+
+  const pageStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
+  const pageEnd = Math.min(total, (page + 1) * PAGE_SIZE);
+  const hasPrev = page > 0;
+  const hasNext = (page + 1) * PAGE_SIZE < total;
+  const filtersActive = !!(search || fromIso || toIso || filter !== "all");
 
   return (
     <Section
@@ -603,6 +655,78 @@ function PaymentEventsSection() {
         ))}
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
+        <div className="space-y-1">
+          <Label htmlFor="payment-events-search" className="text-xs">
+            Search
+          </Label>
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              id="payment-events-search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Order id, email, or Paystack reference"
+              className="pl-8"
+              data-testid="payment-events-search"
+            />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="payment-events-from" className="text-xs">
+            From
+          </Label>
+          <Input
+            id="payment-events-from"
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            data-testid="payment-events-from"
+            className="w-[10rem]"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="payment-events-to" className="text-xs">
+            To
+          </Label>
+          <Input
+            id="payment-events-to"
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            data-testid="payment-events-to"
+            className="w-[10rem]"
+          />
+        </div>
+      </div>
+
+      {filtersActive && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span data-testid="payment-events-summary">
+            {total === 0
+              ? "No matches for the current filters."
+              : `${total} match${total === 1 ? "" : "es"}`}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFilter("all");
+              setFrom("");
+              setTo("");
+              setSearchInput("");
+              // Skip the debounce so the cleared state takes effect on
+              // the very next request rather than 300ms later.
+              setSearch("");
+              setPage(0);
+            }}
+            className="underline hover:text-foreground"
+            data-testid="payment-events-clear"
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
+
       {error && (
         <div className="text-sm text-destructive flex items-center gap-2">
           <AlertCircle className="w-4 h-4" /> {error}
@@ -613,15 +737,47 @@ function PaymentEventsSection() {
         <p className="text-sm text-muted-foreground">Loading payment events…</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No payment events yet — once Paystack starts firing, every result
-          (good or bad) will land here.
+          {filtersActive
+            ? "No payment events match the current filters."
+            : "No payment events yet — once Paystack starts firing, every result (good or bad) will land here."}
         </p>
       ) : (
-        <ul className="divide-y border rounded-md" data-testid="payment-events-list">
-          {rows.map((ev) => (
-            <PaymentEventItem key={ev.id} event={ev} />
-          ))}
-        </ul>
+        <>
+          <ul className="divide-y border rounded-md" data-testid="payment-events-list">
+            {rows.map((ev) => (
+              <PaymentEventItem key={ev.id} event={ev} />
+            ))}
+          </ul>
+          <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
+            <span data-testid="payment-events-page-info">
+              Showing {pageStart}–{pageEnd} of {total}
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={!hasPrev}
+                data-testid="payment-events-prev"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 mr-1" />
+                Prev
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={!hasNext}
+                data-testid="payment-events-next"
+              >
+                Next
+                <ChevronRight className="w-3.5 h-3.5 ml-1" />
+              </Button>
+            </div>
+          </div>
+        </>
       )}
     </Section>
   );

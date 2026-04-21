@@ -372,11 +372,21 @@ export const adminApi = {
     adminFetch<PaymentsTestResult>("/admin/payments/test", { method: "POST" }),
 
   /* Payment events log */
-  listPaymentEvents: (params?: { kind?: string; limit?: number; offset?: number }) => {
+  listPaymentEvents: (params?: {
+    kind?: string;
+    limit?: number;
+    offset?: number;
+    from?: string;
+    to?: string;
+    q?: string;
+  }) => {
     const q = new URLSearchParams();
     if (params?.kind) q.set("kind", params.kind);
     if (params?.limit) q.set("limit", String(params.limit));
     if (params?.offset !== undefined) q.set("offset", String(params.offset));
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.q) q.set("q", params.q);
     const qs = q.toString();
     return adminFetch<{
       rows: PaymentEventRow[];
