@@ -39,7 +39,7 @@ export function HeroAdmin() {
         subtitle: "Edit me",
         ctaLabel: "Shop",
         ctaHref: "/shop",
-        imageUrl: "/hero-1-boutique.jpg",
+        imageUrl: "/hero-1-boutique_800.webp",
         active: true,
         gender: "all",
       });

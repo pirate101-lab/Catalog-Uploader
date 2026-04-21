@@ -236,7 +236,7 @@ const FALLBACK_HERO_WOMEN = [
     kicker: null,
     ctaLabel: "Shop New In",
     ctaHref: "/shop",
-    imageUrl: "/hero-1-boutique.jpg",
+    imageUrl: "/hero-1-boutique.webp",
     sortOrder: 1,
     active: true,
     gender: "all" as const,
@@ -248,7 +248,7 @@ const FALLBACK_HERO_WOMEN = [
     kicker: null,
     ctaLabel: "Explore",
     ctaHref: "/shop?category=outerwear",
-    imageUrl: "/hero-2-display.jpg",
+    imageUrl: "/hero-2-display.webp",
     sortOrder: 2,
     active: true,
     gender: "all" as const,
@@ -260,7 +260,7 @@ const FALLBACK_HERO_WOMEN = [
     kicker: null,
     ctaLabel: "Shop Denim",
     ctaHref: "/shop?category=denim",
-    imageUrl: "/hero-3-vintage.jpg",
+    imageUrl: "/hero-3-vintage.webp",
     sortOrder: 3,
     active: true,
     gender: "all" as const,
@@ -272,7 +272,7 @@ const FALLBACK_HERO_WOMEN = [
     kicker: null,
     ctaLabel: "Browse All",
     ctaHref: "/shop",
-    imageUrl: "/hero-4-moda.jpg",
+    imageUrl: "/hero-4-moda.webp",
     sortOrder: 4,
     active: true,
     gender: "all" as const,
@@ -281,7 +281,7 @@ const FALLBACK_HERO_WOMEN = [
 
 // Men-focused fallback set so the men view never looks empty before
 // admins customise it. Uses hero photos shot specifically for the men's
-// catalog (`hero-5..7-mens-*.jpg` in the storefront's public folder)
+// catalog (`hero-5..7-mens-*.webp` in the storefront's public folder)
 // so the fallback feels properly tailored rather than gender-neutral.
 const FALLBACK_HERO_MEN = [
   {
@@ -291,7 +291,7 @@ const FALLBACK_HERO_MEN = [
     kicker: "New Season",
     ctaLabel: "Shop Men",
     ctaHref: "/shop?gender=men",
-    imageUrl: "/hero-5-mens-tailoring.jpg",
+    imageUrl: "/hero-5-mens-tailoring.webp",
     sortOrder: 1,
     active: true,
     gender: "men" as const,
@@ -303,7 +303,7 @@ const FALLBACK_HERO_MEN = [
     kicker: null,
     ctaLabel: "Shop Outerwear",
     ctaHref: "/shop?gender=men&category=Outerwear",
-    imageUrl: "/hero-7-mens-outerwear.jpg",
+    imageUrl: "/hero-7-mens-outerwear.webp",
     sortOrder: 2,
     active: true,
     gender: "men" as const,
@@ -315,7 +315,7 @@ const FALLBACK_HERO_MEN = [
     kicker: null,
     ctaLabel: "Shop Denim",
     ctaHref: "/shop?gender=men&category=Bottoms",
-    imageUrl: "/hero-6-mens-denim.jpg",
+    imageUrl: "/hero-6-mens-denim.webp",
     sortOrder: 3,
     active: true,
     gender: "men" as const,

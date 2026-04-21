@@ -26,6 +26,12 @@ function isAbsolute(url: string): boolean {
 
 function resolveBase(path: string): string | null {
   if (isAbsolute(path)) return path;
+  // Root-relative paths (e.g. bundled hero `/hero-1.webp`) are served by
+  // the web artifact itself, so we let them through unchanged — even when
+  // STORAGE_BASE is configured for catalog assets. The catalog API always
+  // returns fully-qualified R2 URLs, so the STORAGE_BASE branch only fires
+  // for relative (non-leading-slash) paths the API might produce.
+  if (path.startsWith('/')) return path;
   if (STORAGE_BASE) return `${STORAGE_BASE}/${path}`;
   return null;
 }

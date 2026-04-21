@@ -19,7 +19,7 @@ import {
   type GenderKey,
   type HomeFilterState,
 } from '@/lib/homeFilters';
-import { imagePreload } from '@/lib/imageUrl';
+import { imagePreload, imageSrcSet, imageUrl } from '@/lib/imageUrl';
 import type { Product } from '@/data/products';
 
 interface ApiHeroSlide {
@@ -40,7 +40,7 @@ interface ApiHeroSlide {
 
 const FALLBACK_HERO_SLIDES: HeroSlide[] = [
   {
-    image: `${import.meta.env.BASE_URL}hero-1-boutique.jpg`,
+    image: `${import.meta.env.BASE_URL}hero-1-boutique.webp`,
     imageAlt: 'Couple seated together on a velvet bench inside a warmly lit designer boutique',
     kicker: 'Fall / Winter 2026',
     headline: 'LOVE WITH STYLE',
@@ -49,7 +49,7 @@ const FALLBACK_HERO_SLIDES: HeroSlide[] = [
     secondaryCta: { label: 'Explore Featured', href: '/shop' },
   },
   {
-    image: `${import.meta.env.BASE_URL}hero-2-display.jpg`,
+    image: `${import.meta.env.BASE_URL}hero-2-display.webp`,
     imageAlt: 'Spotlit mannequin in a sculpted coat on display in a dark studio showroom',
     kicker: 'Step Inside',
     headline: 'THE TAILORING FLOOR',
@@ -58,7 +58,7 @@ const FALLBACK_HERO_SLIDES: HeroSlide[] = [
     secondaryCta: { label: 'See the Edit', href: '/shop' },
   },
   {
-    image: `${import.meta.env.BASE_URL}hero-3-vintage.jpg`,
+    image: `${import.meta.env.BASE_URL}hero-3-vintage.webp`,
     imageAlt: 'Two stylists chatting at the counter of a vintage-inspired boutique',
     kicker: 'Weekend Drop',
     headline: 'STUDIO STORIES',
@@ -67,7 +67,7 @@ const FALLBACK_HERO_SLIDES: HeroSlide[] = [
     secondaryCta: { label: 'Browse All', href: '/shop' },
   },
   {
-    image: `${import.meta.env.BASE_URL}hero-4-moda.jpg`,
+    image: `${import.meta.env.BASE_URL}hero-4-moda.webp`,
     imageAlt: 'Two friends browsing a rail of dresses together at a sunlit boutique',
     kicker: 'Bring a Friend',
     headline: 'STYLED TOGETHER',
@@ -347,23 +347,30 @@ export function HomePage() {
       return qs ? `/shop?${qs}` : '/shop';
     };
     return heroSlides.map((s, i) => {
+      // For .webp heroes (the bundled responsive variants and any R2-hosted
+      // ones) we resolve a sized URL + srcset so every <img> requests an
+      // existing file — the unsuffixed `hero-*.webp` base in the slide's
+      // `image` is intentionally a template, not a real asset on disk.
+      // Non-.webp slides (e.g. legacy admin uploads) pass through unchanged
+      // because imageUrl returns the raw URL when it isn't a webp.
+      const opts = { category: 'hero', id: `hero-${i}` };
+      const sizedSrc = imageUrl(s.image, opts);
+      const srcSet = imageSrcSet(s.image, opts);
       const next: HeroSlide = {
         ...s,
+        image: sizedSrc,
         primaryCta: { ...s.primaryCta, href: decorate(s.primaryCta.href) },
         secondaryCta: s.secondaryCta
           ? { ...s.secondaryCta, href: decorate(s.secondaryCta.href) }
           : undefined,
       };
-      // Only the first slide gets srcset hints (it's the LCP target and
-      // the only one we preload); decorating other slides would force
-      // the browser to also chew through their srcset on first paint.
-      if (i === 0 && heroPreload) {
-        next.imageSrcSet = heroPreload.imageSrcSet;
+      if (srcSet) {
+        next.imageSrcSet = srcSet;
         next.imageSizes = '100vw';
       }
       return next;
     });
-  }, [heroSlides, filters, heroPreload]);
+  }, [heroSlides, filters]);
 
   const hasActiveFilters =
     filters.category !== DEFAULT_FILTERS.category ||
