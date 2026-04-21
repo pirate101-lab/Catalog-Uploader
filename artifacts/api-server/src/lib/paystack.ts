@@ -87,7 +87,17 @@ export interface PaystackInitResult {
 function classifyInitError(message: string | undefined): PaystackInitResult["code"] {
   if (!message) return undefined;
   const m = message.toLowerCase();
-  if (m.includes("currency")) return "currency_not_supported";
+  // Match Paystack's known phrasings for currency rejection without
+  // over-matching unrelated errors that happen to mention "currency".
+  if (
+    m.includes("currency not supported") ||
+    m.includes("not supported on this account") ||
+    m.includes("currency is not supported") ||
+    /currency .*(not supported|disabled|unavailable)/.test(m) ||
+    /(not supported|disabled|unavailable).*currency/.test(m)
+  ) {
+    return "currency_not_supported";
+  }
   return undefined;
 }
 

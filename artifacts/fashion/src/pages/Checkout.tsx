@@ -1097,8 +1097,17 @@ function PaystackSubmit({
               </>
             ) : (
               <>
-                Please choose bank transfer below, or contact the store team to
-                update their payment settings.
+                Please choose bank transfer below, or contact the store team
+                to enable {currencyError.currency} in their{' '}
+                <a
+                  href="https://support.paystack.com/hc/en-us/articles/360009973319"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  Paystack dashboard
+                </a>
+                .
               </>
             )}
           </p>
