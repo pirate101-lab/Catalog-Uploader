@@ -41,7 +41,7 @@ export function PriceTag({
     const cents = fixed.slice(dot + 1);
     return (
       <span className={`font-bold leading-none whitespace-nowrap text-price ${className}`}>
-        <span className={sizes.whole}>{currencySymbol}{whole}</span>
+        <span className={sizes.whole}>{symbol}{whole}</span>
         <span className={sizes.cents}>{cents}</span>
       </span>
     );
@@ -51,7 +51,7 @@ export function PriceTag({
     <span
       className={`font-bold leading-none whitespace-nowrap text-price ${sizes.full} ${className}`}
     >
-      {currencySymbol}{fixed}
+      {symbol}{fixed}
     </span>
   );
 }
