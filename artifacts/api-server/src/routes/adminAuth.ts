@@ -123,55 +123,6 @@ router.post("/admin-auth/setup", async (req: Request, res: Response) => {
   res.json({ ok: true, user: shapeSelf(created, "super_admin") });
 });
 
-/**
- * One-shot emergency reset, gated on env var EMERGENCY_RESET_TOKEN.
- *
- * Use case: the production database holds an admin nobody has the
- * password for, and there's no other way to reach the DB to clear it.
- * Operator sets EMERGENCY_RESET_TOKEN to a random secret in the
- * deployment env, redeploys, then POSTs the same token here. The
- * endpoint deletes every admin and nulls the legacy site_settings
- * credentials so /admin-auth/setup-status flips back to needsSetup:true
- * and the registration form returns.
- *
- * Hardening: returns 404 when the env var is unset (so the endpoint
- * is invisible in normal operation) and uses a constant-time compare
- * on the token. After a successful wipe, OPERATOR MUST remove the env
- * var and redeploy, otherwise the endpoint stays callable.
- */
-router.post(
-  "/admin-auth/_emergency-reset",
-  async (req: Request, res: Response) => {
-    const expected = process.env.EMERGENCY_RESET_TOKEN;
-    if (!expected || expected.length < 8) {
-      res.status(404).json({ error: "not_found" });
-      return;
-    }
-    const provided = String(req.body?.token ?? "");
-    const a = Buffer.from(expected);
-    const b = Buffer.from(provided);
-    const ok =
-      a.length === b.length &&
-      (await import("node:crypto")).timingSafeEqual(a, b);
-    if (!ok) {
-      res.status(404).json({ error: "not_found" });
-      return;
-    }
-    const { db, adminUsersTable, siteSettingsTable } = await import(
-      "@workspace/db"
-    );
-    const { invalidateSiteSettings } = await import("../lib/siteSettings");
-    const { eq } = await import("drizzle-orm");
-    await db.delete(adminUsersTable);
-    await db
-      .update(siteSettingsTable)
-      .set({ adminUsername: null, adminPasswordHash: null })
-      .where(eq(siteSettingsTable.id, 1));
-    invalidateSiteSettings();
-    res.json({ ok: true, message: "All admin records cleared. Remove EMERGENCY_RESET_TOKEN and redeploy now." });
-  },
-);
-
 /* -------- Login / Logout / Me -------- */
 
 router.post("/admin-auth/login", async (req: Request, res: Response) => {
