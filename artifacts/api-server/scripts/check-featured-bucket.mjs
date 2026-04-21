@@ -1,10 +1,20 @@
 #!/usr/bin/env node
-// Regression check for Task #8 — guards the homepage "today's featured
-// edit" grid (Home.tsx → FEATURED_BUCKET = "tiktok_verified") against a
-// silent zero-result regression like the one that left the Men's Edit
-// reading "0 pieces available" for weeks. Fails loudly when either
-// gender's tiktok_verified pool is empty so a future change to
-// deriveBuckets() / loadCatalog() can't ship without tripping CI.
+// Regression check for the curated merch buckets surfaced on the
+// homepage and storefront landing pages. Originally added in Task #8
+// for `tiktok_verified` (the homepage's "today's featured edit"
+// grid), and broadened in Task #10 to cover every bucket actually
+// rendered as a tile/tab on Home.tsx + Shop.tsx, namely:
+//   - new_in
+//   - collection
+//   - tiktok_verified
+//   - trending
+// Each of those is reachable from the secondary nav (and from
+// /shop?bucket=<key>), so a silent zero-result regression on any of
+// them — for either gender — would land the same "0 pieces available"
+// dead tile that motivated Task #8 in the first place. This check
+// fails loudly when ANY (gender, bucket) pair is empty so a future
+// change to deriveBuckets() / loadCatalog() can't ship without
+// tripping CI.
 //
 // Usage (server must already be running):
 //   API_URL=http://localhost:8080 \
@@ -13,11 +23,15 @@
 // Defaults to http://localhost:8080 when API_URL is unset.
 
 const API = (process.env.API_URL ?? "http://localhost:8080").replace(/\/+$/, "");
-const FEATURED_BUCKET = "tiktok_verified";
+// Keep this list in sync with VALID_BUCKETS in
+// artifacts/fashion/src/lib/productsApi.ts and the TOP_LEVEL_BUCKETS
+// map in artifacts/fashion/src/data/taxonomy.ts. These are the buckets
+// the storefront UI surfaces as nav tabs / featured tiles.
+const CURATED_BUCKETS = ["new_in", "collection", "tiktok_verified", "trending"];
 const GENDERS = ["women", "men"];
 
-async function fetchTotal(gender) {
-  const url = `${API}/api/storefront/products?gender=${gender}&bucket=${FEATURED_BUCKET}&limit=1`;
+async function fetchTotal(gender, bucket) {
+  const url = `${API}/api/storefront/products?gender=${gender}&bucket=${bucket}&limit=1`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`${url} → HTTP ${res.status}`);
@@ -30,23 +44,29 @@ async function fetchTotal(gender) {
 }
 
 const failures = [];
-for (const gender of GENDERS) {
-  try {
-    const { url, total } = await fetchTotal(gender);
-    if (total <= 0) {
-      failures.push(`${gender}: total=${total} (expected > 0) — ${url}`);
-    } else {
-      console.log(`ok  ${gender} ${FEATURED_BUCKET}: total=${total}`);
+let checked = 0;
+for (const bucket of CURATED_BUCKETS) {
+  for (const gender of GENDERS) {
+    checked += 1;
+    try {
+      const { url, total } = await fetchTotal(gender, bucket);
+      if (total <= 0) {
+        failures.push(`${gender} ${bucket}: total=${total} (expected > 0) — ${url}`);
+      } else {
+        console.log(`ok  ${gender} ${bucket}: total=${total}`);
+      }
+    } catch (err) {
+      failures.push(`${gender} ${bucket}: ${err instanceof Error ? err.message : String(err)}`);
     }
-  } catch (err) {
-    failures.push(`${gender}: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
 if (failures.length > 0) {
   console.error(
-    `\nFAIL ${FEATURED_BUCKET} regression check:\n  - ${failures.join("\n  - ")}`,
+    `\nFAIL curated-bucket regression check:\n  - ${failures.join("\n  - ")}`,
   );
   process.exit(1);
 }
-console.log(`\nall ${GENDERS.length} gender(s) have non-empty ${FEATURED_BUCKET} bucket`);
+console.log(
+  `\nall ${checked} (gender, bucket) pair(s) across ${CURATED_BUCKETS.length} curated bucket(s) are non-empty`,
+);
