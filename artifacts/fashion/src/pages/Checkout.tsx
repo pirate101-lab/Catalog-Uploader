@@ -10,12 +10,29 @@ import {
   useElements,
   useStripe,
 } from '@stripe/react-stripe-js';
+import { useUser } from '@clerk/react';
 import { useCart, type CartItem } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle2, Lock, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Lock, AlertTriangle, MapPin, Pencil } from 'lucide-react';
 import { PriceTag } from '@/components/PriceTag';
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+interface SavedAddress {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  countryCode: string | null;
+  line1: string;
+  line2: string | null;
+  city: string;
+  region: string | null;
+  postalCode: string | null;
+  country: string;
+  isDefault: boolean;
+}
 
 // Display-only estimates while we wait for the server to price the cart.
 // All amounts the customer is actually charged come from the server.
@@ -97,11 +114,22 @@ function fmt(cents: number, symbol: string = '$'): string {
   return `${symbol}${(cents / 100).toFixed(2)}`;
 }
 
+function splitName(full: string): { firstName: string; lastName: string } {
+  const trimmed = (full || '').trim();
+  if (!trimmed) return { firstName: '', lastName: '' };
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
 export function CheckoutPage() {
   const { items, subtotal, clearCart } = useCart();
+  const { isSignedIn, user } = useUser();
   const [, navigate] = useLocation();
   const [submitted, setSubmitted] = useState(false);
   const [orderId, setOrderId] = useState('');
+  const [savedAddress, setSavedAddress] = useState<SavedAddress | null>(null);
+  const [editingAddress, setEditingAddress] = useState(false);
   // Server-authoritative total returned by /checkout/submit. The pre-submit
   // estimates can drift (price changes, free-shipping threshold, tax rules),
   // so we ALWAYS show the value the API persisted on the order — that is
@@ -146,6 +174,42 @@ export function CheckoutPage() {
       country: 'United States',
     },
   });
+
+  // Load the signed-in shopper's saved addresses so we can collapse the
+  // shipping form when they already have one (no need to re-type it).
+  useEffect(() => {
+    if (!isSignedIn) {
+      setSavedAddress(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${basePath}/api/addresses`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.addresses?.length) return;
+        const list: SavedAddress[] = data.addresses;
+        const def = list.find((a) => a.isDefault) ?? list[0];
+        if (!def) return;
+        setSavedAddress(def);
+        const { firstName, lastName } = splitName(def.fullName);
+        form.reset({
+          email: form.getValues('email') || user?.primaryEmailAddress?.emailAddress || '',
+          firstName,
+          lastName,
+          address: [def.line1, def.line2].filter(Boolean).join(', '),
+          city: def.city,
+          state: def.region ?? '',
+          zip: def.postalCode ?? '',
+          country: def.country,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // form.reset is stable; user object identity is stable per render scope.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -263,7 +327,7 @@ export function CheckoutPage() {
             </p>
           </div>
 
-          <div className="border border-border bg-muted/20 p-8 mb-10">
+          <div className="rounded-2xl border border-border bg-muted/20 p-8 mb-10">
             <h2 className="text-xs font-bold uppercase tracking-widest mb-6">
               Payment Instructions
             </h2>
@@ -350,6 +414,40 @@ export function CheckoutPage() {
               <h2 className="text-xs font-bold uppercase tracking-widest mb-5">
                 Shipping Address
               </h2>
+              {savedAddress && !editingAddress ? (
+                <div
+                  className="rounded-2xl border border-border bg-muted/20 p-6 flex items-start gap-4"
+                  data-testid="saved-address-card"
+                >
+                  <MapPin className="w-5 h-5 mt-0.5 text-primary shrink-0" />
+                  <div className="flex-1 text-sm">
+                    <p className="font-medium">{savedAddress.fullName}</p>
+                    <p className="text-muted-foreground mt-0.5">
+                      {savedAddress.line1}
+                      {savedAddress.line2 ? `, ${savedAddress.line2}` : ''}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {[savedAddress.city, savedAddress.region, savedAddress.postalCode]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </p>
+                    <p className="text-muted-foreground">{savedAddress.country}</p>
+                    {savedAddress.phone ? (
+                      <p className="text-muted-foreground mt-1">
+                        {savedAddress.countryCode} {savedAddress.phone}
+                      </p>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingAddress(true)}
+                    className="text-xs uppercase tracking-widest text-primary hover:underline inline-flex items-center gap-1.5 shrink-0"
+                    data-testid="button-edit-address"
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Edit
+                  </button>
+                </div>
+              ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="First name" error={form.formState.errors.firstName?.message}>
                   <Input
@@ -418,7 +516,20 @@ export function CheckoutPage() {
                     className="rounded-lg h-12"
                   />
                 </Field>
+                {savedAddress && editingAddress ? (
+                  <div className="md:col-span-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingAddress(false)}
+                      className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                      data-testid="button-cancel-edit-address"
+                    >
+                      ← Use my saved address
+                    </button>
+                  </div>
+                ) : null}
               </div>
+              )}
             </section>
 
             <section>
@@ -492,7 +603,7 @@ export function CheckoutPage() {
             </section>
           </form>
 
-          <aside className="bg-muted/30 p-8 h-fit border border-border">
+          <aside className="rounded-2xl bg-muted/30 p-8 h-fit border border-border">
             <h2 className="text-xs font-bold uppercase tracking-widest mb-6">
               Order Summary
             </h2>

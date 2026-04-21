@@ -722,7 +722,7 @@ export function HomePage() {
                       <button
                         onClick={loadMore}
                         disabled={loadingMore}
-                        className="inline-flex items-center gap-2 border border-foreground text-foreground px-12 h-14 text-xs tracking-widest uppercase font-bold hover:bg-foreground hover:text-background transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-2 rounded-full border border-foreground text-foreground px-12 h-14 text-xs tracking-widest uppercase font-bold hover:bg-foreground hover:text-background transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         data-testid="button-home-load-more"
                       >
                         {loadingMore
@@ -736,7 +736,7 @@ export function HomePage() {
                   )}
                   <Link
                     href={shopHref(filters)}
-                    className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-12 h-14 text-xs tracking-widest uppercase font-bold shadow-lg hover:shadow-xl transition-all"
+                    className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-12 h-14 text-xs tracking-widest uppercase font-bold shadow-lg hover:shadow-xl transition-all"
                     data-testid="link-shop-collection"
                   >
                     Shop the Full Collection <ArrowRight className="w-4 h-4" />
