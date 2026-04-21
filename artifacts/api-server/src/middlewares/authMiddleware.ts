@@ -18,7 +18,7 @@ declare global {
       isAuthenticated(): this is AuthedRequest;
 
       user?: User | undefined;
-      authProvider?: "oidc" | "password" | undefined;
+      authProvider?: "oidc" | "password" | "admin-local" | undefined;
     }
 
     export interface AuthedRequest {

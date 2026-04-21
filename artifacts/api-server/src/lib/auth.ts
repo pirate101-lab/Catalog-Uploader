@@ -9,7 +9,7 @@ export const ISSUER_URL = process.env.ISSUER_URL ?? "https://replit.com/oidc";
 export const SESSION_COOKIE = "sid";
 export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 
-export type AuthProvider = "oidc" | "password";
+export type AuthProvider = "oidc" | "password" | "admin-local";
 
 export interface SessionData {
   user: AuthUser;

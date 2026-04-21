@@ -58,6 +58,8 @@ const FALLBACK_SETTINGS: SiteSettings = {
   bankSwiftCode: null,
   bankRoutingNumber: null,
   bankInstructions: null,
+  adminUsername: null,
+  adminPasswordHash: null,
   updatedAt: new Date(0),
 };
 

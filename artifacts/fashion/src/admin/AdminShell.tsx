@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, Redirect, useLocation } from "wouter";
-import { useAuth } from "@workspace/replit-auth-web";
 import {
   LayoutDashboard,
   ImageIcon,
@@ -9,7 +8,6 @@ import {
   Users,
   Settings,
   LogOut,
-  ShieldAlert,
   Star,
   Mail,
   CreditCard,
@@ -28,25 +26,47 @@ const NAV: Array<{ to: string; label: string; icon: typeof LayoutDashboard }> = 
   { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
+interface AdminStatus {
+  authenticated: boolean;
+  isAdmin: boolean;
+  email?: string | null;
+  authProvider?: "oidc" | "password" | "admin-local" | null;
+}
+
 export function AdminShell({ children }: { children: ReactNode }) {
-  const { user, isLoading, isAuthenticated, login, logout } = useAuth();
   const [location] = useLocation();
-  const [adminCheck, setAdminCheck] = useState<
-    { isAdmin: boolean; loaded: boolean }
-  >({ isAdmin: false, loaded: false });
+  const [status, setStatus] = useState<{
+    loaded: boolean;
+    data: AdminStatus | null;
+  }>({ loaded: false, data: null });
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      setAdminCheck({ isAdmin: false, loaded: true });
-      return;
-    }
     fetch("/api/auth/admin-status", { credentials: "include" })
       .then((r) => r.json())
-      .then((d) => setAdminCheck({ isAdmin: !!d.isAdmin, loaded: true }))
-      .catch(() => setAdminCheck({ isAdmin: false, loaded: true }));
-  }, [isAuthenticated]);
+      .then((d: AdminStatus) => setStatus({ loaded: true, data: d }))
+      .catch(() => setStatus({ loaded: true, data: null }));
+  }, []);
 
-  if (isLoading) {
+  const signOut = async () => {
+    // Clear whichever session we have. Calling both is safe — the
+    // local-admin endpoint just clears the cookie, and the OIDC route
+    // tolerates a missing session too.
+    try {
+      if (status.data?.authProvider === "admin-local") {
+        await fetch("/api/admin-auth/logout", {
+          method: "POST",
+          credentials: "include",
+        });
+        window.location.href = "/admin/login";
+      } else {
+        window.location.href = "/api/logout";
+      }
+    } catch {
+      window.location.href = "/admin/login";
+    }
+  };
+
+  if (!status.loaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-sm text-muted-foreground">Loading…</p>
@@ -54,39 +74,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="max-w-md w-full p-10 border rounded-lg text-center space-y-6">
-          <ShieldAlert className="w-10 h-10 mx-auto text-primary" />
-          <div>
-            <h1 className="font-serif text-3xl font-bold mb-2">VELOUR Admin</h1>
-            <p className="text-sm text-muted-foreground">
-              Sign in to manage the storefront.
-            </p>
-          </div>
-          <Button onClick={login} className="w-full h-12">
-            Sign in
-          </Button>
-        </div>
-      </div>
-    );
+  if (!status.data?.isAdmin) {
+    return <Redirect to="/admin/login" />;
   }
 
-  if (!adminCheck.loaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Checking access…</p>
-      </div>
-    );
-  }
-
-  if (!adminCheck.isAdmin) {
-    // Redirect non-admin authenticated users back to the storefront. The
-    // server still enforces admin on every /admin/* API route, so this
-    // is purely a UX shortcut to keep them out of the admin shell.
-    return <Redirect to="/" />;
-  }
+  const userLabel =
+    status.data.email ??
+    (status.data.authProvider === "admin-local" ? "Admin" : "Operator");
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -122,9 +116,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           })}
         </nav>
         <div className="p-4 border-t border-white/10 space-y-2">
-          <div className="text-xs text-white/60 truncate">
-            {user?.email ?? user?.firstName ?? "Operator"}
-          </div>
+          <div className="text-xs text-white/60 truncate">{userLabel}</div>
           <Link
             href="/"
             className="block text-xs text-white/70 hover:text-white"
@@ -135,7 +127,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             variant="outline"
             size="sm"
             className="w-full bg-transparent border-white/20 text-white hover:bg-white/10"
-            onClick={logout}
+            onClick={signOut}
           >
             <LogOut className="w-3 h-3 mr-2" /> Sign out
           </Button>

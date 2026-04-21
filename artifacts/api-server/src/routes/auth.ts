@@ -100,9 +100,11 @@ router.get("/auth/admin-status", async (req: Request, res: Response) => {
   }
   res.json({
     authenticated: true,
-    // Mirror requireAdmin: only OIDC sessions can ever be admin.
+    // Mirror requireAdmin: OIDC sessions match the email allowlist;
+    // local-admin sessions are always admin.
     isAdmin: isOidcAdmin(req),
     email: req.user.email ?? null,
+    authProvider: req.authProvider ?? null,
   });
 });
 

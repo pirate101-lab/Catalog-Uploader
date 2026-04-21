@@ -298,6 +298,8 @@ export function SettingsAdmin() {
             </p>
           </Section>
 
+          <AdminAccountSection />
+
           <Section title="Site state">
             <div className="flex items-center gap-3">
               <Switch
@@ -317,6 +319,114 @@ export function SettingsAdmin() {
         </div>
       )}
     </AdminShell>
+  );
+}
+
+function AdminAccountSection() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (newPassword && newPassword !== confirmPassword) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+    if (!newUsername.trim() && !newPassword) {
+      toast.error("Enter a new username or password.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin-auth/change", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword,
+          newUsername: newUsername.trim() || undefined,
+          newPassword: newPassword || undefined,
+        }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        message?: string;
+      };
+      if (!res.ok) {
+        const map: Record<string, string> = {
+          invalid_current_password: "Current password is incorrect.",
+          current_password_required: "Enter your current password.",
+          nothing_to_change: "Enter a new username or password.",
+          weak_password: body.message ?? "Password too weak.",
+          invalid_username: body.message ?? "Invalid username.",
+          no_admin_user: "No admin account is configured.",
+        };
+        toast.error(map[body.error ?? ""] ?? "Failed to update credentials.");
+        return;
+      }
+      toast.success("Admin credentials updated");
+      setCurrentPassword("");
+      setNewUsername("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Section title="Admin account">
+      <p className="text-xs text-muted-foreground -mt-2">
+        Change the username and/or password used to sign in to the admin
+        dashboard. Confirm with your current password.
+      </p>
+      <Field label="Current password">
+        <Input
+          type="password"
+          autoComplete="current-password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+        />
+      </Field>
+      <Field label="New username (optional)">
+        <Input
+          autoComplete="username"
+          value={newUsername}
+          onChange={(e) => setNewUsername(e.target.value)}
+          placeholder="Leave blank to keep current"
+        />
+      </Field>
+      <Field label="New password (optional)">
+        <Input
+          type="password"
+          autoComplete="new-password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          placeholder="At least 8 characters"
+        />
+      </Field>
+      <Field label="Confirm new password">
+        <Input
+          type="password"
+          autoComplete="new-password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+        />
+      </Field>
+      <div className="flex justify-end pt-1">
+        <Button
+          variant="outline"
+          onClick={submit}
+          disabled={saving || !currentPassword}
+        >
+          {saving ? "Updating…" : "Update credentials"}
+        </Button>
+      </div>
+    </Section>
   );
 }
 

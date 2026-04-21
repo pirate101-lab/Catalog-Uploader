@@ -112,6 +112,12 @@ export const siteSettingsTable = pgTable("site_settings", {
   bankSwiftCode: text("bank_swift_code"),
   bankRoutingNumber: text("bank_routing_number"),
   bankInstructions: text("bank_instructions"),
+  // Local admin credentials. Bootstrapped to a random username/password
+  // on first server boot (logged once to the server console) so the
+  // operator can sign in without configuring SSO. The hash is stored
+  // with bcrypt; the operator can rotate both fields from the admin UI.
+  adminUsername: text("admin_username"),
+  adminPasswordHash: text("admin_password_hash"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()

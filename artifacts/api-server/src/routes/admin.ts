@@ -665,8 +665,18 @@ router.get("/admin/customers", async (_req, res) => {
 function shapeSettingsForAdmin(
   s: Awaited<ReturnType<typeof getSiteSettings>>,
 ) {
+  // Strip credential material before returning to the browser. The
+  // bcrypt hash never needs to leave the server, and the username is
+  // managed exclusively through `/api/admin-auth/*` endpoints.
+  const {
+    adminPasswordHash: _hash,
+    adminUsername: _username,
+    ...rest
+  } = s;
+  void _hash;
+  void _username;
   return {
-    ...s,
+    ...rest,
     paystackLiveSecretKey: maskSecret(s.paystackLiveSecretKey),
     paystackTestSecretKey: maskSecret(s.paystackTestSecretKey),
     paystackLiveSecretKeySet: !!s.paystackLiveSecretKey,

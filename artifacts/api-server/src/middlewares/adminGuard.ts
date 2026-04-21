@@ -19,6 +19,13 @@ export function requireAdmin(
     res.status(401).json({ error: "Authentication required" });
     return;
   }
+  // The local admin account (username/password stored in site_settings)
+  // is always authorised — its existence already means the operator
+  // proved knowledge of the admin password.
+  if (req.authProvider === "admin-local") {
+    next();
+    return;
+  }
   // Admin access is only granted to OIDC-authenticated identities. Storefront
   // password sessions have no email-ownership proof, so an attacker who
   // registers with an admin email must NEVER gain admin access through
@@ -66,6 +73,9 @@ export function isAdminEmail(email: string | null | undefined): boolean {
 // Convenience for the /api/auth/admin-status endpoint: only OIDC sessions
 // can ever be admins, mirroring the requireAdmin middleware.
 export function isOidcAdmin(req: { authProvider?: string; user?: { email?: string | null } | null }): boolean {
+  // Local-admin sessions are always admins. OIDC sessions must match
+  // the email allowlist. Anything else (storefront password) never is.
+  if (req.authProvider === "admin-local") return true;
   if (req.authProvider !== "oidc") return false;
   return isAdminEmail(req.user?.email ?? null);
 }

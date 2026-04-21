@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { ObjectStorageService } from "./lib/objectStorage";
+import { ensureAdminCredentials } from "./lib/adminCredentials";
 
 const rawPort = process.env["PORT"];
 
@@ -25,6 +26,13 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Bootstrap admin username/password (no-op if already set). Done
+  // post-listen so a transient DB hiccup doesn't keep the API down,
+  // and so the credential banner appears right after "Server listening".
+  ensureAdminCredentials().catch((err) => {
+    logger.error({ err }, "Failed to bootstrap admin credentials");
+  });
 
   if (storageConfigured) {
     logger.info("Object storage: configured");
