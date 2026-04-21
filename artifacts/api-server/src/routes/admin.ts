@@ -11,6 +11,7 @@ import {
   db,
   heroSlidesTable,
   productOverridesTable,
+  customProductsTable,
   ordersTable,
   orderEmailEventsTable,
   paymentEventsTable,
@@ -18,12 +19,20 @@ import {
   siteSettingsTable,
   wishlistSignalsTable,
   type PaymentEvent,
+  type CustomProduct,
 } from "@workspace/db";
+import { randomUUID } from "node:crypto";
 import { paymentEventBus } from "../lib/paymentEvents";
 import { getAdminRole, requireAdmin, requireSuperAdmin } from "../middlewares/adminGuard";
 import { invalidateOverrides } from "../lib/overrides";
 import { invalidateSiteSettings, getSiteSettings } from "../lib/siteSettings";
 import { getAllProducts } from "../lib/catalog";
+import {
+  getMergedProducts,
+  getMergedProductById,
+  applyOverride,
+  invalidateCustomProducts,
+} from "../lib/productCatalog";
 import {
   getActivePaystackKeys,
   getCallbackUrl,
@@ -189,6 +198,36 @@ router.get("/admin/product-overrides", async (_req, res) => {
   res.json(rows);
 });
 
+function normalizeStringArray(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null;
+  const out = v
+    .map((x) => (typeof x === "string" ? x.trim() : ""))
+    .filter((x) => x.length > 0);
+  return out.length > 0 ? out : null;
+}
+
+function normalizeColorsArray(
+  v: unknown,
+): { name: string; hex: string; image?: string }[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: { name: string; hex: string; image?: string }[] = [];
+  for (const item of v) {
+    if (!item || typeof item !== "object") continue;
+    const name = typeof (item as { name?: unknown }).name === "string"
+      ? (item as { name: string }).name.trim()
+      : "";
+    const hex = typeof (item as { hex?: unknown }).hex === "string"
+      ? (item as { hex: string }).hex.trim()
+      : "";
+    if (!name || !hex) continue;
+    const image = typeof (item as { image?: unknown }).image === "string"
+      ? (item as { image: string }).image.trim()
+      : "";
+    out.push(image ? { name, hex, image } : { name, hex });
+  }
+  return out.length > 0 ? out : null;
+}
+
 router.put(
   "/admin/product-overrides/:productId",
   async (req: Request, res: Response) => {
@@ -214,6 +253,29 @@ router.put(
           : Number.isFinite(Number(body.stockLevel))
             ? Math.max(0, Math.floor(Number(body.stockLevel)))
             : null,
+      categoryOverride:
+        typeof body.categoryOverride === "string" && body.categoryOverride.trim()
+          ? body.categoryOverride.trim()
+          : null,
+      subCategoryOverride:
+        typeof body.subCategoryOverride === "string" &&
+        body.subCategoryOverride.trim()
+          ? body.subCategoryOverride.trim()
+          : null,
+      titleOverride:
+        typeof body.titleOverride === "string" && body.titleOverride.trim()
+          ? body.titleOverride.trim()
+          : null,
+      imageUrlOverride:
+        typeof body.imageUrlOverride === "string" && body.imageUrlOverride.trim()
+          ? body.imageUrlOverride.trim()
+          : null,
+      sizesOverride: normalizeStringArray(body.sizesOverride),
+      colorsOverride: normalizeColorsArray(body.colorsOverride),
+      genderOverride:
+        body.genderOverride === "men" || body.genderOverride === "women"
+          ? body.genderOverride
+          : null,
     };
     const [row] = await db
       .insert(productOverridesTable)
@@ -226,6 +288,13 @@ router.put(
           priceOverride: values.priceOverride,
           badge: values.badge,
           stockLevel: values.stockLevel,
+          categoryOverride: values.categoryOverride,
+          subCategoryOverride: values.subCategoryOverride,
+          titleOverride: values.titleOverride,
+          imageUrlOverride: values.imageUrlOverride,
+          sizesOverride: values.sizesOverride,
+          colorsOverride: values.colorsOverride,
+          genderOverride: values.genderOverride,
         },
       })
       .returning();
@@ -365,43 +434,369 @@ router.post("/admin/product-overrides/bulk-restore", async (req, res) => {
 
 router.get("/admin/products", async (req: Request, res: Response) => {
   const limit = Math.min(
-    Number((req.query["limit"] as string) ?? 50) || 50,
-    200,
+    Number((req.query["limit"] as string) ?? 500) || 500,
+    2000,
   );
   const offset = Math.max(Number((req.query["offset"] as string) ?? 0) || 0, 0);
   const q = ((req.query["q"] as string) ?? "").trim().toLowerCase();
   const category = (req.query["category"] as string) ?? "";
   const showHiddenOnly = req.query["hiddenOnly"] === "1";
   const showFeaturedOnly = req.query["featuredOnly"] === "1";
+  const includeDeleted = req.query["includeDeleted"] === "1";
+  const deletedOnly = req.query["deletedOnly"] === "1";
 
-  const all = await getAllProducts();
+  const all = await getMergedProducts({ includeDeleted: true });
   const overrideRows = await db.select().from(productOverridesTable);
   const overridesById = new Map(overrideRows.map((o) => [o.productId, o]));
 
-  let filtered = all;
+  // Apply override fields so callers see the EFFECTIVE category/title
+  // (this is what makes "recategorize" work end-to-end — the admin list
+  // groups under the override category, not the JSON one).
+  let decorated = all.map((p) => {
+    const ov = overridesById.get(p.id) ?? null;
+    return { ...applyOverride(p, ov), override: ov };
+  });
+
+  // Soft-delete handling. JSON catalog products are tombstoned via the
+  // override table; custom products carry their own deleted_at column
+  // (preserved on the merged row). Either source counts as deleted so
+  // the admin "Show deleted" toggle and Restore action work uniformly.
+  decorated = decorated.filter((p) => {
+    const isDeleted = !!p.override?.deletedAt || !!p.deletedAt;
+    if (deletedOnly) return isDeleted;
+    if (!includeDeleted && isDeleted) return false;
+    return true;
+  });
+
   if (q) {
-    filtered = filtered.filter(
+    decorated = decorated.filter(
       (p) =>
         p.title.toLowerCase().includes(q) ||
         p.id.toLowerCase().includes(q),
     );
   }
   if (category) {
-    filtered = filtered.filter((p) => p.category === category);
+    decorated = decorated.filter((p) => p.category === category);
   }
   if (showHiddenOnly) {
-    filtered = filtered.filter((p) => overridesById.get(p.id)?.hidden);
+    decorated = decorated.filter((p) => p.hidden || p.override?.hidden);
   }
   if (showFeaturedOnly) {
-    filtered = filtered.filter((p) => overridesById.get(p.id)?.featured);
+    decorated = decorated.filter((p) => p.featured || p.override?.featured);
   }
 
-  const slice = filtered.slice(offset, offset + limit).map((p) => ({
-    ...p,
-    override: overridesById.get(p.id) ?? null,
-  }));
-  res.json({ rows: slice, total: filtered.length, limit, offset });
+  const slice = decorated.slice(offset, offset + limit);
+  res.json({ rows: slice, total: decorated.length, limit, offset });
 });
+
+/* ---------------- Catalog category list ----------------
+ * Distinct effective categories (JSON + custom + applied overrides)
+ * with counts. Powers the "move to category" picker in the admin
+ * Products edit drawer.
+ */
+router.get("/admin/products/categories", async (_req, res) => {
+  const all = await getMergedProducts({ includeDeleted: true });
+  const overrideRows = await db.select().from(productOverridesTable);
+  const overridesById = new Map(overrideRows.map((o) => [o.productId, o]));
+  const counts = new Map<string, number>();
+  for (const p of all) {
+    const ov = overridesById.get(p.id);
+    if (ov?.deletedAt) continue;
+    const eff = ov?.categoryOverride ?? p.category;
+    if (!eff) continue;
+    counts.set(eff, (counts.get(eff) ?? 0) + 1);
+  }
+  const list = [...counts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([category, count]) => ({ category, count }));
+  res.json(list);
+});
+
+/* ---------------- Catalog soft-delete & restore ----------------
+ * Soft-delete works for both JSON-catalog rows (sets override.deletedAt)
+ * and custom-product rows (sets custom_products.deletedAt). Restore is
+ * the inverse. Both are 404-safe — the admin can call restore on a row
+ * that was never deleted.
+ */
+router.post("/admin/products/:productId/delete", async (req, res) => {
+  const raw = req.params["productId"];
+  const productId = Array.isArray(raw) ? raw[0] : raw;
+  if (!productId) {
+    res.status(400).json({ error: "Missing productId" });
+    return;
+  }
+  if (productId.startsWith("cust_")) {
+    await db
+      .update(customProductsTable)
+      .set({ deletedAt: new Date() })
+      .where(eq(customProductsTable.id, productId));
+    invalidateCustomProducts();
+  } else {
+    await db
+      .insert(productOverridesTable)
+      .values({ productId, deletedAt: new Date() })
+      .onConflictDoUpdate({
+        target: productOverridesTable.productId,
+        set: { deletedAt: new Date() },
+      });
+    invalidateOverrides();
+  }
+  res.json({ ok: true, productId });
+});
+
+router.post("/admin/products/:productId/restore", async (req, res) => {
+  const raw = req.params["productId"];
+  const productId = Array.isArray(raw) ? raw[0] : raw;
+  if (!productId) {
+    res.status(400).json({ error: "Missing productId" });
+    return;
+  }
+  if (productId.startsWith("cust_")) {
+    await db
+      .update(customProductsTable)
+      .set({ deletedAt: null })
+      .where(eq(customProductsTable.id, productId));
+    invalidateCustomProducts();
+  } else {
+    await db
+      .update(productOverridesTable)
+      .set({ deletedAt: null })
+      .where(eq(productOverridesTable.productId, productId));
+    invalidateOverrides();
+  }
+  res.json({ ok: true, productId });
+});
+
+/* ---------------- Custom Products (admin-authored) ----------------
+ * Fully editable products that live in custom_products. IDs always
+ * carry a `cust_` prefix (enforced by the schema check + here when we
+ * generate one) so they can never collide with the JSON catalog.
+ */
+
+interface CustomProductInput {
+  title?: unknown;
+  category?: unknown;
+  subCategory?: unknown;
+  price?: unknown;
+  imageUrls?: unknown;
+  imageUrl?: unknown;
+  sizes?: unknown;
+  colors?: unknown;
+  gender?: unknown;
+  badge?: unknown;
+  featured?: unknown;
+  hidden?: unknown;
+  stockLevel?: unknown;
+}
+
+function parseCustomProductCreate(
+  body: CustomProductInput,
+): { ok: true; values: typeof customProductsTable.$inferInsert } | { ok: false; error: string } {
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  if (!title) return { ok: false, error: "title is required" };
+  const category = typeof body.category === "string" ? body.category.trim() : "";
+  if (!category) return { ok: false, error: "category is required" };
+  const priceNum =
+    body.price !== undefined && body.price !== null && body.price !== ""
+      ? Number(body.price)
+      : NaN;
+  if (!Number.isFinite(priceNum) || priceNum < 0) {
+    return { ok: false, error: "price must be a non-negative number" };
+  }
+  const gender = body.gender === "men" ? "men" : "women";
+  const sizes = normalizeStringArray(body.sizes) ?? [];
+  const colors = normalizeColorsArray(body.colors) ?? [];
+  let imageUrls: string[] = [];
+  if (Array.isArray(body.imageUrls)) {
+    imageUrls = normalizeStringArray(body.imageUrls) ?? [];
+  } else if (typeof body.imageUrl === "string" && body.imageUrl.trim()) {
+    imageUrls = [body.imageUrl.trim()];
+  }
+  return {
+    ok: true,
+    values: {
+      id: `cust_${randomUUID().replace(/-/g, "").slice(0, 20)}`,
+      title,
+      category,
+      subCategory:
+        typeof body.subCategory === "string" && body.subCategory.trim()
+          ? body.subCategory.trim()
+          : null,
+      price: priceNum.toFixed(2),
+      imageUrls,
+      sizes,
+      colors,
+      gender,
+      badge:
+        typeof body.badge === "string" && body.badge.trim()
+          ? body.badge.trim()
+          : null,
+      featured: !!body.featured,
+      hidden: !!body.hidden,
+      stockLevel:
+        body.stockLevel === undefined || body.stockLevel === null || body.stockLevel === ""
+          ? null
+          : Number.isFinite(Number(body.stockLevel))
+            ? Math.max(0, Math.floor(Number(body.stockLevel)))
+            : null,
+    },
+  };
+}
+
+router.post("/admin/custom-products", async (req: Request, res: Response) => {
+  const parsed = parseCustomProductCreate(req.body ?? {});
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const [row] = await db
+    .insert(customProductsTable)
+    .values(parsed.values)
+    .returning();
+  invalidateCustomProducts();
+  res.status(201).json(row);
+});
+
+router.patch("/admin/custom-products/:id", async (req: Request, res: Response) => {
+  const idRaw = req.params["id"];
+  const id = Array.isArray(idRaw) ? idRaw[0] : idRaw;
+  if (!id || !id.startsWith("cust_")) {
+    res.status(400).json({ error: "Invalid custom product id" });
+    return;
+  }
+  const body = (req.body ?? {}) as CustomProductInput;
+  const patch: Partial<typeof customProductsTable.$inferInsert> = {};
+  if (typeof body.title === "string" && body.title.trim()) {
+    patch.title = body.title.trim();
+  }
+  if (typeof body.category === "string" && body.category.trim()) {
+    patch.category = body.category.trim();
+  }
+  if ("subCategory" in body) {
+    patch.subCategory =
+      typeof body.subCategory === "string" && body.subCategory.trim()
+        ? body.subCategory.trim()
+        : null;
+  }
+  if (body.price !== undefined && body.price !== null && body.price !== "") {
+    const n = Number(body.price);
+    if (!Number.isFinite(n) || n < 0) {
+      res.status(400).json({ error: "price must be a non-negative number" });
+      return;
+    }
+    patch.price = n.toFixed(2);
+  }
+  if ("imageUrls" in body) {
+    patch.imageUrls = normalizeStringArray(body.imageUrls) ?? [];
+  } else if (typeof body.imageUrl === "string") {
+    patch.imageUrls = body.imageUrl.trim() ? [body.imageUrl.trim()] : [];
+  }
+  if ("sizes" in body) patch.sizes = normalizeStringArray(body.sizes) ?? [];
+  if ("colors" in body) patch.colors = normalizeColorsArray(body.colors) ?? [];
+  if (body.gender === "men" || body.gender === "women") {
+    patch.gender = body.gender;
+  }
+  if ("badge" in body) {
+    patch.badge =
+      typeof body.badge === "string" && body.badge.trim()
+        ? body.badge.trim()
+        : null;
+  }
+  if ("featured" in body) patch.featured = !!body.featured;
+  if ("hidden" in body) patch.hidden = !!body.hidden;
+  if ("stockLevel" in body) {
+    patch.stockLevel =
+      body.stockLevel === null || body.stockLevel === ""
+        ? null
+        : Number.isFinite(Number(body.stockLevel))
+          ? Math.max(0, Math.floor(Number(body.stockLevel)))
+          : null;
+  }
+  const [row] = await db
+    .update(customProductsTable)
+    .set(patch)
+    .where(eq(customProductsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  invalidateCustomProducts();
+  res.json(row);
+});
+
+router.delete("/admin/custom-products/:id", async (req: Request, res: Response) => {
+  const idRaw = req.params["id"];
+  const id = Array.isArray(idRaw) ? idRaw[0] : idRaw;
+  if (!id || !id.startsWith("cust_")) {
+    res.status(400).json({ error: "Invalid custom product id" });
+    return;
+  }
+  // Hard delete is fine for custom products: nothing else owns them.
+  // Use the soft-delete endpoint above if a recoverable removal is
+  // wanted (e.g. to mirror JSON-catalog tombstoning behaviour).
+  await db.delete(customProductsTable).where(eq(customProductsTable.id, id));
+  invalidateCustomProducts();
+  res.status(204).end();
+});
+
+/* ---------------- Product image upload ----------------
+ * Same server-side validation as the logo endpoint, but writes under
+ * the `products/` prefix and is allowed for any admin (not just super)
+ * because day-to-day catalog editing isn't a sensitive operation.
+ */
+const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const PRODUCT_IMAGE_MIME_TO_EXT: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
+router.post(
+  "/admin/products/image",
+  expressRaw({ type: () => true, limit: PRODUCT_IMAGE_MAX_BYTES + 1024 }),
+  async (req: Request, res: Response) => {
+    const ctRaw = String(req.headers["content-type"] ?? "")
+      .split(";")[0]!
+      .trim()
+      .toLowerCase();
+    const ext = PRODUCT_IMAGE_MIME_TO_EXT[ctRaw];
+    if (!ext) {
+      res.status(400).json({
+        error: "Unsupported image type. Use PNG, JPG, WebP, or GIF (≤ 5 MB).",
+      });
+      return;
+    }
+    const buf = req.body;
+    if (!Buffer.isBuffer(buf) || buf.length === 0) {
+      res.status(400).json({ error: "Empty upload." });
+      return;
+    }
+    if (buf.length > PRODUCT_IMAGE_MAX_BYTES) {
+      res.status(413).json({ error: "Image must be 5 MB or smaller." });
+      return;
+    }
+    try {
+      const svc = new ObjectStorageService();
+      const publicUrl = await svc.uploadServerSide(buf, ctRaw, ext, "products");
+      res.json({ publicUrl });
+    } catch (e) {
+      if (e instanceof StorageNotConfiguredError) {
+        res.status(503).json({
+          error:
+            "Object storage is not configured on this server. Paste an image URL instead.",
+        });
+        return;
+      }
+      req.log?.error?.({ err: e }, "product image upload failed");
+      res
+        .status(500)
+        .json({ error: (e as Error).message || "Image upload failed." });
+    }
+  },
+);
 
 /* ---------------- Orders ---------------- */
 

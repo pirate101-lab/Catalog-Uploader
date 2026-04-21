@@ -11,11 +11,14 @@ import {
 } from "@workspace/db";
 import { refreshProductReviewSummary } from "../lib/reviewSummary";
 import {
-  getAllProducts,
-  getProductById,
   type BucketKey,
   type ProductRow,
 } from "../lib/catalog";
+import {
+  getMergedProducts,
+  getMergedProductById,
+  applyOverride,
+} from "../lib/productCatalog";
 import { getOverridesMap } from "../lib/overrides";
 import { getSiteSettingsForStorefront } from "../lib/siteSettings";
 
@@ -106,14 +109,12 @@ async function decorate(rows: ProductRow[]): Promise<DecoratedRow[]> {
   const out: DecoratedRow[] = [];
   for (const r of rows) {
     const ov = overrides.get(r.id);
-    if (ov?.hidden) continue;
-    const next: DecoratedRow = { ...r };
-    if (ov?.priceOverride) {
-      next.price = Number(ov.priceOverride).toFixed(2);
-    }
-    if (ov?.badge) next.badge = ov.badge;
-    if (ov?.featured) next.featured = true;
-    out.push(next);
+    // Soft-deleted / hidden rows vanish from every storefront view —
+    // either via override-table tombstones (JSON catalog) or via the
+    // row's own flags (custom products carry hidden/deletedAt directly).
+    if (ov?.deletedAt || r.deletedAt) continue;
+    if (ov?.hidden || r.hidden) continue;
+    out.push(applyOverride(r, ov));
   }
   return out;
 }
@@ -376,7 +377,7 @@ router.get("/storefront/hero", async (req: Request, res: Response) => {
 
 router.get("/storefront/categories", async (req: Request, res: Response) => {
   const gender = parseGender(req.query["gender"]);
-  const decorated = await decorate(getAllProducts());
+  const decorated = await decorate(await getMergedProducts());
   const rows = decorated.filter((r) => (gender ? r.gender === gender : true));
   const counts = new Map<string, number>();
   for (const r of rows) {
@@ -397,7 +398,7 @@ router.get("/storefront/categories", async (req: Request, res: Response) => {
 });
 
 router.get("/storefront/stats", async (_req: Request, res: Response) => {
-  const decorated = await decorate(getAllProducts());
+  const decorated = await decorate(await getMergedProducts());
   const byGender = { women: 0, men: 0 };
   for (const p of decorated) byGender[p.gender]++;
   res.json({ products: decorated.length, women: byGender.women, men: byGender.men });
@@ -450,7 +451,7 @@ router.get("/storefront/products", async (req: Request, res: Response) => {
   const seed =
     seedRaw && /^[A-Za-z0-9_-]{1,32}$/.test(seedRaw) ? seedRaw : undefined;
 
-  const decorated = await decorate(getAllProducts());
+  const decorated = await decorate(await getMergedProducts());
 
   if (idsParam) {
     const ids = new Set(
@@ -798,22 +799,20 @@ router.get("/storefront/products/:id", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Missing id" });
     return;
   }
-  const row = getProductById(id);
+  const row = await getMergedProductById(id);
   if (!row) {
     res.status(404).json({ error: "Product not found" });
     return;
   }
   const overrides = await getOverridesMap();
   const ov = overrides.get(row.id);
-  if (ov?.hidden) {
+  // Honour both override-table tombstones (JSON catalog) and the
+  // hidden flag baked into the row itself (custom products).
+  if (ov?.hidden || ov?.deletedAt || row.hidden) {
     res.status(404).json({ error: "Product not found" });
     return;
   }
-  const out: DecoratedRow = { ...row };
-  if (ov?.priceOverride) out.price = Number(ov.priceOverride).toFixed(2);
-  if (ov?.badge) out.badge = ov.badge;
-  if (ov?.featured) out.featured = true;
-  res.json(out);
+  res.json(applyOverride(row, ov));
 });
 
 export default router;

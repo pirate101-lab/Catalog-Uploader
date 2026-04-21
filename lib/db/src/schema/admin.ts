@@ -47,6 +47,22 @@ export const productOverridesTable = pgTable("product_overrides", {
   priceOverride: numeric("price_override", { precision: 10, scale: 2 }),
   badge: text("badge"),
   stockLevel: integer("stock_level"),
+  // T26 catalog management — admins can edit JSON catalog rows without
+  // touching the file. Each *_override column shadows the corresponding
+  // JSON field when set; null means "use the JSON value".
+  categoryOverride: text("category_override"),
+  subCategoryOverride: text("sub_category_override"),
+  titleOverride: text("title_override"),
+  imageUrlOverride: text("image_url_override"),
+  sizesOverride: jsonb("sizes_override").$type<string[] | null>(),
+  colorsOverride: jsonb("colors_override").$type<
+    { name: string; hex: string; image?: string }[] | null
+  >(),
+  genderOverride: varchar("gender_override", { length: 8 }),
+  // Soft-delete tombstone — rows with deleted_at set are filtered out
+  // of the storefront entirely and only appear in the admin when the
+  // operator toggles "include deleted". Restoring sets it back to NULL.
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()
@@ -55,6 +71,55 @@ export const productOverridesTable = pgTable("product_overrides", {
 
 export type ProductOverride = typeof productOverridesTable.$inferSelect;
 export type InsertProductOverride = typeof productOverridesTable.$inferInsert;
+
+/**
+ * Admin-authored products that live entirely in the database. Mirrors
+ * the JSON catalog row shape so the storefront merge layer can union
+ * them in without special-casing. IDs always carry a `cust_` prefix so
+ * they cannot collide with the numeric Trendsi ids in the JSON catalog.
+ */
+export const customProductsTable = pgTable(
+  "custom_products",
+  {
+    id: varchar("id").primaryKey(),
+    title: text("title").notNull(),
+    category: text("category").notNull(),
+    subCategory: text("sub_category"),
+    price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+    imageUrls: jsonb("image_urls")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    sizes: jsonb("sizes")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    colors: jsonb("colors")
+      .$type<{ name: string; hex: string; image?: string }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    gender: varchar("gender", { length: 8 }).notNull().default("women"),
+    badge: text("badge"),
+    featured: boolean("featured").notNull().default(false),
+    hidden: boolean("hidden").notNull().default(false),
+    stockLevel: integer("stock_level"),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    check("CK_custom_products_gender", sql`gender IN ('men','women')`),
+    check("CK_custom_products_id_prefix", sql`id LIKE 'cust_%'`),
+  ],
+);
+
+export type CustomProduct = typeof customProductsTable.$inferSelect;
+export type InsertCustomProduct = typeof customProductsTable.$inferInsert;
 
 export const ordersTable = pgTable("orders", {
   id: varchar("id")

@@ -56,6 +56,14 @@ export interface ProductRow {
   trendScore: number;
   /** Pre-flattened list of bucket keys this product belongs to. */
   buckets: BucketKey[];
+  /** Optional admin-authored fields (custom products carry these
+   * directly; JSON-catalog products acquire them through overrides). */
+  badge?: string | null;
+  featured?: boolean;
+  hidden?: boolean;
+  stockLevel?: number | null;
+  /** ISO timestamp of soft-delete on a custom product, if any. */
+  deletedAt?: string | null;
 }
 
 const PUBLIC_BASE = (process.env["R2_PUBLIC_BASE_URL"] ?? "").replace(/\/+$/, "");

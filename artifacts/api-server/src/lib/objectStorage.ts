@@ -138,11 +138,26 @@ export class ObjectStorageService {
     contentType: string,
     extension: string,
   ): Promise<string> {
+    return this.uploadServerSide(buf, contentType, extension, "branding");
+  }
+
+  /**
+   * Generic server-side upload helper used by branding (logo) and
+   * product-image upload endpoints. `prefix` controls the bucket folder
+   * (`branding/` for logos, `products/` for catalog images, etc.).
+   */
+  async uploadServerSide(
+    buf: Buffer,
+    contentType: string,
+    extension: string,
+    prefix: string,
+  ): Promise<string> {
     const publicPaths = this.getPublicObjectSearchPaths();
     const basePath = publicPaths[0];
     const objectId = randomUUID();
     const safeExt = extension.replace(/[^a-z0-9]/gi, "").toLowerCase() || "img";
-    const relPath = `branding/${objectId}.${safeExt}`;
+    const safePrefix = prefix.replace(/[^a-z0-9_-]/gi, "").toLowerCase() || "uploads";
+    const relPath = `${safePrefix}/${objectId}.${safeExt}`;
     const fullPath = `${basePath}/${relPath}`;
     const { bucketName, objectName } = parseObjectPath(fullPath);
     await objectStorageClient

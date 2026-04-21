@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq } from "drizzle-orm";
 import { db, ordersTable } from "@workspace/db";
-import { getProductById } from "../lib/catalog";
+import { getMergedProductById } from "../lib/productCatalog";
 import { getOverridesMap } from "../lib/overrides";
 import { getSiteSettings } from "../lib/siteSettings";
 import { sendOrderReceivedEmail } from "../lib/email";
@@ -47,12 +47,14 @@ async function priceCart(items: CartItemPayload[]) {
     ) {
       throw new Error(`Invalid line item`);
     }
-    const product = getProductById(item.productId);
+    const product = await getMergedProductById(item.productId);
     if (!product) {
       throw new Error(`Product not found: ${item.productId}`);
     }
     const ov = overrides.get(item.productId);
-    if (ov?.hidden) {
+    // Block both override-tombstoned/hidden JSON products and custom
+    // products whose row carries hidden/deleted flags directly.
+    if (ov?.hidden || ov?.deletedAt || product.hidden || product.deletedAt) {
       throw new Error(`Product unavailable: ${item.productId}`);
     }
     const unitPrice = ov?.priceOverride

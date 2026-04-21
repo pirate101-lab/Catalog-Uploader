@@ -37,6 +37,50 @@ export interface ProductOverride {
   priceOverride: string | null;
   badge: string | null;
   stockLevel: number | null;
+  // T26 catalog management
+  categoryOverride: string | null;
+  subCategoryOverride: string | null;
+  titleOverride: string | null;
+  imageUrlOverride: string | null;
+  sizesOverride: string[] | null;
+  colorsOverride: { name: string; hex: string; image?: string }[] | null;
+  genderOverride: "men" | "women" | null;
+  deletedAt: string | null;
+}
+
+export interface CustomProductInput {
+  title: string;
+  category: string;
+  subCategory?: string | null;
+  price: string | number;
+  imageUrls?: string[];
+  imageUrl?: string;
+  sizes?: string[];
+  colors?: { name: string; hex: string; image?: string }[];
+  gender: "men" | "women";
+  badge?: string | null;
+  featured?: boolean;
+  hidden?: boolean;
+  stockLevel?: number | null;
+}
+
+export interface CustomProduct {
+  id: string;
+  title: string;
+  category: string;
+  subCategory: string | null;
+  price: string;
+  imageUrls: string[];
+  sizes: string[];
+  colors: { name: string; hex: string; image?: string }[];
+  gender: "men" | "women";
+  badge: string | null;
+  featured: boolean;
+  hidden: boolean;
+  stockLevel: number | null;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface OrderRow {
@@ -245,11 +289,15 @@ export interface ProductRow {
   id: string;
   title: string;
   category: string | null;
+  subCategory?: string | null;
   price: string;
   imageUrls: string[];
+  sizes?: string[];
+  colors?: { name: string; hex: string; image?: string }[];
   gender: "women" | "men";
   badge?: string | null;
   featured?: boolean;
+  hidden?: boolean;
 }
 
 export type AdminRoleValue = "admin" | "super_admin";
@@ -448,13 +496,17 @@ export const adminApi = {
     offset?: number;
     hiddenOnly?: boolean;
     featuredOnly?: boolean;
+    includeDeleted?: boolean;
+    deletedOnly?: boolean;
   }) => {
     const q = new URLSearchParams();
     if (params.q) q.set("q", params.q);
     if (params.category) q.set("category", params.category);
     if (params.hiddenOnly) q.set("hiddenOnly", "1");
     if (params.featuredOnly) q.set("featuredOnly", "1");
-    q.set("limit", String(params.limit ?? 50));
+    if (params.includeDeleted) q.set("includeDeleted", "1");
+    if (params.deletedOnly) q.set("deletedOnly", "1");
+    q.set("limit", String(params.limit ?? 500));
     q.set("offset", String(params.offset ?? 0));
     return adminFetch<{
       rows: Array<ProductRow & { override: ProductOverride | null }>;
@@ -462,6 +514,50 @@ export const adminApi = {
       limit: number;
       offset: number;
     }>(`/admin/products?${q.toString()}`);
+  },
+  listProductCategories: () =>
+    adminFetch<Array<{ category: string; count: number }>>(
+      "/admin/products/categories",
+    ),
+  softDeleteProduct: (productId: string) =>
+    adminFetch<{ ok: true; productId: string }>(
+      `/admin/products/${encodeURIComponent(productId)}/delete`,
+      { method: "POST" },
+    ),
+  restoreProduct: (productId: string) =>
+    adminFetch<{ ok: true; productId: string }>(
+      `/admin/products/${encodeURIComponent(productId)}/restore`,
+      { method: "POST" },
+    ),
+  createCustomProduct: (data: CustomProductInput) =>
+    adminFetch<CustomProduct>("/admin/custom-products", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateCustomProduct: (id: string, data: Partial<CustomProductInput>) =>
+    adminFetch<CustomProduct>(`/admin/custom-products/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  deleteCustomProduct: (id: string) =>
+    adminFetch<void>(`/admin/custom-products/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  uploadProductImage: async (file: File): Promise<{ publicUrl: string }> => {
+    const res = await fetch("/api/admin/products/image", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      publicUrl?: string;
+      error?: string;
+    };
+    if (!res.ok || !body.publicUrl) {
+      throw new Error(body.error || `Upload failed (${res.status})`);
+    }
+    return { publicUrl: body.publicUrl };
   },
 
   /* Admin users (super_admin only) */
