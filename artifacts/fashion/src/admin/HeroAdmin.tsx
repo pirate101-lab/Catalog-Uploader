@@ -41,6 +41,7 @@ export function HeroAdmin() {
         ctaHref: "/shop",
         imageUrl: "/hero-1-boutique.jpg",
         active: true,
+        gender: "all",
       });
       toast.success("Slide created");
       reload();
@@ -249,6 +250,44 @@ function SlideEditor({
             </p>
           </Field>
         </div>
+        <Field label="Show on">
+          <div
+            role="radiogroup"
+            aria-label="Show on"
+            className="inline-flex rounded-md border border-border overflow-hidden bg-background"
+          >
+            {(
+              [
+                { value: "all", label: "All shoppers" },
+                { value: "women", label: "Women" },
+                { value: "men", label: "Men" },
+              ] as const
+            ).map((opt) => {
+              const active = draft.gender === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => set("gender", opt.value)}
+                  className={`px-3 h-9 text-xs font-semibold uppercase tracking-widest transition-colors ${
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground/80 hover:text-foreground"
+                  }`}
+                  data-testid={`hero-gender-${slide.id}-${opt.value}`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            "All shoppers" appears in every view. "Men" / "Women" only show
+            when the matching homepage filter is active.
+          </p>
+        </Field>
         <div className="flex items-center justify-between pt-3 border-t">
           <div className="flex items-center gap-3">
             <Switch

@@ -24,12 +24,18 @@ export const heroSlidesTable = pgTable("hero_slides", {
   imageUrl: text("image_url").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   active: boolean("active").notNull().default(true),
+  // Targeting tag so admins can ship gender-specific hero sets. "all"
+  // means the slide is shown regardless of which gender the shopper is
+  // browsing — that's the back-compat default for any pre-existing rows.
+  gender: varchar("gender", { length: 8 }).notNull().default("all"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
-});
+}, (table) => [
+  check("CK_hero_slides_gender", sql`gender IN ('all','men','women')`),
+]);
 
 export type HeroSlide = typeof heroSlidesTable.$inferSelect;
 export type InsertHeroSlide = typeof heroSlidesTable.$inferInsert;

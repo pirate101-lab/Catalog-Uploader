@@ -223,7 +223,12 @@ router.get("/storefront/settings", async (_req: Request, res: Response) => {
   });
 });
 
-const FALLBACK_HERO = [
+// Fallback slides shipped when the admin hasn't customised the carousel
+// yet — split per gender so a shopper toggling to Men doesn't see a
+// women-coded lineup. The "all" slides also act as the women default
+// (the storefront has historically been women-first) and as the safety
+// net for a request that doesn't pass `?gender=`.
+const FALLBACK_HERO_WOMEN = [
   {
     id: 1,
     title: "New Season Edit",
@@ -234,6 +239,7 @@ const FALLBACK_HERO = [
     imageUrl: "/hero-1-boutique.jpg",
     sortOrder: 1,
     active: true,
+    gender: "all" as const,
   },
   {
     id: 2,
@@ -245,6 +251,7 @@ const FALLBACK_HERO = [
     imageUrl: "/hero-2-display.jpg",
     sortOrder: 2,
     active: true,
+    gender: "all" as const,
   },
   {
     id: 3,
@@ -256,6 +263,7 @@ const FALLBACK_HERO = [
     imageUrl: "/hero-3-vintage.jpg",
     sortOrder: 3,
     active: true,
+    gender: "all" as const,
   },
   {
     id: 4,
@@ -267,20 +275,76 @@ const FALLBACK_HERO = [
     imageUrl: "/hero-4-moda.jpg",
     sortOrder: 4,
     active: true,
+    gender: "all" as const,
+  },
+];
+
+// Men-focused fallback set so the men view never looks empty before
+// admins customise it. Reuses the bundled hero photos (the only ones
+// guaranteed to ship with the storefront) but speaks directly to the
+// men's catalog with copy + CTA targeting.
+const FALLBACK_HERO_MEN = [
+  {
+    id: 1001,
+    title: "The Men's Edit",
+    subtitle: "Sharp tailoring, weekend layers and everyday essentials",
+    kicker: "New Season",
+    ctaLabel: "Shop Men",
+    ctaHref: "/shop?gender=men",
+    imageUrl: "/hero-2-display.jpg",
+    sortOrder: 1,
+    active: true,
+    gender: "men" as const,
+  },
+  {
+    id: 1002,
+    title: "Outerwear, Sharpened",
+    subtitle: "Overshirts, coats and jackets cut for him",
+    kicker: null,
+    ctaLabel: "Shop Outerwear",
+    ctaHref: "/shop?gender=men&category=Outerwear",
+    imageUrl: "/hero-1-boutique.jpg",
+    sortOrder: 2,
+    active: true,
+    gender: "men" as const,
+  },
+  {
+    id: 1003,
+    title: "Denim Reimagined",
+    subtitle: "Classic blues, modern fits",
+    kicker: null,
+    ctaLabel: "Shop Denim",
+    ctaHref: "/shop?gender=men&category=Bottoms",
+    imageUrl: "/hero-3-vintage.jpg",
+    sortOrder: 3,
+    active: true,
+    gender: "men" as const,
   },
 ];
 
 let heroWarnedOnce = false;
 let reviewsWarnedOnce = false;
-router.get("/storefront/hero", async (_req: Request, res: Response) => {
+router.get("/storefront/hero", async (req: Request, res: Response) => {
+  const gender = parseGender(req.query["gender"]);
+  // Slides tagged "all" appear in every view alongside the gender-
+  // specific ones. When no `?gender=` is provided we keep historical
+  // behaviour and return everything that's active.
+  const fallback =
+    gender === "men" ? FALLBACK_HERO_MEN : FALLBACK_HERO_WOMEN;
   try {
+    const where = gender
+      ? and(
+          eq(heroSlidesTable.active, true),
+          sql`${heroSlidesTable.gender} IN ('all', ${gender})`,
+        )
+      : eq(heroSlidesTable.active, true);
     const rows = await db
       .select()
       .from(heroSlidesTable)
-      .where(eq(heroSlidesTable.active, true))
+      .where(where)
       .orderBy(asc(heroSlidesTable.sortOrder), asc(heroSlidesTable.id));
     if (rows.length === 0) {
-      res.json(FALLBACK_HERO);
+      res.json(fallback);
       return;
     }
     res.json(rows);
@@ -292,7 +356,7 @@ router.get("/storefront/hero", async (_req: Request, res: Response) => {
         (err as Error).message,
       );
     }
-    res.json(FALLBACK_HERO);
+    res.json(fallback);
   }
 });
 

@@ -43,11 +43,33 @@ router.get("/admin/hero-slides", async (_req: Request, res: Response) => {
   res.json(rows);
 });
 
+// Allow-list of valid gender targets for hero slides. The DB also
+// enforces this via a check constraint, but we validate here so the
+// admin gets a clean 400 instead of a generic Postgres failure.
+const HERO_GENDERS = new Set(["all", "men", "women"]);
+
+function parseHeroGender(v: unknown): "all" | "men" | "women" | undefined {
+  if (typeof v !== "string") return undefined;
+  return HERO_GENDERS.has(v) ? (v as "all" | "men" | "women") : undefined;
+}
+
 router.post("/admin/hero-slides", async (req: Request, res: Response) => {
   const body = req.body ?? {};
   if (!body.title || !body.imageUrl) {
     res.status(400).json({ error: "title and imageUrl are required" });
     return;
+  }
+  // Match PATCH semantics: reject explicit-but-invalid values rather
+  // than silently coercing them, but keep "all" as the implicit default
+  // when the field is omitted entirely.
+  let gender: "all" | "men" | "women" = "all";
+  if (body.gender !== undefined && body.gender !== null) {
+    const parsed = parseHeroGender(body.gender);
+    if (!parsed) {
+      res.status(400).json({ error: "gender must be 'all', 'men', or 'women'" });
+      return;
+    }
+    gender = parsed;
   }
   const [maxRow] = await db
     .select({ max: sql<number>`COALESCE(MAX(${heroSlidesTable.sortOrder}), 0)` })
@@ -64,6 +86,7 @@ router.post("/admin/hero-slides", async (req: Request, res: Response) => {
       imageUrl: body.imageUrl,
       sortOrder: typeof body.sortOrder === "number" ? body.sortOrder : nextOrder,
       active: body.active !== false,
+      gender,
     })
     .returning();
   res.status(201).json(created);
@@ -88,6 +111,14 @@ router.patch("/admin/hero-slides/:id", async (req: Request, res: Response) => {
     "active",
   ]) {
     if (k in body) patch[k] = body[k];
+  }
+  if ("gender" in body) {
+    const g = parseHeroGender(body.gender);
+    if (!g) {
+      res.status(400).json({ error: "gender must be 'all', 'men', or 'women'" });
+      return;
+    }
+    patch["gender"] = g;
   }
   if (Object.keys(patch).length === 0) {
     res.status(400).json({ error: "No fields to update" });

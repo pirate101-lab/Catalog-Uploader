@@ -25,6 +25,9 @@ export interface HeroSlide {
   imageUrl: string;
   sortOrder: number;
   active: boolean;
+  /** "all" slides show in every view; "men" / "women" only show when
+   *  the storefront passes a matching `?gender=` to the hero endpoint. */
+  gender: "all" | "men" | "women";
 }
 
 export interface ProductOverride {

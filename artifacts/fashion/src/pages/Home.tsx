@@ -170,9 +170,19 @@ export function HomePage() {
     };
   }, []);
 
+  // Pass the active gender filter through to the hero endpoint so the
+  // server can return the right targeted set (and a men-specific
+  // fallback when the admin hasn't customised the carousel yet). The
+  // homepage's "all" pseudo-gender deliberately omits the param so we
+  // get every published slide back.
+  const heroGenderParam =
+    filters.gender === 'men' || filters.gender === 'women' ? filters.gender : null;
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/storefront/hero')
+    const url = heroGenderParam
+      ? `/api/storefront/hero?gender=${heroGenderParam}`
+      : '/api/storefront/hero';
+    fetch(url)
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((rows: ApiHeroSlide[]) => {
         if (cancelled || !Array.isArray(rows) || rows.length === 0) return;
@@ -212,7 +222,7 @@ export function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [heroGenderParam]);
 
   // The rail uses the user-facing label; map it to the storage category.
   const effectiveCategory = RAIL_TO_CATEGORY[filters.category] ?? filters.category ?? 'All';
