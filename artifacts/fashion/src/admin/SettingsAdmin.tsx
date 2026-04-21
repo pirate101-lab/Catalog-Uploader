@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 export function SettingsAdmin() {
@@ -65,10 +66,36 @@ export function SettingsAdmin() {
   const replyToInvalid =
     !!s?.emailReplyTo && s.emailReplyTo.trim().length > 0 && !emailRe.test(s.emailReplyTo.trim());
 
+  // Validate the operator-alert recipients textarea (comma/semicolon/
+  // newline separated). Each non-empty entry must look like an email,
+  // matching the server-side check so the inline error message and the
+  // PUT response stay aligned.
+  const alertRecipientsRaw = s?.paymentAlertRecipients ?? "";
+  const alertEntries = alertRecipientsRaw
+    .split(/[,;\n]/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  const invalidAlertEntries = alertEntries.filter((e) => !emailRe.test(e));
+  const alertRecipientsInvalid = invalidAlertEntries.length > 0;
+  const alertModeRequiresRecipients =
+    !!s &&
+    s.paymentAlertMode !== "off" &&
+    alertEntries.length === 0;
+
   const save = async () => {
     if (!s) return;
     if (fromAddrInvalid || replyToInvalid) {
       toast.error("Please enter valid email addresses.");
+      return;
+    }
+    if (alertRecipientsInvalid) {
+      toast.error(
+        `Invalid alert recipient${invalidAlertEntries.length === 1 ? "" : "s"}: ${invalidAlertEntries.join(", ")}`,
+      );
+      return;
+    }
+    if (alertModeRequiresRecipients) {
+      toast.error("Add at least one recipient or set alerts to Off.");
       return;
     }
     setSaving(true);
@@ -394,6 +421,60 @@ export function SettingsAdmin() {
                 )}
               </div>
             ) : null}
+          </Section>
+
+          <Section title="Operator alerts">
+            <p className="text-xs text-muted-foreground -mt-2">
+              Email operators when a high-severity Paystack failure fires
+              (amount or currency mismatch, verification failed, or no
+              matching order). Choose Off to disable, Instant for a
+              message per event, or Hourly digest to bundle them.
+            </p>
+            <Field label="Frequency">
+              <select
+                value={s.paymentAlertMode}
+                onChange={(e) =>
+                  set(
+                    "paymentAlertMode",
+                    e.target.value as SiteSettings["paymentAlertMode"],
+                  )
+                }
+                className="w-full h-10 rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="off">Off — don't email</option>
+                <option value="instant">Instant — one email per event</option>
+                <option value="hourly">Hourly digest — bundle within 1 hour</option>
+              </select>
+            </Field>
+            <Field label="Recipients">
+              <Textarea
+                value={s.paymentAlertRecipients ?? ""}
+                placeholder={"ops@yourbrand.com, finance@yourbrand.com"}
+                onChange={(e) =>
+                  set(
+                    "paymentAlertRecipients",
+                    e.target.value.length === 0 ? null : e.target.value,
+                  )
+                }
+                rows={3}
+                aria-invalid={alertRecipientsInvalid || undefined}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Comma, semicolon, or newline-separated. Uses the same
+                "From" address as your order emails.
+              </p>
+              {alertRecipientsInvalid ? (
+                <p className="text-xs text-destructive mt-1">
+                  Invalid email{invalidAlertEntries.length === 1 ? "" : "s"}:{" "}
+                  {invalidAlertEntries.join(", ")}
+                </p>
+              ) : null}
+              {!alertRecipientsInvalid && alertModeRequiresRecipients ? (
+                <p className="text-xs text-destructive mt-1">
+                  Add at least one recipient or set frequency to Off.
+                </p>
+              ) : null}
+            </Field>
           </Section>
 
           <Section title="Storefront behavior">

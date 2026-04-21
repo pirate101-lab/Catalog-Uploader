@@ -130,6 +130,8 @@ export interface SiteSettings {
   /** Masked or empty. Send back as-is to keep, or replace to update. */
   smtpPassword: string;
   smtpPasswordSet: boolean;
+  paymentAlertMode: "off" | "instant" | "hourly";
+  paymentAlertRecipients: string | null;
 }
 
 export interface SmtpVerifyResult {

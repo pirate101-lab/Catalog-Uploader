@@ -36,6 +36,8 @@ import {
   sendOrderEmailByKind,
   sendTestOrderEmail,
   verifySmtp,
+  parseAlertMode,
+  parseAlertRecipients,
   ORDER_EMAIL_KINDS,
   type OrderEmailKind,
 } from "../lib/email";
@@ -731,9 +733,50 @@ router.put("/admin/settings", async (req, res) => {
     "smtpPort",
     "smtpSecure",
     "smtpUsername",
+    "paymentAlertRecipients",
   ];
   const patch: Record<string, unknown> = {};
   for (const k of allowed) if (k in body) patch[k] = body[k];
+
+  // Operator alert mode is enum-validated rather than free-form text
+  // so the DB only ever sees one of the three known values.
+  if ("paymentAlertMode" in body) {
+    const mode = parseAlertMode(body["paymentAlertMode"]);
+    if (!mode) {
+      res.status(400).json({
+        error: "paymentAlertMode must be 'off', 'instant', or 'hourly'",
+      });
+      return;
+    }
+    patch["paymentAlertMode"] = mode;
+  }
+  // Recipients: accept the raw textarea value but normalise + validate.
+  // Reject the save if any non-empty entry isn't a valid email so the
+  // operator can correct the typo before alerts start failing silently.
+  if ("paymentAlertRecipients" in patch) {
+    const raw = patch["paymentAlertRecipients"];
+    if (raw === null || raw === undefined || String(raw).trim() === "") {
+      patch["paymentAlertRecipients"] = null;
+    } else {
+      const text = String(raw);
+      const entries = text
+        .split(/[,;\n]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      const invalid = entries.filter((e) => !EMAIL_RE.test(e));
+      if (invalid.length > 0) {
+        res.status(400).json({
+          error: `Invalid email${invalid.length === 1 ? "" : "s"} in alert recipients: ${invalid.join(", ")}`,
+        });
+        return;
+      }
+      // Persist the normalised, deduplicated list so the admin UI
+      // re-render mirrors what the dispatcher actually uses.
+      const normalised = parseAlertRecipients(text);
+      patch["paymentAlertRecipients"] =
+        normalised.length === 0 ? null : normalised.join(", ");
+    }
+  }
 
   // Secret keys are write-only. The admin page sends back the masked
   // string we previously rendered when the operator hasn't typed a new

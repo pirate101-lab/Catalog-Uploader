@@ -112,6 +112,15 @@ export const siteSettingsTable = pgTable("site_settings", {
   bankSwiftCode: text("bank_swift_code"),
   bankRoutingNumber: text("bank_routing_number"),
   bankInstructions: text("bank_instructions"),
+  // Operator alert email settings — operators receive notifications when
+  // high-severity Paystack events fire (amount/currency mismatch,
+  // verification_failed, order_not_found). "off" disables, "instant"
+  // sends immediately, "hourly" buffers and emits a digest at most once
+  // per hour. Recipients is a comma-separated list of email addresses.
+  paymentAlertMode: varchar("payment_alert_mode", { length: 16 })
+    .notNull()
+    .default("off"),
+  paymentAlertRecipients: text("payment_alert_recipients"),
   // Local admin credentials. Bootstrapped to a random username/password
   // on first server boot (logged once to the server console) so the
   // operator can sign in without configuring SSO. The hash is stored

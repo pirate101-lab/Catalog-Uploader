@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { db, paymentEventsTable, type PaymentEvent } from "@workspace/db";
 import { logger } from "./logger";
+import { dispatchPaymentAlert } from "./email";
 
 /**
  * In-process pub/sub for payment events. The admin SSE endpoint
@@ -51,6 +52,11 @@ export async function recordPaymentEvent(input: {
       .returning();
     if (row) {
       paymentEventBus.emit("event", row);
+      // Fire-and-forget operator alert dispatch — high-severity failures
+      // notify the operator email list per their configured frequency.
+      // Errors are swallowed inside dispatchPaymentAlert so a broken
+      // alert pipeline never blocks payment processing.
+      void dispatchPaymentAlert(row, logger);
     }
     return row ?? null;
   } catch (err) {
