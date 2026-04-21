@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -36,11 +36,21 @@ const checkoutSchema = z.object({
 
 type CheckoutForm = z.infer<typeof checkoutSchema>;
 
+interface BankTransferDetails {
+  bankName: string | null;
+  accountName: string | null;
+  accountNumber: string | null;
+  swiftCode: string | null;
+  routingNumber: string | null;
+  instructions: string | null;
+}
+
 interface StorefrontSettings {
   currency: string | null;
   currencySymbol: string | null;
   stripePublishableKey: string | null;
   paymentsConfigured: boolean;
+  bankTransfer?: BankTransferDetails;
 }
 
 interface IntentResponse {
@@ -92,6 +102,16 @@ export function CheckoutPage() {
   const [, navigate] = useLocation();
   const [submitted, setSubmitted] = useState(false);
   const [orderId, setOrderId] = useState('');
+  // Server-authoritative total returned by /checkout/submit. The pre-submit
+  // estimates can drift (price changes, free-shipping threshold, tax rules),
+  // so we ALWAYS show the value the API persisted on the order — that is
+  // the exact amount the customer must wire.
+  const [confirmedTotalCents, setConfirmedTotalCents] = useState<number | null>(
+    null,
+  );
+  const [confirmedCurrencySymbol, setConfirmedCurrencySymbol] = useState<
+    string | null
+  >(null);
   const [settings, setSettings] = useState<StorefrontSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [intent, setIntent] = useState<IntentResponse | null>(null);
@@ -212,32 +232,62 @@ export function CheckoutPage() {
   }, [settings?.stripePublishableKey]);
 
   if (submitted) {
+    const bank = settings?.bankTransfer;
+    // Always render the server-authoritative total persisted on the order;
+    // never show the client-side estimate after submit, otherwise the wire
+    // amount on the success page could disagree with what's in the database.
+    const finalTotalCents = confirmedTotalCents ?? totalCents;
+    const finalSymbol = confirmedCurrencySymbol ?? currencySymbol;
+    const totalDisplay = fmt(finalTotalCents, finalSymbol);
     return (
       <div className="pt-32 pb-24 min-h-screen bg-background">
-        <div className="container mx-auto px-4 max-w-2xl text-center">
-          <CheckCircle2 className="w-16 h-16 mx-auto text-primary mb-6" />
-          <h1 className="font-serif text-4xl md:text-5xl font-bold mb-4">
-            Thank you
-          </h1>
-          <p className="text-muted-foreground mb-2">
-            Your order has been placed and your card was charged successfully.
-          </p>
-          <p className="text-sm uppercase tracking-widest mb-10">
-            Order #
-            <span className="text-primary font-bold" data-testid="order-id">
-              {orderId}
-            </span>
-          </p>
-          <p className="text-sm text-muted-foreground mb-10">
-            A receipt is on its way from Stripe. We'll email you again when your
-            order ships.
-          </p>
-          <Button
-            onClick={() => navigate('/shop')}
-            className="rounded-full px-12 h-14 text-xs tracking-widest uppercase font-bold"
-          >
-            Continue Shopping
-          </Button>
+        <div className="container mx-auto px-4 max-w-2xl">
+          <div className="text-center">
+            <CheckCircle2 className="w-16 h-16 mx-auto text-primary mb-6" />
+            <h1 className="font-serif text-4xl md:text-5xl font-bold mb-4">
+              Order received
+            </h1>
+            <p className="text-muted-foreground mb-2">
+              Your order has been recorded. Please complete payment by bank
+              transfer using the details below — once we see the deposit we'll
+              ship your order and email you a confirmation.
+            </p>
+            <p className="text-sm uppercase tracking-widest mb-10">
+              Order #
+              <span
+                className="text-primary font-bold"
+                data-testid="order-id"
+              >
+                {orderId}
+              </span>
+            </p>
+          </div>
+
+          <div className="border border-border bg-muted/20 p-8 mb-10">
+            <h2 className="text-xs font-bold uppercase tracking-widest mb-6">
+              Payment Instructions
+            </h2>
+            <BankDetailsList
+              bank={bank}
+              memo={orderId}
+              total={totalDisplay}
+            />
+            <p className="text-xs text-muted-foreground mt-6">
+              <strong>Important:</strong> use the order number{' '}
+              <span className="text-foreground font-mono">{orderId}</span> as
+              the transfer reference / memo so we can match your payment to
+              your order.
+            </p>
+          </div>
+
+          <div className="text-center">
+            <Button
+              onClick={() => navigate('/shop')}
+              className="rounded-full px-12 h-14 text-xs tracking-widest uppercase font-bold"
+            >
+              Continue Shopping
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -381,12 +431,15 @@ export function CheckoutPage() {
                   Loading payment options…
                 </p>
               ) : !settings?.paymentsConfigured ? (
-                <NoPaymentSubmit
+                <BankTransferSubmit
                   form={form}
                   items={items}
+                  bank={settings?.bankTransfer}
                   totalLabel={`Place Order — ${fmt(totalCents, currencySymbol)}`}
                   onSuccess={(res) => {
                     setOrderId(res.orderId);
+                    setConfirmedTotalCents(res.totalCents);
+                    setConfirmedCurrencySymbol(currencySymbol);
                     setSubmitted(true);
                     clearCart();
                     window.scrollTo({
@@ -431,8 +484,10 @@ export function CheckoutPage() {
               )}
 
               <p className="text-xs text-muted-foreground mt-4 flex items-center gap-2">
-                <Lock className="w-3 h-3" /> Card details are tokenized by
-                Stripe — they never touch our servers.
+                <Lock className="w-3 h-3" />{' '}
+                {settings?.paymentsConfigured
+                  ? 'Card details are tokenized by Stripe — they never touch our servers.'
+                  : 'No card is charged at checkout — payment is completed by bank transfer using the details shown after you place your order.'}
               </p>
             </section>
           </form>
@@ -494,16 +549,84 @@ export function CheckoutPage() {
   );
 }
 
-function NoPaymentSubmit({
+function BankDetailsList({
+  bank,
+  memo,
+  total,
+}: {
+  bank: BankTransferDetails | null | undefined;
+  memo: string;
+  total?: string;
+}) {
+  // Hide a row entirely when its env var is unset, so the list doesn't show
+  // empty fields like "Account number: —". If the entire bank block is
+  // missing we fall back to a clear "contact us" message.
+  const rows: { label: string; value: string }[] = [];
+  if (bank?.bankName) rows.push({ label: 'Bank', value: bank.bankName });
+  if (bank?.accountName)
+    rows.push({ label: 'Account name', value: bank.accountName });
+  if (bank?.accountNumber)
+    rows.push({ label: 'Account number', value: bank.accountNumber });
+  if (bank?.routingNumber)
+    rows.push({ label: 'Routing / ABA', value: bank.routingNumber });
+  if (bank?.swiftCode)
+    rows.push({ label: 'SWIFT / BIC', value: bank.swiftCode });
+
+  if (rows.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground" data-testid="bank-missing">
+        Bank details aren't configured yet. The store team will contact you at
+        the email address you provided with payment instructions.
+      </p>
+    );
+  }
+
+  return (
+    <dl className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-x-6 gap-y-3 text-sm">
+      {rows.map((row) => (
+        <Fragment key={row.label}>
+          <dt className="text-xs uppercase tracking-widest text-muted-foreground">
+            {row.label}
+          </dt>
+          <dd className="font-mono break-all">{row.value}</dd>
+        </Fragment>
+      ))}
+      {total ? (
+        <>
+          <dt className="text-xs uppercase tracking-widest text-muted-foreground">
+            Amount (USD)
+          </dt>
+          <dd className="font-mono font-bold">{total}</dd>
+        </>
+      ) : null}
+      <dt className="text-xs uppercase tracking-widest text-muted-foreground">
+        Reference / Memo
+      </dt>
+      <dd className="font-mono font-bold">{memo}</dd>
+      {bank?.instructions ? (
+        <>
+          <dt className="text-xs uppercase tracking-widest text-muted-foreground">
+            Notes
+          </dt>
+          <dd className="text-muted-foreground">{bank.instructions}</dd>
+        </>
+      ) : null}
+    </dl>
+  );
+}
+
+function BankTransferSubmit({
   form,
   items,
+  bank,
   totalLabel,
   onSuccess,
 }: {
   form: ReturnType<typeof useForm<CheckoutForm>>;
   items: CartItem[];
+  bank: BankTransferDetails | null | undefined;
   totalLabel: string;
-  onSuccess: (res: { orderId: string }) => void;
+  onSuccess: (res: { orderId: string; totalCents: number; currency: string }) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -533,24 +656,44 @@ function NoPaymentSubmit({
             `Could not place order (HTTP ${res.status}).`,
         );
       }
-      onSuccess({ orderId: body.orderId });
+      // Use the server-authoritative total/currency. The pre-submit
+      // estimate may differ if pricing changed between page load and submit.
+      onSuccess({
+        orderId: body.orderId,
+        totalCents: typeof body.totalCents === 'number' ? body.totalCents : 0,
+        currency: typeof body.currency === 'string' ? body.currency : 'USD',
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not place order.');
       setSubmitting(false);
     }
   };
 
+  const hasBankDetails =
+    !!(bank?.bankName || bank?.accountNumber || bank?.accountName);
+
   return (
-    <div className="space-y-4">
-      <div className="border border-amber-500/40 bg-amber-500/5 p-5 text-sm flex items-start gap-3">
-        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-        <div>
-          <p className="font-medium mb-1">Card payments aren't enabled yet</p>
-          <p className="text-muted-foreground">
-            You can still place your order — the store team will reach out to
-            arrange payment and shipping.
+    <div className="space-y-5">
+      <div className="border border-border bg-muted/20 p-5 text-sm">
+        <p className="font-medium mb-2 flex items-center gap-2">
+          <Lock className="w-4 h-4" /> Pay by bank transfer
+        </p>
+        <p className="text-muted-foreground mb-4">
+          Place your order now, then send the total in USD to the account
+          below. We'll ship as soon as the deposit clears (typically the same
+          business day for ACH, 1–3 days for international wires).
+        </p>
+        {hasBankDetails ? (
+          <div className="border border-border bg-background p-4">
+            <BankDetailsList bank={bank} memo="(your order # appears here after you place the order)" />
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Bank details haven't been configured for this store yet. You can
+            still place your order — we'll email you with payment instructions
+            within one business day.
           </p>
-        </div>
+        )}
       </div>
       {error ? (
         <p className="text-sm text-destructive flex items-start gap-2">

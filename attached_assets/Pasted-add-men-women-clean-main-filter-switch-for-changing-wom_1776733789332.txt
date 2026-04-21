@@ -1,0 +1,49 @@
+add men/women clean main filter (switch for changing women displays to men and vice versa)to trigger what left category menu to be displayed accordingly, when i click the cart icon in imges meant to add that item to cart its saying item not available now. and those reviews counts shown in product default view should also show in when i click the product to large view  run fully audit of the whole site as a error detector and debugger and propose scheme for  my own bank made checkout gateway payments going to my usd checking bank account and how we can set up also cheap cost=free card payments checkout. use this new token for shoes curl 'https://www.trendsi.com/api/store/list' \
+  -X POST \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0' \
+  -H 'Accept: application/json, text/plain, */*' \
+  -H 'Accept-Language: en-GB,en;q=0.5' \
+  -H 'Accept-Encoding: gzip, deflate, br, zstd' \
+  -H 'Content-Type: application/json' \
+  -H 'platform: 2' \
+  -H 'os: 3' \
+  -H 'version: V1.2.9' \
+  -H 'Access-Token: 0awbsep2AuWkHVug4xG6' \
+  -H 'shippingTo: 1' \
+  -H 'currency: USD' \
+  -H 'timezone: -180' \
+  -H 'Origin: https://www.trendsi.com' \
+  -H 'DNT: 1' \
+  -H 'Sec-GPC: 1' \
+  -H 'Connection: keep-alive' \
+  -H 'Referer: https://www.trendsi.com/classify/Category/Shoes' \
+  -H 'Cookie: TOKEN=0awbsep2AuWkHVug4xG6; SHOPID=654873' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'TE: trailers' \
+  --data-raw '{"curPage":1,"pageSize":10000,"device_id":657591,"channel":3,"shopId":"654873"}'                                                                                                                                                                                       and men clothes curl 'https://www.trendsi.com/api/store/list' \
+  -X POST \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0' \
+  -H 'Accept: application/json, text/plain, */*' \
+  -H 'Accept-Language: en-GB,en;q=0.5' \
+  -H 'Accept-Encoding: gzip, deflate, br, zstd' \
+  -H 'Content-Type: application/json' \
+  -H 'platform: 2' \
+  -H 'os: 3' \
+  -H 'version: V1.2.9' \
+  -H 'Access-Token: 0awbsep2AuWkHVug4xG6' \
+  -H 'shippingTo: 1' \
+  -H 'currency: USD' \
+  -H 'timezone: -180' \
+  -H 'Origin: https://www.trendsi.com' \
+  -H 'DNT: 1' \
+  -H 'Sec-GPC: 1' \
+  -H 'Connection: keep-alive' \
+  -H 'Referer: https://www.trendsi.com/classify/Men/All?ref_pv_id=aaf9f470de30e72e65cd963f160f8bd6' \
+  -H 'Cookie: TOKEN=0awbsep2AuWkHVug4xG6; SHOPID=654873' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'TE: trailers' \
+  --data-raw '{"curPage":1,"pageSize":1000,"device_id":657591,"channel":3,"shopId":"654873"}'                                       and remove cleanly duplicate workflows that fight over same ports

@@ -193,6 +193,18 @@ function searchAndSort(rows: DecoratedRow[], f: SearchFilters): DecoratedRow[] {
 
 router.get("/storefront/settings", async (_req: Request, res: Response) => {
   const s = await getSiteSettings();
+  // Bank-transfer payment details are read from env so they can be rotated
+  // without redeploying. All four are optional — if any are missing the
+  // storefront will display a friendly placeholder telling the customer to
+  // contact the store after placing the order.
+  const bank = {
+    bankName: process.env.BANK_NAME ?? null,
+    accountName: process.env.BANK_ACCOUNT_NAME ?? null,
+    accountNumber: process.env.BANK_ACCOUNT_NUMBER ?? null,
+    swiftCode: process.env.BANK_SWIFT_CODE ?? null,
+    routingNumber: process.env.BANK_ROUTING_NUMBER ?? null,
+    instructions: process.env.BANK_INSTRUCTIONS ?? null,
+  };
   res.json({
     id: s.id,
     storeName: s.storeName,
@@ -207,6 +219,7 @@ router.get("/storefront/settings", async (_req: Request, res: Response) => {
     heroAutoAdvance: s.heroAutoAdvance,
     stripePublishableKey: null,
     paymentsConfigured: false,
+    bankTransfer: bank,
   });
 });
 

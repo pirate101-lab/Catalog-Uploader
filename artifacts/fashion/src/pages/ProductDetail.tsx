@@ -22,6 +22,7 @@ import { getGalleryImages } from '@/lib/productImages';
 import { ProductImage } from '@/components/ProductImage';
 import { PriceTag } from '@/components/PriceTag';
 import { imageUrl, imagePreload } from '@/lib/imageUrl';
+import { deriveStubs } from '@/lib/productStubs';
 
 const HERO_IMAGE_SIZES = '(min-width: 1024px) 480px, (min-width: 768px) 45vw, 100vw';
 
@@ -158,7 +159,15 @@ export function ProductDetailPage() {
   const showSwatches = product.colors.length > 1;
   const gallery = getGalleryImages(product, selectedColor);
   const reviews: Review[] = reviewData.reviews;
-  const rating = { average: reviewData.average, count: reviewData.count };
+  // When the database has no real reviews for this product yet, fall back to
+  // the same deterministic stub the product card shows. This keeps the rating
+  // and review-count consistent between the grid (where the shopper saw
+  // "4.7 · 190") and the PDP — otherwise the PDP would say "No reviews yet"
+  // for a product the grid claimed had hundreds of reviews.
+  const stubs = deriveStubs(product);
+  const rating = reviewData.count > 0
+    ? { average: reviewData.average, count: reviewData.count }
+    : { average: stubs.rating, count: stubs.reviews };
   const description = getProductDescription(product);
   const wishlisted = inWishlist(product.id);
   const heroPreload = imagePreload(gallery[activeImage], {
