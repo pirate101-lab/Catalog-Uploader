@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -79,6 +79,15 @@ interface PaystackInitResponse {
   currency: string;
 }
 
+interface CheckoutQuote {
+  subtotalCents: number;
+  shippingCents: number;
+  taxCents: number;
+  totalCents: number;
+  currency: string;
+  currencySymbol: string;
+}
+
 // Only what the server needs. Prices/shipping/tax are NOT sent — the server
 // looks up product prices from the database to prevent tampering.
 function buildItemPayload(items: CartItem[]) {
@@ -127,9 +136,16 @@ export function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'bank'>(
     'paystack',
   );
+  // Server-authoritative pricing for the cart, refetched whenever the
+  // cart changes. The displayed totals (and the Paystack button label)
+  // are bound to this — never to the local estimates below — so the
+  // customer always sees exactly what the server will charge.
+  const [quote, setQuote] = useState<CheckoutQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
 
-  // Client-side estimates for the cart summary. Real charge amounts are
-  // computed server-side at /checkout/paystack/init or /checkout/submit.
+  // Pre-quote estimates only used while the first /checkout/quote is in
+  // flight, so the summary doesn't flash blank for sub-second loads.
   const estShippingCents =
     subtotal === 0 || subtotal >= FREE_SHIPPING_THRESHOLD
       ? 0
@@ -138,11 +154,12 @@ export function CheckoutPage() {
   const estTaxCents = Math.round(estSubtotalCents * TAX_RATE);
   const estTotalCents = estSubtotalCents + estShippingCents + estTaxCents;
 
-  const currencySymbol = settings?.currencySymbol ?? '$';
-  const subtotalCents = estSubtotalCents;
-  const shippingCents = estShippingCents;
-  const taxCents = estTaxCents;
-  const totalCents = estTotalCents;
+  const currencySymbol = quote?.currencySymbol ?? settings?.currencySymbol ?? '$';
+  const subtotalCents = quote?.subtotalCents ?? estSubtotalCents;
+  const shippingCents = quote?.shippingCents ?? estShippingCents;
+  const taxCents = quote?.taxCents ?? estTaxCents;
+  const totalCents = quote?.totalCents ?? estTotalCents;
+  const pricingReady = quote !== null;
   const paystackReady = !!(
     settings?.paystackEnabled && settings.paystackPublicKey
   );
@@ -221,6 +238,59 @@ export function CheckoutPage() {
   useEffect(() => {
     if (!paystackReady) setPaymentMethod('bank');
   }, [paystackReady]);
+
+  // Fetch a server-priced quote whenever the cart contents change.
+  const cartKey = useMemo(
+    () =>
+      items
+        .map((i) => `${i.productId}|${i.color}|${i.size}|${i.quantity}`)
+        .sort()
+        .join(','),
+    [items],
+  );
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setQuote(null);
+      return;
+    }
+    let cancelled = false;
+    setQuoteLoading(true);
+    setQuoteError(null);
+    fetch(`${basePath}/api/checkout/quote`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ items: buildItemPayload(items) }),
+    })
+      .then(async (r) => {
+        const body = (await r.json().catch(() => null)) as
+          | CheckoutQuote
+          | { error?: string }
+          | null;
+        if (!r.ok || !body || 'error' in body) {
+          throw new Error(
+            (body && 'error' in body && body.error) ||
+              `Could not price cart (HTTP ${r.status}).`,
+          );
+        }
+        return body as CheckoutQuote;
+      })
+      .then((q) => {
+        if (cancelled) return;
+        setQuote(q);
+      })
+      .catch((e: Error) => {
+        if (cancelled) return;
+        setQuoteError(e.message);
+        setQuote(null);
+      })
+      .finally(() => {
+        if (!cancelled) setQuoteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cartKey, items.length]);
 
   const [paystackReturnError, setPaystackReturnError] = useState<string | null>(
     null,
@@ -507,9 +577,14 @@ export function CheckoutPage() {
                 </p>
               ) : null}
 
-              {settingsLoading ? (
+              {settingsLoading || quoteLoading && !pricingReady ? (
                 <p className="text-sm text-muted-foreground">
-                  Loading payment options…
+                  {settingsLoading ? 'Loading payment options…' : 'Pricing your cart…'}
+                </p>
+              ) : quoteError && !pricingReady ? (
+                <p className="text-sm text-destructive flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  {quoteError}
                 </p>
               ) : (
                 <>
@@ -525,14 +600,23 @@ export function CheckoutPage() {
                     <PaystackSubmit
                       form={form}
                       items={items}
-                      totalLabel={`Pay ${fmt(totalCents, currencySymbol)} with Paystack`}
+                      disabled={!pricingReady}
+                      totalLabel={
+                        pricingReady
+                          ? `Pay ${fmt(totalCents, currencySymbol)} with Paystack`
+                          : 'Pricing your cart…'
+                      }
                     />
                   ) : (
                     <BankTransferSubmit
                       form={form}
                       items={items}
                       bank={settings?.bankTransfer}
-                      totalLabel={`Place Order — ${fmt(totalCents, currencySymbol)}`}
+                      totalLabel={
+                        pricingReady
+                          ? `Place Order — ${fmt(totalCents, currencySymbol)}`
+                          : 'Pricing your cart…'
+                      }
                       onSuccess={(res) => {
                         setOrderId(res.orderId);
                         setConfirmedTotalCents(res.totalCents);
@@ -873,10 +957,12 @@ function PaystackSubmit({
   form,
   items,
   totalLabel,
+  disabled,
 }: {
   form: ReturnType<typeof useForm<CheckoutForm>>;
   items: CartItem[];
   totalLabel: string;
+  disabled?: boolean;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -941,7 +1027,7 @@ function PaystackSubmit({
       <Button
         type="button"
         onClick={startPayment}
-        disabled={submitting}
+        disabled={submitting || !!disabled}
         className="w-full h-14 rounded-full text-xs tracking-widest uppercase font-bold"
         data-testid="button-place-order"
       >

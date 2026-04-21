@@ -200,10 +200,31 @@ export async function probeSecretKey(
   }
 }
 
-/** Resolve the canonical https origin used to build callback/webhook URLs. */
-export function getPublicOrigin(): string {
+interface OriginRequestLike {
+  protocol?: string;
+  get?: (name: string) => string | undefined;
+  headers?: { host?: string | string[] | undefined };
+}
+
+/**
+ * Resolve the canonical https origin used to build callback/webhook
+ * URLs. Prefer the actual incoming request's host so the URLs reflect
+ * the current domain (custom domains, *.replit.app, *.replit.dev all
+ * Just Work). Falls back to env if no request is available.
+ */
+export function getPublicOrigin(req?: OriginRequestLike): string {
   const fromEnv = process.env["PUBLIC_SITE_URL"]?.trim();
   if (fromEnv) return fromEnv.replace(/\/+$/, "");
+  if (req) {
+    const host =
+      req.get?.("host") ??
+      (Array.isArray(req.headers?.host) ? req.headers!.host[0] : req.headers?.host);
+    if (host) {
+      const proto =
+        req.protocol && req.protocol !== "http" ? req.protocol : "https";
+      return `${proto}://${host}`.replace(/\/+$/, "");
+    }
+  }
   const dev = process.env["REPLIT_DEV_DOMAIN"]?.trim();
   if (dev) return `https://${dev}`;
   const deployed = process.env["REPLIT_DEPLOYMENT"]?.trim();
@@ -211,10 +232,10 @@ export function getPublicOrigin(): string {
   return "http://localhost";
 }
 
-export function getCallbackUrl(): string {
-  return `${getPublicOrigin()}/api/checkout/paystack/callback`;
+export function getCallbackUrl(req?: OriginRequestLike): string {
+  return `${getPublicOrigin(req)}/api/checkout/paystack/callback`;
 }
 
-export function getWebhookUrl(): string {
-  return `${getPublicOrigin()}/api/payments/paystack/webhook`;
+export function getWebhookUrl(req?: OriginRequestLike): string {
+  return `${getPublicOrigin(req)}/api/payments/paystack/webhook`;
 }

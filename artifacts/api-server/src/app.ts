@@ -8,6 +8,11 @@ import { authMiddleware } from "./middlewares/authMiddleware";
 import { createProxyMiddleware } from "http-proxy-middleware";
 
 const app: Express = express();
+// Trust the Replit edge proxy so req.protocol/req.hostname reflect the
+// public origin (https + custom domain) rather than the internal port.
+// This makes /admin/payments/urls report the URL operators actually need
+// to paste into the Paystack dashboard.
+app.set("trust proxy", true);
 
 app.use(
   pinoHttp({

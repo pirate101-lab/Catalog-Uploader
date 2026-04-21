@@ -784,10 +784,10 @@ router.put("/admin/settings", async (req, res) => {
 
 /* ---------------- Payments admin ---------------- */
 
-router.get("/admin/payments/urls", (_req, res) => {
+router.get("/admin/payments/urls", (req, res) => {
   res.json({
-    callbackUrl: getCallbackUrl(),
-    webhookUrl: getWebhookUrl(),
+    callbackUrl: getCallbackUrl(req),
+    webhookUrl: getWebhookUrl(req),
   });
 });
 

@@ -81,6 +81,36 @@ async function priceCart(items: CartItemPayload[]) {
   return { lineItems, subtotalCents, shippingCents, taxCents, totalCents };
 }
 
+/**
+ * Server-authoritative pricing preview. The storefront calls this on
+ * cart change so the displayed totals (and the Pay-with-Paystack button
+ * label) always reflect the same numbers the server will charge — never
+ * a client-side estimate of shipping/tax.
+ */
+router.post("/checkout/quote", async (req: Request, res: Response) => {
+  try {
+    const body = req.body ?? {};
+    const items: CartItemPayload[] = body.items ?? [];
+    if (items.length === 0) {
+      res.status(400).json({ error: "Cart is empty" });
+      return;
+    }
+    const priced = await priceCart(items);
+    const settings = await getSiteSettings();
+    res.json({
+      subtotalCents: priced.subtotalCents,
+      shippingCents: priced.shippingCents,
+      taxCents: priced.taxCents,
+      totalCents: priced.totalCents,
+      currency: "USD",
+      currencySymbol: settings.currencySymbol ?? "$",
+    });
+  } catch (err) {
+    req.log.warn({ err }, "Checkout quote failed");
+    res.status(400).json({ error: (err as Error).message || "Could not price cart" });
+  }
+});
+
 // New endpoint: place an order WITHOUT payment processing. Used by the
 // storefront so checkout submissions land in the admin Orders queue even
 // though Stripe is not wired up.
@@ -222,7 +252,7 @@ router.post("/checkout/paystack/init", async (req: Request, res: Response) => {
       // long as we send the matching currency code below.
       amountKobo: order.totalCents,
       reference: order.id,
-      callbackUrl: getCallbackUrl(),
+      callbackUrl: getCallbackUrl(req),
       currency: order.currency,
       metadata: {
         orderId: order.id,
