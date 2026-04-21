@@ -11,10 +11,13 @@ import {
   productOverridesTable,
   ordersTable,
   orderEmailEventsTable,
+  paymentEventsTable,
   reviewsTable,
   siteSettingsTable,
   wishlistSignalsTable,
+  type PaymentEvent,
 } from "@workspace/db";
+import { paymentEventBus } from "../lib/paymentEvents";
 import { requireAdmin } from "../middlewares/adminGuard";
 import { invalidateOverrides } from "../lib/overrides";
 import { invalidateSiteSettings, getSiteSettings } from "../lib/siteSettings";
@@ -1183,6 +1186,91 @@ router.get("/admin/overview", async (_req, res) => {
     lowStockProducts,
     emailsFailed24h: Number(emailFailRow?.count ?? 0),
     productsCount: allProducts.length,
+  });
+});
+
+/* ---------------- Payment events ----------------
+ * Audit log + live stream for Paystack outcomes (success, failed,
+ * abandoned). The list endpoint backs the Payments admin's activity
+ * panel; the SSE endpoint pushes real-time updates so a successful
+ * webhook turns into a toast in the dashboard within milliseconds.
+ */
+
+router.get("/admin/payment-events", async (req: Request, res: Response) => {
+  const limit = Math.min(Number(req.query["limit"] ?? 50) || 50, 200);
+  const offset = Math.max(Number(req.query["offset"] ?? 0) || 0, 0);
+  const kindRaw = typeof req.query["kind"] === "string" ? req.query["kind"] : "";
+  const where =
+    kindRaw === "success" || kindRaw === "failed" || kindRaw === "abandoned"
+      ? eq(paymentEventsTable.kind, kindRaw)
+      : sql`TRUE`;
+  const rows = await db
+    .select()
+    .from(paymentEventsTable)
+    .where(where)
+    .orderBy(desc(paymentEventsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+  const [countRow] = await db
+    .select({ count: sql<number>`COUNT(*)::int` })
+    .from(paymentEventsTable)
+    .where(where);
+  res.json({
+    rows,
+    total: Number(countRow?.count ?? 0),
+    limit,
+    offset,
+  });
+});
+
+/**
+ * Server-Sent Events stream of new payment_event rows. The admin
+ * dashboard subscribes via EventSource — admin auth cookies are sent
+ * automatically because the stream lives under /api/admin/* which is
+ * already gated by `requireAdmin`.
+ *
+ * Emits a periodic comment-only keepalive so any intermediary proxy
+ * doesn't close an idle connection.
+ */
+router.get("/admin/payment-events/stream", (req: Request, res: Response) => {
+  res.status(200).set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    // Disable proxy buffering on platforms that respect this hint
+    // (e.g. nginx) so events arrive immediately rather than in chunks.
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders();
+  // Initial comment lets the client know the stream is open.
+  res.write(`: connected ${new Date().toISOString()}\n\n`);
+
+  const send = (event: PaymentEvent) => {
+    try {
+      res.write(`event: payment\n`);
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    } catch {
+      // Client disconnected mid-write — cleanup happens via 'close'.
+    }
+  };
+  paymentEventBus.on("event", send);
+
+  const keepalive = setInterval(() => {
+    try {
+      res.write(`: keepalive ${Date.now()}\n\n`);
+    } catch {
+      /* ignore */
+    }
+  }, 25_000);
+
+  req.on("close", () => {
+    clearInterval(keepalive);
+    paymentEventBus.off("event", send);
+    try {
+      res.end();
+    } catch {
+      /* already closed */
+    }
   });
 });
 

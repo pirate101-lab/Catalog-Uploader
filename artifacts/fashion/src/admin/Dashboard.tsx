@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "wouter";
+import { toast } from "sonner";
 import { AdminShell, AdminPageHeader } from "./AdminShell";
-import { adminApi, fmtCents, type AdminOverview } from "./api";
+import { adminApi, fmtCents, type AdminOverview, type PaymentEventRow } from "./api";
+import { usePaymentEventStream } from "./usePaymentEventStream";
 import {
   Package,
   ShoppingBag,
@@ -12,6 +14,10 @@ import {
   Calculator,
   CalendarDays,
   CreditCard,
+  Activity,
+  CheckCircle2,
+  XCircle,
+  Clock,
 } from "lucide-react";
 
 const FUNNEL_LABELS: Array<{ key: string; label: string; color: string }> = [
@@ -25,6 +31,7 @@ const FUNNEL_LABELS: Array<{ key: string; label: string; color: string }> = [
 export function AdminDashboard() {
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [liveEvents, setLiveEvents] = useState<PaymentEventRow[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,6 +43,61 @@ export function AdminDashboard() {
       cancelled = true;
     };
   }, []);
+
+  // Real-time Paystack alerts. Successes also bump the live KPIs so the
+  // operator doesn't have to refresh; failures + abandoned charges are
+  // surfaced as toasts pointing at the matching order page.
+  const handlePaymentEvent = useCallback((ev: PaymentEventRow) => {
+    setLiveEvents((prev) => {
+      if (prev.some((p) => p.id === ev.id)) return prev;
+      return [ev, ...prev].slice(0, 8);
+    });
+    if (ev.kind === "success") {
+      const amt = ev.amountCents != null ? ` ${fmtCents(ev.amountCents)}` : "";
+      toast.success(`Payment received${amt}`, {
+        description: ev.message ?? "Order marked as paid.",
+        action: ev.orderId
+          ? {
+              label: "View order",
+              onClick: () => {
+                window.location.assign(`/admin/orders/${ev.orderId}`);
+              },
+            }
+          : undefined,
+      });
+      // Optimistically bump today's payments KPI without a re-fetch.
+      setOverview((prev) =>
+        prev
+          ? {
+              ...prev,
+              paymentsToday: {
+                count: prev.paymentsToday.count + 1,
+                revenueCents:
+                  prev.paymentsToday.revenueCents + (ev.amountCents ?? 0),
+              },
+            }
+          : prev,
+      );
+    } else if (ev.kind === "failed") {
+      toast.error("Payment failed", {
+        description: ev.message ?? `Paystack reported ${ev.code}.`,
+        action: ev.orderId
+          ? {
+              label: "View order",
+              onClick: () => {
+                window.location.assign(`/admin/orders/${ev.orderId}`);
+              },
+            }
+          : undefined,
+      });
+    } else {
+      // abandoned — quieter, info toast.
+      toast(`Checkout abandoned`, {
+        description: ev.message ?? "Customer left Paystack without paying.",
+      });
+    }
+  }, []);
+  usePaymentEventStream(handlePaymentEvent);
 
   const funnelTotal = overview
     ? Object.values(overview.funnel).reduce((a, b) => a + b, 0)
@@ -207,6 +269,27 @@ export function AdminDashboard() {
             </section>
           )}
 
+          {liveEvents.length > 0 && (
+            <section
+              className="border rounded-lg p-6 mb-6 border-sky-500/40 bg-sky-500/5"
+              data-testid="dashboard-live-payments"
+            >
+              <h2 className="text-xs uppercase tracking-widest font-bold mb-4 flex items-center gap-2 text-sky-700 dark:text-sky-300">
+                <Activity className="w-4 h-4" />
+                Live payment activity
+                <span className="ml-auto inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-sky-700/70 dark:text-sky-300/70">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                  Streaming
+                </span>
+              </h2>
+              <ul className="divide-y">
+                {liveEvents.map((ev) => (
+                  <LivePaymentRow key={ev.id} event={ev} />
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="border rounded-lg p-6">
             <h2 className="text-xs uppercase tracking-widest font-bold mb-4">
               Recent orders
@@ -318,6 +401,58 @@ function PaystackPill({
       <CreditCard className="w-3 h-3" />
       {c.label}
     </Link>
+  );
+}
+
+function LivePaymentRow({ event }: { event: PaymentEventRow }) {
+  const Icon =
+    event.kind === "success"
+      ? CheckCircle2
+      : event.kind === "abandoned"
+        ? Clock
+        : XCircle;
+  const color =
+    event.kind === "success"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : event.kind === "abandoned"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-destructive";
+  const label =
+    event.kind === "success"
+      ? "Paid"
+      : event.kind === "abandoned"
+        ? "Abandoned"
+        : "Failed";
+  const body = (
+    <div className="py-2 flex items-center gap-3 text-sm">
+      <Icon className={`w-4 h-4 shrink-0 ${color}`} />
+      <span className={`text-xs uppercase tracking-widest font-semibold ${color}`}>
+        {label}
+      </span>
+      <span className="truncate flex-1 text-muted-foreground">
+        {event.message ?? event.code}
+      </span>
+      {event.amountCents != null && (
+        <span className="whitespace-nowrap font-medium">
+          {fmtCents(event.amountCents)}
+        </span>
+      )}
+      <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+        {new Date(event.createdAt).toLocaleTimeString()}
+      </span>
+    </div>
+  );
+  return event.orderId ? (
+    <li>
+      <Link
+        href={`/admin/orders/${event.orderId}`}
+        className="block hover:bg-sky-500/10 -mx-2 px-2 rounded transition"
+      >
+        {body}
+      </Link>
+    </li>
+  ) : (
+    <li>{body}</li>
   );
 }
 

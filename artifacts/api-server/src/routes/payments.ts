@@ -8,6 +8,7 @@ import {
   verifyTransaction,
 } from "../lib/paystack";
 import { sendOrderConfirmationEmail } from "../lib/email";
+import { recordPaymentEvent } from "../lib/paymentEvents";
 
 const router: IRouter = Router();
 
@@ -152,12 +153,35 @@ router.post(
       return;
     }
     if (event.event !== "charge.success") {
-      // Acknowledge other events so Paystack doesn't retry.
+      // Acknowledge other events so Paystack doesn't retry. Surface
+      // failed/abandoned charge events in the admin audit log so
+      // operators can spot declines without grepping the server log.
+      const ref = event.data?.reference ?? null;
+      if (event.event === "charge.failed") {
+        await recordPaymentEvent({
+          orderId: ref,
+          reference: ref,
+          kind: "failed",
+          source: "webhook",
+          code: "charge_failed",
+          message: `Paystack reported charge.failed (${event.data?.status ?? "unknown"})`,
+          amountCents: event.data?.amount ?? null,
+          currency: event.data?.currency ?? null,
+        });
+      }
       res.status(200).json({ ok: true, ignored: event.event });
       return;
     }
     const ref = event.data?.reference;
     if (!ref) {
+      await recordPaymentEvent({
+        orderId: null,
+        reference: null,
+        kind: "failed",
+        source: "webhook",
+        code: "missing_reference",
+        message: "Webhook charge.success had no reference field",
+      });
       res.status(400).json({ error: "Missing reference" });
       return;
     }
@@ -169,6 +193,16 @@ router.post(
     });
     if (!result.order) {
       req.log.warn({ ref }, "Paystack webhook for unknown order");
+      await recordPaymentEvent({
+        orderId: null,
+        reference: ref,
+        kind: "failed",
+        source: "webhook",
+        code: "order_not_found",
+        message: "Webhook charge.success for a reference with no matching order",
+        amountCents: event.data?.amount ?? null,
+        currency: event.data?.currency ?? null,
+      });
       // Return 200 anyway so Paystack doesn't infinitely retry an order
       // that we may have intentionally pruned.
       res.status(200).json({ ok: true, found: false });
@@ -182,10 +216,30 @@ router.post(
         { ref, mismatch: result.mismatch },
         "Paystack webhook amount/currency mismatch — order NOT marked paid",
       );
+      await recordPaymentEvent({
+        orderId: result.order.id,
+        reference: ref,
+        kind: "failed",
+        source: "webhook",
+        code: `${result.mismatch.field}_mismatch`,
+        message: `Paystack ${result.mismatch.field} ${String(result.mismatch.got)} != expected ${String(result.mismatch.expected)} — NOT marked paid`,
+        amountCents: event.data?.amount ?? null,
+        currency: event.data?.currency ?? null,
+      });
       res.status(200).json({ ok: true, mismatch: result.mismatch.field });
       return;
     }
     if (result.updated) {
+      await recordPaymentEvent({
+        orderId: result.order.id,
+        reference: ref,
+        kind: "success",
+        source: "webhook",
+        code: "charge_success",
+        message: `Order ${result.order.id} paid (${result.order.email})`,
+        amountCents: result.order.totalCents,
+        currency: result.order.currency,
+      });
       void sendOrderConfirmationEmail(result.order, req.log);
     }
     res.status(200).json({ ok: true, alreadyPaid: result.alreadyPaid });
@@ -202,17 +256,49 @@ router.get(
   async (req: Request, res: Response) => {
     const reference = String(req.query["reference"] ?? req.query["trxref"] ?? "");
     if (!reference) {
+      await recordPaymentEvent({
+        orderId: null,
+        reference: null,
+        kind: "abandoned",
+        source: "callback",
+        code: "missing_reference",
+        message: "Customer hit Paystack callback URL with no reference (likely abandoned checkout)",
+      });
       res.redirect("/checkout?paid=0&error=missing_reference");
       return;
     }
     const settings = await getSiteSettings();
     const { secretKey } = getActivePaystackKeys(settings);
     if (!secretKey) {
+      await recordPaymentEvent({
+        orderId: reference,
+        reference,
+        kind: "failed",
+        source: "callback",
+        code: "not_configured",
+        message: "Customer returned from Paystack but no secret key is saved — cannot verify",
+      });
       res.redirect("/checkout?paid=0&error=not_configured");
       return;
     }
     const verify = await verifyTransaction(secretKey, reference);
     if (!verify.ok || verify.status !== "success") {
+      // `status === "abandoned"` is Paystack's signal that the customer
+      // closed the modal without completing payment — bucket those as
+      // "abandoned" so operators can distinguish them from real failures.
+      const abandoned = verify.status === "abandoned";
+      await recordPaymentEvent({
+        orderId: reference,
+        reference,
+        kind: abandoned ? "abandoned" : "failed",
+        source: "callback",
+        code: abandoned ? "abandoned" : "verification_failed",
+        message:
+          verify.error ??
+          `Paystack verification returned status="${verify.status ?? "unknown"}"`,
+        amountCents: verify.amount ?? null,
+        currency: verify.currency ?? null,
+      });
       res.redirect(
         `/checkout?paid=0&order=${encodeURIComponent(reference)}&error=${encodeURIComponent(verify.error ?? verify.status ?? "verification_failed")}`,
       );
@@ -229,6 +315,16 @@ router.get(
     // tell the customer the cart was paid — surface the mismatch.
     if (!result.order) {
       req.log.warn({ reference }, "Paystack callback for unknown local order");
+      await recordPaymentEvent({
+        orderId: null,
+        reference,
+        kind: "failed",
+        source: "callback",
+        code: "order_not_found",
+        message: "Customer returned with a Paystack reference that has no matching local order",
+        amountCents: verify.amount ?? null,
+        currency: verify.currency ?? null,
+      });
       res.redirect(
         `/checkout?paid=0&order=${encodeURIComponent(reference)}&error=order_not_found`,
       );
@@ -239,12 +335,32 @@ router.get(
         { reference, mismatch: result.mismatch },
         "Paystack callback amount/currency mismatch — order NOT marked paid",
       );
+      await recordPaymentEvent({
+        orderId: result.order.id,
+        reference,
+        kind: "failed",
+        source: "callback",
+        code: `${result.mismatch.field}_mismatch`,
+        message: `Paystack ${result.mismatch.field} ${String(result.mismatch.got)} != expected ${String(result.mismatch.expected)} — NOT marked paid`,
+        amountCents: verify.amount ?? null,
+        currency: verify.currency ?? null,
+      });
       res.redirect(
         `/checkout?paid=0&order=${encodeURIComponent(reference)}&error=amount_mismatch`,
       );
       return;
     }
     if (result.updated) {
+      await recordPaymentEvent({
+        orderId: result.order.id,
+        reference,
+        kind: "success",
+        source: "callback",
+        code: "charge_success",
+        message: `Order ${result.order.id} paid (${result.order.email})`,
+        amountCents: result.order.totalCents,
+        currency: result.order.currency,
+      });
       void sendOrderConfirmationEmail(result.order, req.log);
     }
     res.redirect(`/checkout?paid=1&order=${encodeURIComponent(reference)}`);

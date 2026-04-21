@@ -159,6 +159,52 @@ export const orderEmailEventsTable = pgTable("order_email_events", {
 export type OrderEmailEvent = typeof orderEmailEventsTable.$inferSelect;
 export type InsertOrderEmailEvent = typeof orderEmailEventsTable.$inferInsert;
 
+/**
+ * Audit log of every Paystack payment outcome we observe — both via the
+ * server-to-server webhook and the browser callback redirect. Captures
+ * successes alongside failures (verification rejected, amount/currency
+ * mismatch, unknown order reference, abandoned by customer) so the
+ * admin Payments tab can surface problems that previously only showed
+ * up in the server log.
+ */
+export const paymentEventsTable = pgTable(
+  "payment_events",
+  {
+    id: serial("id").primaryKey(),
+    /** Linked order, when we could resolve one. May be null for forged
+     *  references or pruned orders. No FK so a deleted order doesn't
+     *  wipe the audit trail. */
+    orderId: varchar("order_id"),
+    /** Paystack `reference` (= our order id for outbound charges). */
+    reference: text("reference"),
+    /** "success" | "failed" | "abandoned" — coarse grouping for UI badges. */
+    kind: varchar("kind", { length: 16 }).notNull(),
+    /** "webhook" | "callback" — which Paystack channel reported it. */
+    source: varchar("source", { length: 16 }).notNull(),
+    /** Short machine-readable code: "charge_success", "amount_mismatch",
+     *  "currency_mismatch", "verification_failed", "order_not_found",
+     *  "missing_reference", "already_paid". */
+    code: varchar("code", { length: 48 }).notNull(),
+    /** Human-readable detail for the admin row. */
+    message: text("message"),
+    amountCents: integer("amount_cents"),
+    currency: varchar("currency", { length: 8 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("IDX_payment_events_created").on(table.createdAt),
+    check(
+      "CK_payment_events_kind",
+      sql`kind IN ('success','failed','abandoned')`,
+    ),
+  ],
+);
+
+export type PaymentEvent = typeof paymentEventsTable.$inferSelect;
+export type InsertPaymentEvent = typeof paymentEventsTable.$inferInsert;
+
 export const reviewsTable = pgTable(
   "reviews",
   {

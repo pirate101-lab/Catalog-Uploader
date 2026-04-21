@@ -1,11 +1,15 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link } from "wouter";
 import { AdminShell, AdminPageHeader } from "./AdminShell";
 import {
   adminApi,
+  fmtCents,
+  type PaymentEventRow,
   type SiteSettings,
   type PaymentsUrls,
   type PaymentsTestResult,
 } from "./api";
+import { usePaymentEventStream } from "./usePaymentEventStream";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +26,9 @@ import {
   ShieldCheck,
   Banknote,
   Link as LinkIcon,
+  Activity,
+  XCircle,
+  Clock,
 } from "lucide-react";
 
 type SaveablePatch = Partial<SiteSettings>;
@@ -122,6 +129,8 @@ export function PaymentsAdmin() {
           />
 
           <UrlsSection urls={urls} />
+
+          <PaymentEventsSection />
 
           <BankSection
             draft={draft}
@@ -513,6 +522,194 @@ function BankSection({
       </div>
     </Section>
   );
+}
+
+/* ---------------- Payment activity ----------------
+ * Recent Paystack outcomes (success / failed / abandoned) with a live
+ * stream so a brand-new event slides in at the top without a page
+ * refresh. Failed and abandoned rows are the main reason this panel
+ * exists — they used to be log-only and easy to miss.
+ */
+function PaymentEventsSection() {
+  const [rows, setRows] = useState<PaymentEventRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "success" | "failed" | "abandoned">(
+    "all",
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setRows(null);
+    setError(null);
+    adminApi
+      .listPaymentEvents({
+        limit: 50,
+        kind: filter === "all" ? undefined : filter,
+      })
+      .then((r) => {
+        if (cancelled) return;
+        setRows(r.rows);
+        setError(null);
+      })
+      .catch((e) => !cancelled && setError((e as Error).message));
+    return () => {
+      cancelled = true;
+    };
+  }, [filter]);
+
+  // Live updates via SSE — prepend new events that match the active
+  // filter, capped to keep the panel snappy.
+  usePaymentEventStream((ev) => {
+    setRows((prev) => {
+      if (!prev) return prev;
+      if (filter !== "all" && ev.kind !== filter) return prev;
+      // Avoid duplicating an event that we may have just fetched.
+      if (prev.some((r) => r.id === ev.id)) return prev;
+      return [ev, ...prev].slice(0, 50);
+    });
+  });
+
+  const filters: Array<{ key: typeof filter; label: string; testId: string }> = useMemo(
+    () => [
+      { key: "all", label: "All", testId: "filter-all" },
+      { key: "success", label: "Successes", testId: "filter-success" },
+      { key: "failed", label: "Failed", testId: "filter-failed" },
+      { key: "abandoned", label: "Abandoned", testId: "filter-abandoned" },
+    ],
+    [],
+  );
+
+  return (
+    <Section
+      title="Recent payment activity"
+      description="Every Paystack webhook and customer return is recorded here. Live updates — new events appear without a refresh."
+      icon={<Activity className="w-4 h-4 text-sky-600" />}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        {filters.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => setFilter(f.key)}
+            data-testid={`payment-events-${f.testId}`}
+            className={`text-xs px-3 py-1.5 rounded-full border transition ${
+              filter === f.key
+                ? "bg-foreground text-background border-foreground"
+                : "bg-background hover:bg-muted/40"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <div className="text-sm text-destructive flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" /> {error}
+        </div>
+      )}
+
+      {!rows ? (
+        <p className="text-sm text-muted-foreground">Loading payment events…</p>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No payment events yet — once Paystack starts firing, every result
+          (good or bad) will land here.
+        </p>
+      ) : (
+        <ul className="divide-y border rounded-md" data-testid="payment-events-list">
+          {rows.map((ev) => (
+            <PaymentEventItem key={ev.id} event={ev} />
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+function PaymentEventItem({ event }: { event: PaymentEventRow }) {
+  const meta = kindMeta(event.kind);
+  const Icon = meta.icon;
+  const when = new Date(event.createdAt);
+  const body = (
+    <div className="flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition">
+      <div className={`mt-0.5 ${meta.color}`}>
+        <Icon className="w-4 h-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`text-xs uppercase tracking-widest font-semibold ${meta.color}`}>
+            {meta.label}
+          </span>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground border rounded px-1.5 py-0.5">
+            {event.source}
+          </span>
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {event.code}
+          </span>
+          {event.amountCents != null ? (
+            <span className="text-xs text-muted-foreground">
+              {fmtCents(event.amountCents)}
+              {event.currency ? ` ${event.currency}` : ""}
+            </span>
+          ) : null}
+        </div>
+        {event.message ? (
+          <p className="text-sm mt-0.5 break-words">{event.message}</p>
+        ) : null}
+        <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-2">
+          <Clock className="w-3 h-3" />
+          {when.toLocaleString()}
+          {event.reference ? (
+            <span className="font-mono truncate">· ref {event.reference}</span>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+  // Click-through to the matching order detail when we have one. Failed
+  // events without an order id (e.g. forged references) stay non-clickable.
+  return (
+    <li>
+      {event.orderId ? (
+        <Link
+          href={`/admin/orders/${event.orderId}`}
+          className="block"
+          data-testid={`payment-event-${event.id}`}
+        >
+          {body}
+        </Link>
+      ) : (
+        <div data-testid={`payment-event-${event.id}`}>{body}</div>
+      )}
+    </li>
+  );
+}
+
+function kindMeta(kind: PaymentEventRow["kind"]): {
+  label: string;
+  icon: typeof CheckCircle2;
+  color: string;
+} {
+  if (kind === "success") {
+    return {
+      label: "Paid",
+      icon: CheckCircle2,
+      color: "text-emerald-600 dark:text-emerald-400",
+    };
+  }
+  if (kind === "abandoned") {
+    return {
+      label: "Abandoned",
+      icon: Clock,
+      color: "text-amber-600 dark:text-amber-400",
+    };
+  }
+  return {
+    label: "Failed",
+    icon: XCircle,
+    color: "text-destructive",
+  };
 }
 
 function BankField({
