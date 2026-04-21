@@ -6,3 +6,21 @@ id = "AH-kZaGEdMwzFeAORF5_w"
 uri = "file://artifacts/fashion/public/opengraph.png"
 type = "image"
 title = "velour og banner"
+
+[[generated]]
+id = "J8TlmjBRUcrPa9vaaH50y"
+uri = "file://artifacts/fashion/public/hero-5-mens-tailoring.jpg"
+type = "image"
+title = "mens tailoring hero"
+
+[[generated]]
+id = "ndA28Bw2w5CvOz3enoOJt"
+uri = "file://artifacts/fashion/public/hero-6-mens-denim.jpg"
+type = "image"
+title = "mens denim hero"
+
+[[generated]]
+id = "Li9d4aV7qMpkGXJZ3vkwY"
+uri = "file://artifacts/fashion/public/hero-7-mens-outerwear.jpg"
+type = "image"
+title = "mens outerwear hero"

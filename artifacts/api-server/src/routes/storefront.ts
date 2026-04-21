@@ -280,9 +280,9 @@ const FALLBACK_HERO_WOMEN = [
 ];
 
 // Men-focused fallback set so the men view never looks empty before
-// admins customise it. Reuses the bundled hero photos (the only ones
-// guaranteed to ship with the storefront) but speaks directly to the
-// men's catalog with copy + CTA targeting.
+// admins customise it. Uses hero photos shot specifically for the men's
+// catalog (`hero-5..7-mens-*.jpg` in the storefront's public folder)
+// so the fallback feels properly tailored rather than gender-neutral.
 const FALLBACK_HERO_MEN = [
   {
     id: 1001,
@@ -291,7 +291,7 @@ const FALLBACK_HERO_MEN = [
     kicker: "New Season",
     ctaLabel: "Shop Men",
     ctaHref: "/shop?gender=men",
-    imageUrl: "/hero-2-display.jpg",
+    imageUrl: "/hero-5-mens-tailoring.jpg",
     sortOrder: 1,
     active: true,
     gender: "men" as const,
@@ -303,7 +303,7 @@ const FALLBACK_HERO_MEN = [
     kicker: null,
     ctaLabel: "Shop Outerwear",
     ctaHref: "/shop?gender=men&category=Outerwear",
-    imageUrl: "/hero-1-boutique.jpg",
+    imageUrl: "/hero-7-mens-outerwear.jpg",
     sortOrder: 2,
     active: true,
     gender: "men" as const,
@@ -315,7 +315,7 @@ const FALLBACK_HERO_MEN = [
     kicker: null,
     ctaLabel: "Shop Denim",
     ctaHref: "/shop?gender=men&category=Bottoms",
-    imageUrl: "/hero-3-vintage.jpg",
+    imageUrl: "/hero-6-mens-denim.jpg",
     sortOrder: 3,
     active: true,
     gender: "men" as const,
