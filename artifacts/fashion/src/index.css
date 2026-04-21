@@ -1,8 +1,10 @@
 /* Fonts are loaded once via <link> in index.html with preconnect hints,
    so we don't @import them here — the duplicate request was costing
    ~120ms on first paint. */
+@layer theme, base, clerk, components, utilities;
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@clerk/themes/shadcn.css";
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));

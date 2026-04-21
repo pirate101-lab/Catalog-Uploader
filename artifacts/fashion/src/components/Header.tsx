@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ShoppingBag, Search, Heart, Menu, Sun, Moon, X } from 'lucide-react';
+import { ShoppingBag, Search, Heart, Menu, Sun, Moon, X, User, LogIn } from 'lucide-react';
+import { Show, useUser } from '@clerk/react';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -150,6 +151,8 @@ export function Header() {
                 </span>
               )}
             </button>
+
+            <AuthHeaderButton iconBtn={iconBtn} />
           </div>
         </div>
 
@@ -163,6 +166,19 @@ export function Header() {
               <Link href="/wishlist" onClick={() => setMobileOpen(false)}>
                 Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
               </Link>
+              <Show when="signed-in">
+                <Link href="/profile" onClick={() => setMobileOpen(false)}>
+                  My account
+                </Link>
+              </Show>
+              <Show when="signed-out">
+                <Link href="/sign-in" onClick={() => setMobileOpen(false)}>
+                  Sign in
+                </Link>
+                <Link href="/sign-up" onClick={() => setMobileOpen(false)}>
+                  Create account
+                </Link>
+              </Show>
             </nav>
           </div>
         )}
@@ -174,6 +190,51 @@ export function Header() {
         initialQuery={headerQuery}
       />
       <WishlistDrawer open={wishOpen} onClose={() => setWishOpen(false)} />
+    </>
+  );
+}
+
+function AuthHeaderButton({ iconBtn }: { iconBtn: string }) {
+  const { user } = useUser();
+  return (
+    <>
+      <Show when="signed-in">
+        <Link
+          href="/profile"
+          className={iconBtn}
+          aria-label="My account"
+          data-testid="button-profile"
+        >
+          {user?.imageUrl ? (
+            <img
+              src={user.imageUrl}
+              alt=""
+              className="w-6 h-6 rounded-full object-cover ring-1 ring-border"
+            />
+          ) : (
+            <User className="w-5 h-5" />
+          )}
+        </Link>
+      </Show>
+      <Show when="signed-out">
+        <Link
+          href="/sign-in"
+          className={`${iconBtn} hidden sm:inline-flex items-center gap-1 text-sm font-medium`}
+          aria-label="Sign in"
+          data-testid="button-signin"
+        >
+          <LogIn className="w-5 h-5" />
+          <span className="hidden md:inline">Sign in</span>
+        </Link>
+        <Link
+          href="/sign-in"
+          className={`${iconBtn} sm:hidden`}
+          aria-label="Sign in"
+          data-testid="button-signin-mobile"
+        >
+          <LogIn className="w-5 h-5" />
+        </Link>
+      </Show>
     </>
   );
 }

@@ -5,6 +5,7 @@ import storageRouter from "./storage";
 import storefrontRouter from "./storefront";
 import checkoutRouter from "./checkout";
 import adminRouter from "./admin";
+import addressesRouter from "./addresses";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(storageRouter);
 router.use(storefrontRouter);
 router.use(checkoutRouter);
 router.use(adminRouter);
+router.use(addressesRouter);
 
 export default router;
