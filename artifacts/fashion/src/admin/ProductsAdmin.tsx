@@ -133,7 +133,17 @@ export function ProductsAdmin() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    adminApi
+      .listProductCategories()
+      .then((arr) => setCategories(arr.map((c) => c.category)))
+      .catch(() => {
+        /* non-fatal — picker degrades to free-text input */
+      });
+  }, [reloadTick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -525,12 +535,18 @@ export function ProductsAdmin() {
             <div className="grid grid-cols-2 gap-3">
               <Field label="Category">
                 <Input
+                  list="admin-product-categories"
                   value={draft.category}
                   onChange={(e) =>
                     setDraft((d) => ({ ...d, category: e.target.value }))
                   }
                   placeholder="dresses"
                 />
+                <datalist id="admin-product-categories">
+                  {categories.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
               </Field>
               <Field label="Sub-category">
                 <Input
