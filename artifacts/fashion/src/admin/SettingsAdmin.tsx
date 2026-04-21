@@ -535,7 +535,7 @@ export function SettingsAdmin() {
             </div>
           </Section>
 
-          <div className="pt-3 border-t flex justify-end">
+          <div className="lg:col-span-2 pt-3 border-t flex justify-end">
             <Button onClick={save} disabled={saving}>
               {saving ? "Saving…" : "Save settings"}
             </Button>
