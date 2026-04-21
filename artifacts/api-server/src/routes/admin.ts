@@ -501,7 +501,9 @@ router.get("/admin/products/categories", async (_req, res) => {
   const counts = new Map<string, number>();
   for (const p of all) {
     const ov = overridesById.get(p.id);
-    if (ov?.deletedAt) continue;
+    // Skip both override-tombstoned (JSON) and row-tombstoned (custom)
+    // products so the category counts match what's actually live.
+    if (ov?.deletedAt || p.deletedAt) continue;
     const eff = ov?.categoryOverride ?? p.category;
     if (!eff) continue;
     counts.set(eff, (counts.get(eff) ?? 0) + 1);

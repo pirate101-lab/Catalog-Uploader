@@ -79,6 +79,17 @@ function colorsToText(arr: { name: string; hex: string }[] | null | undefined) {
 
 function rowToDraft(r: Row): DraftFields {
   const ov = r.override;
+  // For custom products, hidden/stockLevel/badge/featured live on the
+  // row itself; for JSON-catalog products, only the override row carries
+  // them. Fall through both sources so opening + saving an unchanged
+  // form never silently flips a custom product's flags.
+  const hidden = ov?.hidden ?? r.hidden ?? false;
+  const stockLevel =
+    ov?.stockLevel != null
+      ? String(ov.stockLevel)
+      : r.stockLevel != null
+        ? String(r.stockLevel)
+        : "";
   return {
     title: ov?.titleOverride ?? r.title,
     category: r.category ?? "",
@@ -86,8 +97,8 @@ function rowToDraft(r: Row): DraftFields {
     price: ov?.priceOverride ?? r.price,
     badge: ov?.badge ?? r.badge ?? "",
     featured: !!(ov?.featured ?? r.featured),
-    hidden: !!ov?.hidden,
-    stockLevel: ov?.stockLevel != null ? String(ov.stockLevel) : "",
+    hidden,
+    stockLevel,
     imageUrl: ov?.imageUrlOverride ?? r.imageUrls?.[0] ?? "",
     sizesCsv: (ov?.sizesOverride ?? r.sizes ?? []).join(", "),
     colorsText: colorsToText(ov?.colorsOverride ?? r.colors ?? []),
@@ -243,46 +254,25 @@ export function ProductsAdmin() {
         } else {
           // JSON-catalog product — write through product_overrides so
           // the underlying read-only catalog file stays untouched.
+          // The PUT endpoint replaces ALL override columns from the
+          // request body, so we always send the full effective state
+          // the admin sees in the form. (Comparing against `editing`
+          // would be wrong because `editing` is itself the post-override
+          // value, so unchanged fields would round-trip to null and
+          // wipe pre-existing overrides.)
           const ovPatch: Partial<ProductOverride> = {
             featured: draft.featured,
             hidden: draft.hidden,
-            priceOverride:
-              draft.price && draft.price !== editing.price
-                ? draft.price
-                : null,
+            priceOverride: draft.price?.trim() ? draft.price.trim() : null,
             badge: draft.badge.trim() || null,
             stockLevel: stock,
-            categoryOverride:
-              draft.category.trim() && draft.category.trim() !== editing.category
-                ? draft.category.trim()
-                : null,
-            subCategoryOverride:
-              draft.subCategory.trim() &&
-              draft.subCategory.trim() !== (editing.subCategory ?? "")
-                ? draft.subCategory.trim()
-                : null,
-            titleOverride:
-              draft.title.trim() && draft.title.trim() !== editing.title
-                ? draft.title.trim()
-                : null,
-            imageUrlOverride:
-              draft.imageUrl.trim() &&
-              draft.imageUrl.trim() !== (editing.imageUrls?.[0] ?? "")
-                ? draft.imageUrl.trim()
-                : null,
-            sizesOverride:
-              sizes.length > 0 &&
-              sizes.join(",") !== (editing.sizes ?? []).join(",")
-                ? sizes
-                : null,
-            colorsOverride:
-              colors.length > 0 &&
-              JSON.stringify(colors) !==
-                JSON.stringify(editing.colors ?? [])
-                ? colors
-                : null,
-            genderOverride:
-              draft.gender !== editing.gender ? draft.gender : null,
+            categoryOverride: draft.category.trim() || null,
+            subCategoryOverride: draft.subCategory.trim() || null,
+            titleOverride: draft.title.trim() || null,
+            imageUrlOverride: draft.imageUrl.trim() || null,
+            sizesOverride: sizes.length > 0 ? sizes : null,
+            colorsOverride: colors.length > 0 ? colors : null,
+            genderOverride: draft.gender,
           };
           await adminApi.upsertOverride(editing.id, ovPatch);
         }
