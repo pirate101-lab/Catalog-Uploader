@@ -18,8 +18,22 @@ export function Header() {
   const [wishOpen, setWishOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [headerQuery, setHeaderQuery] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [, navigate] = useLocation();
   const lastY = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/storefront/settings')
+      .then((r) => r.json())
+      .then((d: { logoUrl?: string | null }) => {
+        if (!cancelled && d.logoUrl) setLogoUrl(d.logoUrl);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const onScroll = () => {
@@ -61,32 +75,42 @@ export function Header() {
             data-testid="link-logo"
             aria-label="VELOUR home"
           >
-            <svg
-              viewBox="0 0 36 36"
-              className="w-7 h-7 md:w-8 md:h-8 shrink-0"
-              aria-hidden="true"
-            >
-              <defs>
-                <linearGradient id="velourLogoGrad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" />
-                  <stop offset="60%" stopColor="hsl(285 80% 62%)" />
-                  <stop offset="100%" stopColor="hsl(var(--price))" />
-                </linearGradient>
-              </defs>
-              <rect x="1" y="1" width="34" height="34" rx="8" fill="url(#velourLogoGrad)" />
-              <path
-                d="M9 12 L18 26 L27 12"
-                fill="none"
-                stroke="#fff"
-                strokeWidth="2.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt="VELOUR"
+                className="h-8 md:h-9 w-auto max-w-[160px] object-contain shrink-0"
               />
-              <circle cx="18" cy="8.5" r="1.6" fill="#fff" />
-            </svg>
-            <span className="font-serif text-[22px] md:text-[26px] font-black tracking-[0.14em] leading-none">
-              VELOUR
-            </span>
+            ) : (
+              <>
+                <svg
+                  viewBox="0 0 36 36"
+                  className="w-7 h-7 md:w-8 md:h-8 shrink-0"
+                  aria-hidden="true"
+                >
+                  <defs>
+                    <linearGradient id="velourLogoGrad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="hsl(var(--primary))" />
+                      <stop offset="60%" stopColor="hsl(285 80% 62%)" />
+                      <stop offset="100%" stopColor="hsl(var(--price))" />
+                    </linearGradient>
+                  </defs>
+                  <rect x="1" y="1" width="34" height="34" rx="8" fill="url(#velourLogoGrad)" />
+                  <path
+                    d="M9 12 L18 26 L27 12"
+                    fill="none"
+                    stroke="#fff"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="18" cy="8.5" r="1.6" fill="#fff" />
+                </svg>
+                <span className="font-serif text-[22px] md:text-[26px] font-black tracking-[0.14em] leading-none">
+                  VELOUR
+                </span>
+              </>
+            )}
           </Link>
 
           <form

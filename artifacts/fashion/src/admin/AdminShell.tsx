@@ -12,8 +12,11 @@ import {
   Mail,
   CreditCard,
   ShieldCheck,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/context/ThemeContext";
 
 export type AdminRole = "admin" | "super_admin";
 
@@ -195,10 +198,29 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </div>
         </aside>
         <main className="flex-1 overflow-x-hidden">
+          <AdminTopBar />
           <div className="p-8 max-w-[1400px] mx-auto">{children}</div>
         </main>
       </div>
     </AdminIdentityContext.Provider>
+  );
+}
+
+function AdminTopBar() {
+  const { theme, toggle } = useTheme();
+  return (
+    <div className="h-12 border-b bg-background flex items-center justify-end px-4 gap-2">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label="Toggle theme"
+        className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-md border border-border"
+        data-testid="button-admin-theme-toggle"
+      >
+        {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        {theme === "dark" ? "Light" : "Dark"}
+      </button>
+    </div>
   );
 }
 

@@ -102,6 +102,7 @@ export interface SiteSettings {
   maintenanceMode: boolean;
   storeName: string;
   tagline: string | null;
+  logoUrl: string | null;
   emailFromAddress: string | null;
   emailFromName: string | null;
   emailReplyTo: string | null;

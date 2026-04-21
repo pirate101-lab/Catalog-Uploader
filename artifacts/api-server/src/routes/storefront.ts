@@ -221,6 +221,7 @@ router.get("/storefront/settings", async (_req: Request, res: Response) => {
     id: s.id,
     storeName: s.storeName,
     tagline: s.tagline,
+    logoUrl: s.logoUrl ?? null,
     announcementText: s.announcementText,
     announcementActive: s.announcementActive,
     defaultSort: s.defaultSort,

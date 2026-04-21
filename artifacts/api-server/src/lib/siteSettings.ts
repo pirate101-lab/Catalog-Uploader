@@ -41,6 +41,7 @@ const FALLBACK_SETTINGS: SiteSettings = {
   maintenanceMode: false,
   storeName: "VELOUR",
   tagline: "Women's Fashion Store",
+  logoUrl: null,
   emailFromAddress: null,
   emailFromName: null,
   emailReplyTo: null,

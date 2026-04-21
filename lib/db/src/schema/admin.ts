@@ -95,6 +95,7 @@ export const siteSettingsTable = pgTable("site_settings", {
   maintenanceMode: boolean("maintenance_mode").notNull().default(false),
   storeName: text("store_name").notNull().default("VELOUR"),
   tagline: text("tagline").default("Women's Fashion Store"),
+  logoUrl: text("logo_url"),
   emailFromAddress: text("email_from_address"),
   emailFromName: text("email_from_name"),
   emailReplyTo: text("email_reply_to"),

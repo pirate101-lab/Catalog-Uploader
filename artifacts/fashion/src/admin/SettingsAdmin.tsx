@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AdminShell, AdminPageHeader, useAdminIdentity } from "./AdminShell";
 import {
   adminApi,
@@ -121,7 +121,7 @@ export function SettingsAdmin() {
       {!s ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
-        <div className="max-w-2xl space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           <Section title="Branding">
             <Field label="Store name">
               <Input
@@ -142,6 +142,10 @@ export function SettingsAdmin() {
                 className="w-24"
               />
             </Field>
+            <LogoField
+              value={s.logoUrl ?? ""}
+              onChange={(v) => set("logoUrl", v.trim().length === 0 ? null : v)}
+            />
           </Section>
 
           <Section title="Announcement bar">
@@ -520,7 +524,7 @@ export function SettingsAdmin() {
 
           <AdminAccountSection />
 
-          <Section title="Site state">
+          <Section title="Site state" className="lg:col-span-2">
             <div className="flex items-center gap-3">
               <Switch
                 id="maint"
@@ -653,15 +657,121 @@ function AdminAccountSection() {
 function Section({
   title,
   children,
+  className,
 }: {
   title: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <section className="border rounded-lg p-5 space-y-4">
+    <section
+      className={`border rounded-lg p-5 space-y-4${className ? ` ${className}` : ""}`}
+    >
       <h3 className="text-xs uppercase tracking-widest font-bold">{title}</h3>
       {children}
     </section>
+  );
+}
+
+function LogoField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onPick = async (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please choose an image file (PNG, JPG, SVG, WebP).");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Logo must be under 2 MB.");
+      return;
+    }
+    setUploading(true);
+    setError(null);
+    try {
+      const { uploadURL, publicUrl } = await adminApi.requestUploadUrl(file.name);
+      const put = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+      onChange(publicUrl);
+      toast.success("Logo uploaded — click Save settings to apply.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <Field label="Business logo">
+      <div className="flex items-start gap-4">
+        <div className="w-20 h-20 rounded-md border bg-muted/40 flex items-center justify-center overflow-hidden shrink-0">
+          {value ? (
+            <img src={value} alt="Logo preview" className="max-w-full max-h-full object-contain" />
+          ) : (
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+              No logo
+            </span>
+          )}
+        </div>
+        <div className="flex-1 space-y-2">
+          <Input
+            value={value}
+            placeholder="https://… or upload an image"
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? "Uploading…" : "Upload"}
+            </Button>
+            {value ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onChange("")}
+                disabled={uploading}
+              >
+                Remove
+              </Button>
+            ) : null}
+          </div>
+          {error ? (
+            <p className="text-xs text-destructive">{error}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Shown in the storefront header. Square or wide images work
+              best; transparent PNG or SVG recommended.
+            </p>
+          )}
+        </div>
+      </div>
+    </Field>
   );
 }
 

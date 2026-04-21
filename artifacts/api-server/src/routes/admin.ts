@@ -765,6 +765,7 @@ router.put("/admin/settings", async (req, res) => {
     "maintenanceMode",
     "storeName",
     "tagline",
+    "logoUrl",
     "emailFromAddress",
     "emailFromName",
     "emailReplyTo",
