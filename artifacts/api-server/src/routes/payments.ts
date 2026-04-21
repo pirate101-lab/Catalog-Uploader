@@ -34,8 +34,58 @@ async function markOrderPaid(args: {
 }): Promise<{
   updated: boolean;
   alreadyPaid: boolean;
+  mismatch: null | { field: "amount" | "currency"; expected: unknown; got: unknown };
   order: typeof ordersTable.$inferSelect | null;
 }> {
+  // First load the order so we can verify the verified amount/currency
+  // from Paystack actually match what we asked them to charge. A
+  // mismatch means either tampering, a partial capture, or a bug in
+  // pricing — either way we must NOT transition to paid.
+  const [existing] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, args.reference));
+  if (!existing) {
+    return { updated: false, alreadyPaid: false, mismatch: null, order: null };
+  }
+  if (existing.paidAt) {
+    return {
+      updated: false,
+      alreadyPaid: true,
+      mismatch: null,
+      order: existing,
+    };
+  }
+  if (
+    typeof args.amount !== "number" ||
+    args.amount !== existing.totalCents
+  ) {
+    return {
+      updated: false,
+      alreadyPaid: false,
+      mismatch: {
+        field: "amount",
+        expected: existing.totalCents,
+        got: args.amount,
+      },
+      order: existing,
+    };
+  }
+  if (
+    typeof args.currency !== "string" ||
+    args.currency.toUpperCase() !== String(existing.currency).toUpperCase()
+  ) {
+    return {
+      updated: false,
+      alreadyPaid: false,
+      mismatch: {
+        field: "currency",
+        expected: existing.currency,
+        got: args.currency,
+      },
+      order: existing,
+    };
+  }
   // Atomic conditional update: only the first caller whose row still has
   // paid_at IS NULL gets a returning row. The webhook-vs-callback race
   // can't both fire side effects (e.g. duplicate confirmation emails).
@@ -53,16 +103,24 @@ async function markOrderPaid(args: {
     )
     .returning();
   if (updatedRows.length > 0) {
-    return { updated: true, alreadyPaid: false, order: updatedRows[0]! };
+    return {
+      updated: true,
+      alreadyPaid: false,
+      mismatch: null,
+      order: updatedRows[0]!,
+    };
   }
-  // Either the order doesn't exist or it was already paid. Disambiguate
-  // with a single follow-up read so callers can react appropriately.
-  const [existing] = await db
+  // Lost the race: someone else (the other handler) just paid the order.
+  const [reread] = await db
     .select()
     .from(ordersTable)
     .where(eq(ordersTable.id, args.reference));
-  if (!existing) return { updated: false, alreadyPaid: false, order: null };
-  return { updated: false, alreadyPaid: !!existing.paidAt, order: existing };
+  return {
+    updated: false,
+    alreadyPaid: !!reread?.paidAt,
+    mismatch: null,
+    order: reread ?? null,
+  };
 }
 
 /**
@@ -116,6 +174,17 @@ router.post(
       res.status(200).json({ ok: true, found: false });
       return;
     }
+    if (result.mismatch) {
+      // Verified charge does NOT match the stored order — refuse to flip
+      // to paid. Ack with 200 (so Paystack stops retrying the same bad
+      // payload) but log loudly so an operator can investigate / refund.
+      req.log.error(
+        { ref, mismatch: result.mismatch },
+        "Paystack webhook amount/currency mismatch — order NOT marked paid",
+      );
+      res.status(200).json({ ok: true, mismatch: result.mismatch.field });
+      return;
+    }
     if (result.updated) {
       void sendOrderConfirmationEmail(result.order, req.log);
     }
@@ -162,6 +231,16 @@ router.get(
       req.log.warn({ reference }, "Paystack callback for unknown local order");
       res.redirect(
         `/checkout?paid=0&order=${encodeURIComponent(reference)}&error=order_not_found`,
+      );
+      return;
+    }
+    if (result.mismatch) {
+      req.log.error(
+        { reference, mismatch: result.mismatch },
+        "Paystack callback amount/currency mismatch — order NOT marked paid",
+      );
+      res.redirect(
+        `/checkout?paid=0&order=${encodeURIComponent(reference)}&error=amount_mismatch`,
       );
       return;
     }

@@ -872,6 +872,8 @@ function humanizePaystackError(code: string): string {
       return 'Paystack is not currently configured on this store.';
     case 'order_not_found':
       return "Paystack accepted the payment but we couldn't find the matching order. Please contact support before retrying.";
+    case 'amount_mismatch':
+      return "We've put your order on hold because the amount Paystack confirmed doesn't match the order total. Please contact support — do not retry the payment.";
     case 'failed':
       return 'Paystack reported the payment as failed. Please try a different card.';
     case 'abandoned':
