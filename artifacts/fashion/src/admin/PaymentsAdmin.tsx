@@ -349,9 +349,9 @@ function KeyPair({
           className="font-mono text-sm"
         />
         <p className="text-[11px] text-muted-foreground">
-          The secret key is encrypted at rest in the database and never sent to
+          The secret key is stored in the database and never sent back to
           the browser in full — you'll see <span className="font-mono">••••</span> until you
-          paste a fresh value.
+          paste a fresh value. Treat database access accordingly.
         </p>
       </div>
     </div>
