@@ -8,6 +8,8 @@ import {
   type OrderEmailEvent,
 } from "./api";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const STATUSES = ["new", "packed", "shipped", "delivered", "cancelled"];
 
@@ -163,6 +165,14 @@ export function OrderDetailAdmin({ id }: { id: string }) {
     load();
   };
 
+  const saveShipping = async (data: {
+    carrier: string | null;
+    trackingNumber: string | null;
+  }) => {
+    await adminApi.updateOrderShipping(id, data);
+    load();
+  };
+
   return (
     <AdminShell>
       <AdminPageHeader
@@ -313,6 +323,11 @@ export function OrderDetailAdmin({ id }: { id: string }) {
                 ))}
               </div>
             </div>
+            <ShippingCard
+              carrier={order.carrier}
+              trackingNumber={order.trackingNumber}
+              onSave={saveShipping}
+            />
           </aside>
         </div>
       )}
@@ -450,6 +465,106 @@ function EmailEventsCard({
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+function ShippingCard({
+  carrier,
+  trackingNumber,
+  onSave,
+}: {
+  carrier: string | null;
+  trackingNumber: string | null;
+  onSave: (data: {
+    carrier: string | null;
+    trackingNumber: string | null;
+  }) => Promise<void>;
+}) {
+  const [carrierDraft, setCarrierDraft] = useState(carrier ?? "");
+  const [trackingDraft, setTrackingDraft] = useState(trackingNumber ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  // Re-sync the local form whenever the parent reloads the order (e.g.
+  // after a status change). Without this, mutating the order from the
+  // status grid above would leave stale values typed in here.
+  useEffect(() => {
+    setCarrierDraft(carrier ?? "");
+    setTrackingDraft(trackingNumber ?? "");
+  }, [carrier, trackingNumber]);
+
+  const dirty =
+    (carrierDraft.trim() || "") !== (carrier ?? "") ||
+    (trackingDraft.trim() || "") !== (trackingNumber ?? "");
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({
+        carrier: carrierDraft.trim() ? carrierDraft.trim() : null,
+        trackingNumber: trackingDraft.trim() ? trackingDraft.trim() : null,
+      });
+      setSavedAt(Date.now());
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="border rounded-lg p-5">
+      <h3 className="text-xs uppercase tracking-widest font-bold mb-3">
+        Shipping
+      </h3>
+      <p className="text-xs text-muted-foreground mb-3">
+        Add the carrier and tracking number when marking this order as shipped.
+        Both appear on the customer's order page.
+      </p>
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="order-carrier" className="text-xs">
+            Carrier
+          </Label>
+          <Input
+            id="order-carrier"
+            value={carrierDraft}
+            onChange={(e) => setCarrierDraft(e.target.value)}
+            placeholder="e.g. UPS, FedEx, DHL"
+            maxLength={64}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="order-tracking" className="text-xs">
+            Tracking number
+          </Label>
+          <Input
+            id="order-tracking"
+            value={trackingDraft}
+            onChange={(e) => setTrackingDraft(e.target.value)}
+            placeholder="Tracking number"
+            maxLength={128}
+          />
+        </div>
+        {error && (
+          <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground">
+            {savedAt && !dirty ? "Saved" : ""}
+          </span>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={saving || !dirty}
+          >
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

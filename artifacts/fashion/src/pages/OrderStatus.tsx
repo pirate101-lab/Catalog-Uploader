@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
-import { ChevronRight } from 'lucide-react';
+import { Check, ChevronRight, Truck } from 'lucide-react';
 
 const basePath = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
 
@@ -42,6 +42,52 @@ interface OrderView {
   paymentProvider: string | null;
   paidAt: string | null;
   createdAt: string;
+  carrier: string | null;
+  trackingNumber: string | null;
+}
+
+const PROGRESS_STEPS = [
+  { key: 'received', label: 'Received' },
+  { key: 'confirmed', label: 'Confirmed' },
+  { key: 'shipped', label: 'Shipped' },
+  { key: 'delivered', label: 'Delivered' },
+] as const;
+
+// Map the persisted order status onto the 0-based index of the
+// furthest progress step the customer has reached. `cancelled` orders
+// freeze at "Received" since they never moved past intake — the UI
+// renders a separate cancelled banner above the strip in that case.
+function progressIndexFor(status: string): number {
+  switch (status) {
+    case 'new':
+      return 0;
+    case 'paid':
+    case 'packed':
+      return 1;
+    case 'shipped':
+      return 2;
+    case 'delivered':
+      return 3;
+    default:
+      return 0;
+  }
+}
+
+// Best-effort tracking URL builder for the most common carriers. When
+// the carrier label doesn't match a known pattern we just render the
+// tracking number without a link so the customer can copy it manually.
+function trackingUrlFor(carrier: string, tracking: string): string | null {
+  const c = carrier.trim().toLowerCase();
+  const t = encodeURIComponent(tracking.trim());
+  if (!t) return null;
+  if (c.includes('ups')) return `https://www.ups.com/track?tracknum=${t}`;
+  if (c.includes('fedex')) return `https://www.fedex.com/fedextrack/?trknbr=${t}`;
+  if (c.includes('usps')) return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${t}`;
+  if (c.includes('dhl')) return `https://www.dhl.com/en/express/tracking.html?AWB=${t}`;
+  if (c.includes('royal mail')) return `https://www.royalmail.com/track-your-item#/tracking-results/${t}`;
+  if (c.includes('canada post')) return `https://www.canadapost-postescanada.ca/track-reperage/en#/details/${t}`;
+  if (c.includes('australia post') || c === 'auspost') return `https://auspost.com.au/mypost/track/#/details/${t}`;
+  return null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -154,6 +200,11 @@ export function OrderStatusPage({ id }: { id: string }) {
 
   const statusLabel = STATUS_LABELS[order.status] ?? order.status;
   const ref = shortOrderId(order.id);
+  const isCancelled = order.status === 'cancelled';
+  const currentStep = progressIndexFor(order.status);
+  const carrier = order.carrier?.trim() || null;
+  const tracking = order.trackingNumber?.trim() || null;
+  const trackingUrl = carrier && tracking ? trackingUrlFor(carrier, tracking) : null;
 
   return (
     <section className="pt-28 pb-24 bg-background min-h-screen">
@@ -174,6 +225,97 @@ export function OrderStatusPage({ id }: { id: string }) {
             {order.paidAt ? ` · paid ${new Date(order.paidAt).toLocaleDateString()}` : ''}
           </p>
         </div>
+
+        {isCancelled ? (
+          <div className="border border-border rounded-lg p-4 mb-6 text-sm">
+            This order was cancelled. If that wasn't expected, reply to your
+            order email and we'll help sort it out.
+          </div>
+        ) : (
+          <div
+            className="border border-border rounded-lg p-6 mb-6"
+            aria-label="Fulfilment progress"
+          >
+            <ol className="flex items-start justify-between gap-2">
+              {PROGRESS_STEPS.map((step, i) => {
+                const reached = i <= currentStep;
+                const isCurrent = i === currentStep;
+                return (
+                  <li
+                    key={step.key}
+                    className="flex-1 flex flex-col items-center text-center min-w-0"
+                    aria-current={isCurrent ? 'step' : undefined}
+                  >
+                    <div className="flex items-center w-full">
+                      <div
+                        className={`h-px flex-1 ${
+                          i === 0
+                            ? 'opacity-0'
+                            : i <= currentStep
+                            ? 'bg-foreground'
+                            : 'bg-border'
+                        }`}
+                        aria-hidden
+                      />
+                      <div
+                        className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium border ${
+                          reached
+                            ? 'bg-foreground text-background border-foreground'
+                            : 'bg-background text-muted-foreground border-border'
+                        }`}
+                      >
+                        {reached ? (
+                          <Check className="w-3.5 h-3.5" aria-hidden />
+                        ) : (
+                          i + 1
+                        )}
+                      </div>
+                      <div
+                        className={`h-px flex-1 ${
+                          i === PROGRESS_STEPS.length - 1
+                            ? 'opacity-0'
+                            : i < currentStep
+                            ? 'bg-foreground'
+                            : 'bg-border'
+                        }`}
+                        aria-hidden
+                      />
+                    </div>
+                    <div
+                      className={`mt-2 text-xs ${
+                        reached ? 'text-foreground font-medium' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {step.label}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+
+            {tracking && (
+              <div className="mt-6 pt-4 border-t border-border flex flex-wrap items-center gap-3 text-sm">
+                <Truck className="w-4 h-4 text-muted-foreground" aria-hidden />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">
+                    {carrier ?? 'Tracking'}
+                  </div>
+                  <div className="font-mono text-sm break-all">{tracking}</div>
+                </div>
+                {trackingUrl && (
+                  <a
+                    href={trackingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm underline whitespace-nowrap"
+                  >
+                    Track shipment →
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="border border-border rounded-lg p-6 mb-6">
           <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-4">

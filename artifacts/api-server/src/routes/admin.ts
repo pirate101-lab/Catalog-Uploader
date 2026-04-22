@@ -863,10 +863,48 @@ router.patch("/admin/orders/:id", async (req, res) => {
     res.status(400).json({ error: "Missing id" });
     return;
   }
-  const status = req.body?.status;
-  if (!status || !ORDER_STATUSES.includes(status)) {
-    res.status(400).json({ error: "Invalid status" });
+  const body = (req.body ?? {}) as {
+    status?: unknown;
+    carrier?: unknown;
+    trackingNumber?: unknown;
+  };
+  const hasStatus = Object.prototype.hasOwnProperty.call(body, "status");
+  const hasCarrier = Object.prototype.hasOwnProperty.call(body, "carrier");
+  const hasTracking = Object.prototype.hasOwnProperty.call(
+    body,
+    "trackingNumber",
+  );
+  if (!hasStatus && !hasCarrier && !hasTracking) {
+    res.status(400).json({ error: "No fields to update" });
     return;
+  }
+  const update: Partial<typeof ordersTable.$inferInsert> = {};
+  if (hasStatus) {
+    if (typeof body.status !== "string" || !ORDER_STATUSES.includes(body.status)) {
+      res.status(400).json({ error: "Invalid status" });
+      return;
+    }
+    update.status = body.status;
+  }
+  if (hasCarrier) {
+    if (body.carrier === null || body.carrier === "") {
+      update.carrier = null;
+    } else if (typeof body.carrier === "string") {
+      update.carrier = body.carrier.trim().slice(0, 64) || null;
+    } else {
+      res.status(400).json({ error: "Invalid carrier" });
+      return;
+    }
+  }
+  if (hasTracking) {
+    if (body.trackingNumber === null || body.trackingNumber === "") {
+      update.trackingNumber = null;
+    } else if (typeof body.trackingNumber === "string") {
+      update.trackingNumber = body.trackingNumber.trim().slice(0, 128) || null;
+    } else {
+      res.status(400).json({ error: "Invalid tracking number" });
+      return;
+    }
   }
   const [existing] = await db
     .select()
@@ -878,7 +916,7 @@ router.patch("/admin/orders/:id", async (req, res) => {
   }
   const [row] = await db
     .update(ordersTable)
-    .set({ status })
+    .set(update)
     .where(eq(ordersTable.id, id))
     .returning();
   if (!row) {

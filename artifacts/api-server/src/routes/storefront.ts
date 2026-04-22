@@ -962,6 +962,9 @@ router.get("/storefront/orders/:id", async (req: Request, res: Response) => {
     paymentProvider: row.paymentProvider,
     paidAt: row.paidAt,
     createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    carrier: row.carrier,
+    trackingNumber: row.trackingNumber,
   });
 });
 

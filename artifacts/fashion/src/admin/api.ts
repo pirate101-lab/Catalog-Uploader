@@ -120,6 +120,8 @@ export interface OrderRow {
   fxRate: string | null;
   fxRateLockedAt: string | null;
   status: string;
+  carrier: string | null;
+  trackingNumber: string | null;
   createdAt: string;
   emailEvents?: OrderEmailEvent[];
 }
@@ -456,6 +458,14 @@ export const adminApi = {
     adminFetch<OrderRow>(`/admin/orders/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
+    }),
+  updateOrderShipping: (
+    id: string,
+    data: { carrier?: string | null; trackingNumber?: string | null },
+  ) =>
+    adminFetch<OrderRow>(`/admin/orders/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
     }),
   resendOrderEmail: (id: string, kind: OrderEmailEvent["kind"]) =>
     adminFetch<{ ok: true; kind: OrderEmailEvent["kind"]; emailEvents: OrderEmailEvent[] }>(

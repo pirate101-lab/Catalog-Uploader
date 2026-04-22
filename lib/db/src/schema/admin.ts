@@ -156,6 +156,8 @@ export const ordersTable = pgTable("orders", {
   paymentProvider: varchar("payment_provider", { length: 24 }),
   paymentReference: text("payment_reference"),
   paidAt: timestamp("paid_at", { withTimezone: true }),
+  carrier: varchar("carrier", { length: 64 }),
+  trackingNumber: varchar("tracking_number", { length: 128 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
