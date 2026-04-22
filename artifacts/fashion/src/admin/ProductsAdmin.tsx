@@ -36,8 +36,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Search, Upload, Loader2 } from "lucide-react";
+import { Plus, Search, Upload, Loader2, Pencil, Trash2, RotateCcw } from "lucide-react";
 
 type Row = ProductRow & { override: ProductOverride | null };
 
@@ -133,6 +141,7 @@ export function ProductsAdmin() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
+  const [viewing, setViewing] = useState<Row | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -391,106 +400,75 @@ export function ProductsAdmin() {
                 </div>
               </AccordionTrigger>
               <AccordionContent>
-                <ul className="divide-y">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 pt-1 pb-3">
                   {items.map((r) => {
                     // Custom products tombstone via their own deletedAt
                     // column; JSON-catalog products tombstone via the
                     // override row. Either source counts here.
                     const isDeleted =
-                      !!r.override?.deletedAt ||
-                      !!(r as { deletedAt?: string | null }).deletedAt;
+                      !!r.override?.deletedAt || !!r.deletedAt;
                     const isCustom = r.id.startsWith("cust_");
                     return (
-                      <li
+                      <button
                         key={r.id}
-                        className={`flex items-center gap-3 py-2 ${
+                        type="button"
+                        onClick={() => setViewing(r)}
+                        className={`group relative text-left border rounded-lg overflow-hidden bg-card hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-ring ${
                           isDeleted ? "opacity-50" : ""
                         }`}
                       >
-                        {r.imageUrls?.[0] ? (
-                          <img
-                            src={r.imageUrls[0]}
-                            alt=""
-                            className="w-12 h-14 object-cover rounded border"
-                          />
-                        ) : (
-                          <div className="w-12 h-14 rounded border bg-muted" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium line-clamp-1">
+                        <div className="aspect-[4/5] bg-muted overflow-hidden">
+                          {r.imageUrls?.[0] ? (
+                            <img
+                              src={r.imageUrls[0]}
+                              alt=""
+                              loading="lazy"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                          ) : null}
+                        </div>
+                        <div className="p-2 space-y-1">
+                          <div className="text-xs font-medium line-clamp-2 leading-tight min-h-[2lh]">
                             {r.title}
                           </div>
-                          <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
-                            <span>${r.price}</span>
-                            <span>·</span>
-                            <span>{r.gender}</span>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs font-semibold">
+                              ${r.price}
+                            </span>
+                            <span className="text-[10px] uppercase text-muted-foreground">
+                              {r.gender}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 flex-wrap">
                             {r.badge && (
-                              <Badge variant="outline" className="h-4 text-[10px]">
+                              <Badge variant="outline" className="h-4 text-[9px] px-1">
                                 {r.badge}
                               </Badge>
                             )}
                             {r.featured && (
-                              <Badge className="h-4 text-[10px]">Featured</Badge>
+                              <Badge className="h-4 text-[9px] px-1">Featured</Badge>
                             )}
                             {r.override?.hidden && (
-                              <Badge
-                                variant="secondary"
-                                className="h-4 text-[10px]"
-                              >
+                              <Badge variant="secondary" className="h-4 text-[9px] px-1">
                                 Hidden
                               </Badge>
                             )}
                             {isCustom && (
-                              <Badge
-                                variant="outline"
-                                className="h-4 text-[10px]"
-                              >
+                              <Badge variant="outline" className="h-4 text-[9px] px-1">
                                 Custom
                               </Badge>
                             )}
                             {isDeleted && (
-                              <Badge
-                                variant="destructive"
-                                className="h-4 text-[10px]"
-                              >
+                              <Badge variant="destructive" className="h-4 text-[9px] px-1">
                                 Deleted
                               </Badge>
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {!isDeleted && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openEdit(r)}
-                            >
-                              Edit
-                            </Button>
-                          )}
-                          {isDeleted ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleRestore(r)}
-                            >
-                              Restore
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setConfirmDelete(r)}
-                            >
-                              Delete
-                            </Button>
-                          )}
-                        </div>
-                      </li>
+                      </button>
                     );
                   })}
-                </ul>
+                </div>
               </AccordionContent>
             </AccordionItem>
           ))}
@@ -716,6 +694,139 @@ export function ProductsAdmin() {
         </SheetContent>
       </Sheet>
 
+      {/* Detail modal — click any card in the grid to open. Shows the
+          full effective product state (title, price, sizes, colors,
+          flags, override audit) and exposes Edit / Delete / Restore
+          actions inline. */}
+      <Dialog
+        open={viewing !== null}
+        onOpenChange={(open) => {
+          if (!open) setViewing(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {viewing && (() => {
+            const r = viewing;
+            const isDeleted = !!r.override?.deletedAt || !!r.deletedAt;
+            const isCustom = r.id.startsWith("cust_");
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="pr-8">{r.title}</DialogTitle>
+                  <DialogDescription className="font-mono text-xs">
+                    {r.id}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr] gap-4 py-2">
+                  <div className="aspect-[4/5] bg-muted rounded overflow-hidden border">
+                    {r.imageUrls?.[0] && (
+                      <img
+                        src={r.imageUrls[0]}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                  <dl className="space-y-2 text-sm">
+                    <DetailRow label="Price">${r.price}</DetailRow>
+                    <DetailRow label="Category">
+                      <span className="capitalize">{r.category ?? "—"}</span>
+                      {r.subCategory && (
+                        <span className="text-muted-foreground"> · {r.subCategory}</span>
+                      )}
+                    </DetailRow>
+                    <DetailRow label="Gender">{r.gender}</DetailRow>
+                    {r.sizes && r.sizes.length > 0 && (
+                      <DetailRow label="Sizes">{r.sizes.join(", ")}</DetailRow>
+                    )}
+                    {r.colors && r.colors.length > 0 && (
+                      <DetailRow label="Colors">
+                        <div className="flex flex-wrap gap-1.5">
+                          {r.colors.map((c) => (
+                            <span
+                              key={c.hex + c.name}
+                              className="inline-flex items-center gap-1.5 text-xs"
+                            >
+                              <span
+                                className="w-3.5 h-3.5 rounded-full border"
+                                style={{ backgroundColor: c.hex }}
+                              />
+                              {c.name}
+                            </span>
+                          ))}
+                        </div>
+                      </DetailRow>
+                    )}
+                    {r.stockLevel != null && (
+                      <DetailRow label="Stock">{r.stockLevel}</DetailRow>
+                    )}
+                    <DetailRow label="Flags">
+                      <div className="flex flex-wrap gap-1">
+                        {r.badge && <Badge variant="outline">{r.badge}</Badge>}
+                        {r.featured && <Badge>Featured</Badge>}
+                        {r.override?.hidden && (
+                          <Badge variant="secondary">Hidden</Badge>
+                        )}
+                        {isCustom && <Badge variant="outline">Custom</Badge>}
+                        {isDeleted && <Badge variant="destructive">Deleted</Badge>}
+                        {!r.badge &&
+                          !r.featured &&
+                          !r.override?.hidden &&
+                          !isCustom &&
+                          !isDeleted && (
+                            <span className="text-muted-foreground">None</span>
+                          )}
+                      </div>
+                    </DetailRow>
+                    {r.override && (
+                      <DetailRow label="Overrides">
+                        <span className="text-xs text-muted-foreground">
+                          This product has admin overrides applied.
+                        </span>
+                      </DetailRow>
+                    )}
+                  </dl>
+                </div>
+                <DialogFooter className="gap-2 sm:gap-2">
+                  {isDeleted ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        handleRestore(r);
+                        setViewing(null);
+                      }}
+                    >
+                      <RotateCcw className="w-4 h-4 mr-1" /> Restore
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => {
+                          setConfirmDelete(r);
+                          setViewing(null);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" /> Delete
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          openEdit(r);
+                          setViewing(null);
+                        }}
+                      >
+                        <Pencil className="w-4 h-4 mr-1" /> Edit
+                      </Button>
+                    </>
+                  )}
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog
         open={confirmDelete !== null}
         onOpenChange={(open) => {
@@ -760,6 +871,26 @@ function Field({
       </Label>
       {children}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+// Two-column "label : value" row used inside the product detail
+// modal — keeps the label width consistent across rows so the values
+// line up nicely.
+function DetailRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-[80px_1fr] gap-3 items-start">
+      <dt className="text-xs uppercase tracking-wider text-muted-foreground pt-0.5">
+        {label}
+      </dt>
+      <dd className="text-sm">{children}</dd>
     </div>
   );
 }

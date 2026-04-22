@@ -379,6 +379,8 @@ export interface ProductRow {
   badge?: string | null;
   featured?: boolean;
   hidden?: boolean;
+  stockLevel?: number | null;
+  deletedAt?: string | null;
 }
 
 export type AdminRoleValue = "admin" | "super_admin";

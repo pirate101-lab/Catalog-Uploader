@@ -11,6 +11,7 @@ const KIND_LABELS: Record<EmailEventRow["kind"], string> = {
   confirmation: "Confirmation",
   shipped: "Shipped",
   delivered: "Delivered",
+  payment_failed: "Payment failed",
 };
 
 const STATUS_FILTERS: Array<{ value: ""; label: string } | { value: EmailEventRow["status"]; label: string }> = [

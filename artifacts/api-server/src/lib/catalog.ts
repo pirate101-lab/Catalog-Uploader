@@ -250,9 +250,68 @@ function loadOne(fileName: string, gender: Gender): ProductRow[] {
   }));
 }
 
+// Words in a product title that prove the item is genuinely footwear.
+// `\bboot\b` matches "boot" / "boots" / "ankle boot" but NOT "bootcut"
+// or "Boot Graphic T-Shirt" (those have other tokens after `boot`
+// without a word boundary in the right place — the regex still matches
+// "Boot " in "Boot Graphic", so we further require the whole title
+// has NO disqualifying garment keyword below).
+const SHOE_KEYWORDS = /\b(boot|bootie|booties|sneaker|sandal|heel|heels|loafer|pump|pumps|mule|slipper|slide|slides|oxford|derby|stiletto|wedge|wedges|espadrille|trainer|trainers|clog|clogs|moccasin|brogue|chelsea|flats?|flip[\s-]?flop|crocs?)\b/i;
+
+// Strong signals the title is something OTHER than footwear, even if
+// the word "boot" appears (e.g. "Boot Graphic T-Shirt", "Bootcut Pants").
+const NON_SHOE_HINTS: Array<{ re: RegExp; category: string }> = [
+  { re: /\bbootcut\b|\bjeans?\b|\bdenim\b|\bpants?\b|\btrouser|\bleggings?\b|\bshorts?\b|\bskirt|\bskort/i, category: "bottoms" },
+  { re: /\b(t[\s-]?shirt|tee|tees|sweatshirt|hoodie|blouse|cami|tank|crop\s?top|polo|shirt|top|graphic)\b/i, category: "tops" },
+  { re: /\bdress(es)?\b|\bgown\b/i, category: "dresses" },
+  { re: /\bjumpsuit|\bromper|\boveralls?\b/i, category: "jumpsuits" },
+  { re: /\bjacket|\bcoat\b|\bblazer|\boutwear|\bouterwear|\bparka|\bcardigan/i, category: "outerwear" },
+  { re: /\bsweater|\bknit\b|\bpullover/i, category: "sweaters" },
+  { re: /\b(set|sets|two[\s-]?piece|2[\s-]?piece|3[\s-]?piece)\b/i, category: "sets" },
+];
+
+/**
+ * Some upstream rows are mis-tagged with `category: "shoes"` but are
+ * actually apparel (e.g. "Boot Graphic T-Shirt", "Bootcut Pants"). We
+ * keep a row in shoes ONLY if its title contains a real footwear
+ * keyword AND no stronger garment signal — otherwise we move it to
+ * the matching apparel bucket so the storefront's Shoes filter is clean.
+ *
+ * Mutates rows in place.
+ */
+export function reclassifyMislabeledShoes(rows: ProductRow[]): void {
+  for (const r of rows) {
+    if (r.category !== "shoes") continue;
+    const title = r.title ?? "";
+    // Find the first non-shoe garment hint that matches the title.
+    const garment = NON_SHOE_HINTS.find((h) => h.re.test(title));
+    const hasShoeKeyword = SHOE_KEYWORDS.test(title);
+    // If a garment hint matches and we don't see an unambiguous shoe
+    // keyword (other than "boot", which is the source of the false
+    // positives), move the row to the suggested category.
+    if (garment) {
+      // `boot` alone is ambiguous — treat as a shoe only when no
+      // garment hint is present. Real footwear keywords (sneaker,
+      // sandal, heel, …) override the garment hint and keep the row
+      // in shoes.
+      const allMatches = title.match(new RegExp(SHOE_KEYWORDS, "gi")) ?? [];
+      const strongShoe = hasShoeKeyword && allMatches.some(
+        (m) => !/^boot(s|ie|ies)?$/i.test(m),
+      );
+      if (strongShoe) continue;
+      r.category = garment.category;
+    }
+  }
+}
+
 function loadCatalog(): ProductRow[] {
   const women = loadOne("catalog_lite.json", "women");
   const men = loadOne("catalog_men_lite.json", "men");
+  // Move mis-categorised "shoes" rows (e.g. "Boot Graphic T-Shirt")
+  // into the right apparel bucket BEFORE bucket derivation so the
+  // featured grids don't surface them under Shoes.
+  reclassifyMislabeledShoes(women);
+  reclassifyMislabeledShoes(men);
   // Synthesise the four merch buckets for both catalogs. The top-nav
   // tabs (New In / Collection / TikTok Verified / Trending) are
   // women-only, but the homepage featured grid filters by

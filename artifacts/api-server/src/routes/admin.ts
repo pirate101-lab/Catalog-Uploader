@@ -881,11 +881,14 @@ router.patch("/admin/orders/:id", async (req, res) => {
   }
   const update: Partial<typeof ordersTable.$inferInsert> = {};
   if (hasStatus) {
-    if (typeof body.status !== "string" || !ORDER_STATUSES.includes(body.status)) {
+    if (
+      typeof body.status !== "string" ||
+      !(ORDER_STATUSES as readonly string[]).includes(body.status)
+    ) {
       res.status(400).json({ error: "Invalid status" });
       return;
     }
-    update.status = body.status;
+    update.status = body.status as (typeof ORDER_STATUSES)[number];
   }
   if (hasCarrier) {
     if (body.carrier === null || body.carrier === "") {
