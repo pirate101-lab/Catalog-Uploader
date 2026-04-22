@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -13,6 +13,21 @@ const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
+
+  // Externalize all third-party runtime dependencies so esbuild leaves
+  // them as `import "..."` statements that Node resolves from
+  // node_modules at runtime. The deploy ships node_modules anyway, so
+  // bundling them only inflates the output (and pulls in heavy
+  // transitive deps like iconv-lite, tr46, mime-db, bignumber.js,
+  // etc.). We still bundle `@workspace/*` packages because they ship
+  // TypeScript source from the monorepo and are not present as
+  // compiled JS in node_modules.
+  const pkg = JSON.parse(
+    await readFile(path.resolve(artifactDir, "package.json"), "utf8"),
+  );
+  const runtimeDeps = Object.keys(pkg.dependencies ?? {}).filter(
+    (name) => !name.startsWith("@workspace/"),
+  );
 
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
@@ -28,6 +43,7 @@ async function buildAll() {
     // - uses native modules and loads them dynamically (e.g. sharp)
     // - use path traversal to read files (e.g. @google-cloud/secret-manager loads sibling .proto files)
     external: [
+      ...runtimeDeps,
       "*.node",
       "sharp",
       "better-sqlite3",
