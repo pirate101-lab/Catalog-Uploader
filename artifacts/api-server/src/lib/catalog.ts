@@ -522,3 +522,44 @@ export function invalidateCatalog(): void {
 export function getProductById(id: string): ProductRow | null {
   return getAllProducts().find((p) => p.id === id) ?? null;
 }
+
+/**
+ * Preview which products a recategorisation rule would move, without
+ * persisting the rule. Returns shoes-category products whose titles
+ * match the supplied regex (case-insensitive, same flags the live
+ * loader uses). Powers the admin "Test pattern" button so staff can
+ * sanity-check overly broad regexes before saving.
+ *
+ * Throws `SyntaxError` (or whatever `new RegExp` throws) when the
+ * pattern is invalid — callers should translate that into a clean
+ * 400 response.
+ */
+export interface RuleMatchPreview {
+  id: string;
+  title: string;
+  currentCategory: string | null;
+  gender: Gender;
+}
+
+export function previewShoesByPattern(
+  pattern: string,
+  limit = 20,
+): { total: number; matches: RuleMatchPreview[] } {
+  const re = new RegExp(pattern, "i");
+  const all = getAllProducts();
+  // Only rows currently tagged "shoes" are candidates for a
+  // recategorisation rule — that mirrors `reclassifyMislabeledShoes`,
+  // which short-circuits on `r.category !== "shoes"`.
+  const matched = all.filter(
+    (p) => p.category === "shoes" && re.test(p.title ?? ""),
+  );
+  return {
+    total: matched.length,
+    matches: matched.slice(0, limit).map((p) => ({
+      id: p.id,
+      title: p.title,
+      currentCategory: p.category,
+      gender: p.gender,
+    })),
+  };
+}

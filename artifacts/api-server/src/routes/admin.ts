@@ -32,7 +32,7 @@ import {
   symbolForCurrency,
   PAYSTACK_CURRENCIES,
 } from "../lib/siteSettings";
-import { getAllProducts } from "../lib/catalog";
+import { getAllProducts, previewShoesByPattern } from "../lib/catalog";
 import {
   awaitLastPersistence,
   listPersistedReclassifications,
@@ -752,6 +752,46 @@ router.delete("/admin/recategorisation-rules/:id", async (req, res) => {
     /* non-fatal */
   });
   res.status(204).end();
+});
+
+/* Dry-run a candidate rule against the live catalog without saving.
+ * Returns the count + first 20 currently-shoes products whose titles
+ * match the supplied regex, so staff can spot an overly broad pattern
+ * (e.g. /b/ matching every other title) before it goes live. The
+ * `targetCategory` field is accepted and echoed back so the UI can
+ * label the preview, but it doesn't change which products are
+ * surfaced — matching is purely on the pattern + the current
+ * "shoes" filter, mirroring `reclassifyMislabeledShoes`.
+ */
+router.post("/admin/recategorisation-rules/preview", async (req, res) => {
+  const body = (req.body ?? {}) as {
+    pattern?: unknown;
+    targetCategory?: unknown;
+  };
+  const pattern = typeof body.pattern === "string" ? body.pattern.trim() : "";
+  if (!pattern) {
+    res.status(400).json({ error: "pattern is required" });
+    return;
+  }
+  const targetCategory =
+    typeof body.targetCategory === "string" && body.targetCategory.trim()
+      ? body.targetCategory.trim()
+      : null;
+  let preview;
+  try {
+    preview = previewShoesByPattern(pattern, 20);
+  } catch (e) {
+    res.status(400).json({
+      error: `pattern is not a valid regex: ${(e as Error).message}`,
+    });
+    return;
+  }
+  res.json({
+    pattern,
+    targetCategory,
+    total: preview.total,
+    matches: preview.matches,
+  });
 });
 
 /* ---------------- Catalog category list ----------------

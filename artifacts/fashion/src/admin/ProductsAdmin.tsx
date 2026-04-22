@@ -65,6 +65,7 @@ import {
   FolderInput,
   X,
   Wand2,
+  FlaskConical,
 } from "lucide-react";
 
 type Row = ProductRow & { override: ProductOverride | null };
@@ -1428,6 +1429,23 @@ function RecategorisationRulesCard({
     pattern: string;
     targetCategory: string;
   }>({ label: "", pattern: "", targetCategory: "" });
+  // Preview state for the "Test pattern" dry-run. Lives next to the
+  // add-rule draft because that's the only place a not-yet-saved rule
+  // can be tested; an inline error string keeps invalid-regex feedback
+  // close to the input rather than firing a toast that staff might miss.
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewResult, setPreviewResult] = useState<{
+    pattern: string;
+    targetCategory: string | null;
+    total: number;
+    matches: {
+      id: string;
+      title: string;
+      currentCategory: string | null;
+      gender: "women" | "men";
+    }[];
+  } | null>(null);
 
   const refresh = () => {
     setLoading(true);
@@ -1519,6 +1537,43 @@ function RecategorisationRulesCard({
       toast.error(`Save failed: ${(e as Error).message}`);
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const handleTestPattern = async () => {
+    const pattern = draft.pattern.trim();
+    if (!pattern) {
+      setPreviewError("Enter a pattern to test");
+      setPreviewResult(null);
+      return;
+    }
+    setPreviewing(true);
+    setPreviewError(null);
+    try {
+      const result = await adminApi.previewRecategorisationRule({
+        pattern,
+        targetCategory: draft.targetCategory.trim() || undefined,
+      });
+      setPreviewResult(result);
+    } catch (e) {
+      setPreviewResult(null);
+      // adminFetch surfaces errors as `HTTP 400: {"error":"..."}` —
+      // peel the JSON envelope off when we recognise it so staff see
+      // the regex error in plain prose, not the wire format.
+      const raw = (e as Error).message;
+      let friendly = raw;
+      const m = raw.match(/^HTTP \d+:\s*(\{.*\})$/);
+      if (m) {
+        try {
+          const parsed = JSON.parse(m[1]!) as { error?: unknown };
+          if (typeof parsed.error === "string") friendly = parsed.error;
+        } catch {
+          /* fall through to raw */
+        }
+      }
+      setPreviewError(friendly);
+    } finally {
+      setPreviewing(false);
     }
   };
 
@@ -1730,35 +1785,128 @@ function RecategorisationRulesCard({
               <Input
                 placeholder="Pattern (e.g. \\bjogger|\\blegging)"
                 value={draft.pattern}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, pattern: e.target.value }))
-                }
+                onChange={(e) => {
+                  setDraft((d) => ({ ...d, pattern: e.target.value }));
+                  // Editing the pattern invalidates any prior preview
+                  // so staff aren't shown stale matches alongside a
+                  // newly-typed regex.
+                  setPreviewResult(null);
+                  setPreviewError(null);
+                }}
                 className="font-mono text-xs"
               />
               <Input
                 placeholder="Target (e.g. activewear)"
                 value={draft.targetCategory}
-                onChange={(e) =>
+                onChange={(e) => {
                   setDraft((d) => ({
                     ...d,
                     targetCategory: e.target.value,
-                  }))
-                }
+                  }));
+                  // Stale preview would still show the old "would
+                  // move to X" label after the target changes — clear
+                  // it to keep the preview in sync with current draft.
+                  setPreviewResult(null);
+                  setPreviewError(null);
+                }}
               />
-              <Button
-                size="sm"
-                onClick={handleCreate}
-                disabled={busyId === "new"}
-              >
-                {busyId === "new" ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <>
-                    <Plus className="w-3 h-3 mr-1" /> Add
-                  </>
-                )}
-              </Button>
+              <div className="inline-flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleTestPattern}
+                  disabled={previewing}
+                  title="Preview which currently-shoes products this pattern would match"
+                >
+                  {previewing ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <>
+                      <FlaskConical className="w-3 h-3 mr-1" /> Test
+                    </>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleCreate}
+                  disabled={busyId === "new"}
+                >
+                  {busyId === "new" ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <>
+                      <Plus className="w-3 h-3 mr-1" /> Add
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
+            {previewError && (
+              <div
+                role="alert"
+                className="mt-2 text-xs text-destructive"
+              >
+                {previewError}
+              </div>
+            )}
+            {previewResult && (
+              <div className="mt-3 border rounded-md bg-background">
+                <div className="flex items-center gap-2 px-3 py-2 border-b text-xs">
+                  <span className="font-medium">
+                    {previewResult.total === 0
+                      ? "No matches"
+                      : `${previewResult.total} match${previewResult.total === 1 ? "" : "es"}`}
+                  </span>
+                  {previewResult.total > previewResult.matches.length && (
+                    <span className="text-muted-foreground">
+                      (showing first {previewResult.matches.length})
+                    </span>
+                  )}
+                  {previewResult.targetCategory && (
+                    <span className="text-muted-foreground">
+                      → would move to{" "}
+                      <span className="capitalize">
+                        {previewResult.targetCategory}
+                      </span>
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewResult(null);
+                      setPreviewError(null);
+                    }}
+                    className="ml-auto text-muted-foreground hover:text-foreground"
+                    aria-label="Dismiss preview"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+                {previewResult.matches.length > 0 && (
+                  <ul className="max-h-64 overflow-y-auto divide-y text-xs">
+                    {previewResult.matches.map((m) => (
+                      <li
+                        key={m.id}
+                        className="flex items-center gap-2 px-3 py-1.5"
+                      >
+                        <span className="flex-1 truncate" title={m.title}>
+                          {m.title}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="capitalize text-[10px]"
+                        >
+                          {m.currentCategory ?? "uncategorised"}
+                        </Badge>
+                        <span className="text-muted-foreground text-[10px] uppercase">
+                          {m.gender}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

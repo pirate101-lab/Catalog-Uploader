@@ -731,6 +731,24 @@ export const adminApi = {
     adminFetch<void>(`/admin/recategorisation-rules/${id}`, {
       method: "DELETE",
     }),
+  previewRecategorisationRule: (data: {
+    pattern: string;
+    targetCategory?: string;
+  }) =>
+    adminFetch<{
+      pattern: string;
+      targetCategory: string | null;
+      total: number;
+      matches: {
+        id: string;
+        title: string;
+        currentCategory: string | null;
+        gender: "women" | "men";
+      }[];
+    }>("/admin/recategorisation-rules/preview", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   createCustomProduct: (data: CustomProductInput) =>
     adminFetch<CustomProduct>("/admin/custom-products", {
       method: "POST",
