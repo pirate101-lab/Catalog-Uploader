@@ -171,6 +171,7 @@ export function ProductsAdmin() {
   const [uploading, setUploading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [confirmBulkRestore, setConfirmBulkRestore] = useState(false);
   const [viewing, setViewing] = useState<Row | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -410,8 +411,16 @@ export function ProductsAdmin() {
     }
     void performBulkDelete();
   };
-  const handleBulkRestore = () =>
+  const performBulkRestore = () =>
     runBulk("Restored", () => adminApi.bulkRestoreProducts(visibleSelectedIds));
+  const handleBulkRestore = () => {
+    if (selectionCount === 0) return;
+    if (selectionCount > BULK_DELETE_CONFIRM_THRESHOLD) {
+      setConfirmBulkRestore(true);
+      return;
+    }
+    void performBulkRestore();
+  };
   const handleBulkFeature = () =>
     runBulk("Marked featured for", () =>
       adminApi.bulkFeatureProducts(visibleSelectedIds, true),
@@ -1140,6 +1149,37 @@ export function ProductsAdmin() {
               }}
             >
               Delete {selectionCount}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmBulkRestore}
+        onOpenChange={(open) => {
+          if (!open) setConfirmBulkRestore(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Restore {selectionCount} product{selectionCount === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectionCount} selected product
+              {selectionCount === 1 ? " will be" : "s will be"} republished to
+              the storefront. Make sure none of them were hidden on purpose.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmBulkRestore(false);
+                void performBulkRestore();
+              }}
+            >
+              Restore {selectionCount}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
