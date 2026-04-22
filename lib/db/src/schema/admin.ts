@@ -197,6 +197,7 @@ export const siteSettingsTable = pgTable("site_settings", {
   paystackLiveSecretKey: text("paystack_live_secret_key"),
   paystackTestPublicKey: text("paystack_test_public_key"),
   paystackTestSecretKey: text("paystack_test_secret_key"),
+  bankTransferEnabled: boolean("bank_transfer_enabled").notNull().default(true),
   bankName: text("bank_name"),
   bankAccountName: text("bank_account_name"),
   bankAccountNumber: text("bank_account_number"),

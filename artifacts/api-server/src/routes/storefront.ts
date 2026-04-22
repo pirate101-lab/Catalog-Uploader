@@ -200,16 +200,24 @@ router.get("/storefront/settings", async (_req: Request, res: Response) => {
   // can rotate them from the admin Payments page without redeploying.
   // Env vars remain as a one-time fallback so existing deployments keep
   // showing payment instructions until they save them in admin.
-  const bank = {
-    bankName: s.bankName ?? process.env.BANK_NAME ?? null,
-    accountName: s.bankAccountName ?? process.env.BANK_ACCOUNT_NAME ?? null,
-    accountNumber:
-      s.bankAccountNumber ?? process.env.BANK_ACCOUNT_NUMBER ?? null,
-    swiftCode: s.bankSwiftCode ?? process.env.BANK_SWIFT_CODE ?? null,
-    routingNumber:
-      s.bankRoutingNumber ?? process.env.BANK_ROUTING_NUMBER ?? null,
-    instructions: s.bankInstructions ?? process.env.BANK_INSTRUCTIONS ?? null,
-  };
+  // When the operator disables bank transfer in admin, withhold the
+  // account details from the public payload entirely (defence in depth)
+  // — the checkout UI also hides the option, but a stale browser
+  // shouldn't be able to pull the numbers out of the settings response.
+  const bankTransferEnabled = !!s.bankTransferEnabled;
+  const bank = bankTransferEnabled
+    ? {
+        bankName: s.bankName ?? process.env.BANK_NAME ?? null,
+        accountName: s.bankAccountName ?? process.env.BANK_ACCOUNT_NAME ?? null,
+        accountNumber:
+          s.bankAccountNumber ?? process.env.BANK_ACCOUNT_NUMBER ?? null,
+        swiftCode: s.bankSwiftCode ?? process.env.BANK_SWIFT_CODE ?? null,
+        routingNumber:
+          s.bankRoutingNumber ?? process.env.BANK_ROUTING_NUMBER ?? null,
+        instructions:
+          s.bankInstructions ?? process.env.BANK_INSTRUCTIONS ?? null,
+      }
+    : null;
   // Expose ONLY the active public key + enabled flag. Secret keys must
   // never reach the browser.
   const paystackActivePublicKey = s.paystackTestMode
@@ -236,6 +244,7 @@ router.get("/storefront/settings", async (_req: Request, res: Response) => {
     paystackEnabled,
     paystackPublicKey: paystackEnabled ? paystackActivePublicKey : null,
     paystackTestMode: !!s.paystackTestMode,
+    bankTransferEnabled,
     bankTransfer: bank,
   });
 });

@@ -78,6 +78,7 @@ const FALLBACK_SETTINGS: SiteSettings = {
   paystackLiveSecretKey: null,
   paystackTestPublicKey: null,
   paystackTestSecretKey: null,
+  bankTransferEnabled: true,
   bankName: null,
   bankAccountName: null,
   bankAccountNumber: null,

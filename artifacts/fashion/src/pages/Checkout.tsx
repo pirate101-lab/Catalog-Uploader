@@ -69,7 +69,8 @@ interface StorefrontSettings {
   paystackEnabled: boolean;
   paystackPublicKey: string | null;
   paystackTestMode: boolean;
-  bankTransfer?: BankTransferDetails;
+  bankTransferEnabled: boolean;
+  bankTransfer?: BankTransferDetails | null;
 }
 
 interface PaystackInitResponse {
@@ -197,6 +198,10 @@ export function CheckoutPage() {
   const paystackReady = !!(
     settings?.paystackEnabled && settings.paystackPublicKey
   );
+  // Bank transfer is "ready" purely on the admin toggle. Empty bank
+  // fields still get a friendly "we'll contact you" fallback inside
+  // BankDetailsList — that is intentional and unrelated to this flag.
+  const bankReady = !!settings?.bankTransferEnabled;
 
   const form = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
@@ -267,11 +272,12 @@ export function CheckoutPage() {
     };
   }, []);
 
-  // If Paystack is unavailable, force the bank-transfer choice so the UI
-  // doesn't get stuck on a hidden tab.
+  // Keep the selected method in sync with what's actually available, so
+  // the UI never gets stuck on a hidden tab.
   useEffect(() => {
-    if (!paystackReady) setPaymentMethod('bank');
-  }, [paystackReady]);
+    if (!paystackReady && bankReady) setPaymentMethod('bank');
+    else if (!bankReady && paystackReady) setPaymentMethod('paystack');
+  }, [paystackReady, bankReady]);
 
   // Fetch a server-priced quote whenever the cart contents change.
   const cartKey = useMemo(
@@ -623,9 +629,18 @@ export function CheckoutPage() {
                   <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                   {quoteError}
                 </p>
+              ) : !paystackReady && !bankReady ? (
+                <p
+                  className="text-sm text-destructive flex items-start gap-2"
+                  data-testid="no-payment-methods"
+                >
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  No payment methods are available right now. Please contact
+                  the store team to complete your order.
+                </p>
               ) : (
                 <>
-                  {paystackReady ? (
+                  {paystackReady && bankReady ? (
                     <PaymentMethodPicker
                       method={paymentMethod}
                       onChange={setPaymentMethod}
@@ -644,7 +659,7 @@ export function CheckoutPage() {
                           : 'Pricing your cart…'
                       }
                     />
-                  ) : (
+                  ) : bankReady ? (
                     <BankTransferSubmit
                       form={form}
                       items={items}
@@ -667,7 +682,7 @@ export function CheckoutPage() {
                         });
                       }}
                     />
-                  )}
+                  ) : null}
                 </>
               )}
 

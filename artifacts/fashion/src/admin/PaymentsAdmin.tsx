@@ -156,6 +156,7 @@ export function PaymentsAdmin() {
               saving={saving}
               onChange={updateDraft}
               onSave={() => save()}
+              onToggleEnabled={(v) => save({ bankTransferEnabled: v })}
             />
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -507,11 +508,13 @@ function BankSection({
   saving,
   onChange,
   onSave,
+  onToggleEnabled,
 }: {
   draft: SiteSettings;
   saving: boolean;
   onChange: (patch: SaveablePatch) => void;
   onSave: () => void;
+  onToggleEnabled: (enabled: boolean) => void;
 }) {
   return (
     <Section
@@ -527,6 +530,13 @@ function BankSection({
         </div>
       }
     >
+      <ToggleRow
+        label="Bank transfer enabled"
+        help="When off, the bank-transfer option is hidden at checkout. Saved details below are kept."
+        checked={!!draft.bankTransferEnabled}
+        onChange={onToggleEnabled}
+        testId="bank-transfer-enabled"
+      />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <BankField label="Bank name" value={draft.bankName} onChange={(v) => onChange({ bankName: v })} testId="bank-name" />
         <BankField label="Account name" value={draft.bankAccountName} onChange={(v) => onChange({ bankAccountName: v })} testId="bank-account-name" />

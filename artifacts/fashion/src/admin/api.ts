@@ -189,6 +189,7 @@ export interface SiteSettings {
   paystackTestSecretKey: string;
   paystackLiveSecretKeySet: boolean;
   paystackTestSecretKeySet: boolean;
+  bankTransferEnabled: boolean;
   bankName: string | null;
   bankAccountName: string | null;
   bankAccountNumber: string | null;

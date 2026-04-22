@@ -1621,6 +1621,7 @@ router.put("/admin/settings", async (req, res) => {
     "paystackTestMode",
     "paystackLivePublicKey",
     "paystackTestPublicKey",
+    "bankTransferEnabled",
     "bankName",
     "bankAccountName",
     "bankAccountNumber",
