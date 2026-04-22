@@ -383,6 +383,18 @@ export function ProductsAdmin() {
     return [...selectedIds].filter((id) => visible.has(id));
   }, [rows, selectedIds]);
   const selectionCount = visibleSelectedIds.length;
+  // Restore only makes sense for tombstoned rows. Filtering on the
+  // client keeps the request small and the toast count honest when
+  // staff fire restore on a mixed selection.
+  const deletedSelectedIds = useMemo(() => {
+    const deleted = new Set(
+      rows
+        .filter((r) => !!r.override?.deletedAt || !!r.deletedAt)
+        .map((r) => r.id),
+    );
+    return visibleSelectedIds.filter((id) => deleted.has(id));
+  }, [rows, visibleSelectedIds]);
+  const restorableCount = deletedSelectedIds.length;
 
   const runBulk = async (
     label: string,
@@ -412,11 +424,31 @@ export function ProductsAdmin() {
     }
     void performBulkDelete();
   };
-  const performBulkRestore = () =>
-    runBulk("Restored", () => adminApi.bulkRestoreProducts(visibleSelectedIds));
+  const performBulkRestore = async () => {
+    if (restorableCount === 0) return;
+    setBulkBusy(true);
+    try {
+      const { updated } = await adminApi.bulkRestoreProducts(deletedSelectedIds);
+      toast.success(
+        `Restored ${updated} of ${selectionCount} product${
+          selectionCount === 1 ? "" : "s"
+        }`,
+      );
+      clearSelection();
+      reload();
+    } catch (e) {
+      toast.error(`Restore failed: ${(e as Error).message}`);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
   const handleBulkRestore = () => {
     if (selectionCount === 0) return;
-    if (selectionCount > BULK_DELETE_CONFIRM_THRESHOLD) {
+    if (restorableCount === 0) {
+      toast.message("Nothing to restore — none of the selected products are deleted");
+      return;
+    }
+    if (restorableCount > BULK_DELETE_CONFIRM_THRESHOLD) {
       setConfirmBulkRestore(true);
       return;
     }
@@ -1164,12 +1196,13 @@ export function ProductsAdmin() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Restore {selectionCount} product{selectionCount === 1 ? "" : "s"}?
+              Restore {restorableCount} product{restorableCount === 1 ? "" : "s"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {selectionCount} selected product
-              {selectionCount === 1 ? " will be" : "s will be"} republished to
-              the storefront. Make sure none of them were hidden on purpose.
+              {restorableCount} of the {selectionCount} selected product
+              {selectionCount === 1 ? " is" : "s are"} currently deleted and
+              will be republished to the storefront. Make sure none of them
+              were hidden on purpose.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1180,7 +1213,7 @@ export function ProductsAdmin() {
                 void performBulkRestore();
               }}
             >
-              Restore {selectionCount}
+              Restore {restorableCount}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
