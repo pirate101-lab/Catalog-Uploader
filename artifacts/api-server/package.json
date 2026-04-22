@@ -8,6 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test 'src/**/*.test.ts'",
     "check:featured-bucket": "node ./scripts/check-featured-bucket.mjs",
     "ci:check-featured-bucket": "pnpm run build && node ./scripts/ci-check-featured-bucket.mjs"
   },
