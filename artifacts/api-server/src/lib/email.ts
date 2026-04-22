@@ -4,6 +4,7 @@ import net from "node:net";
 import { and, eq, gte, sql } from "drizzle-orm";
 import nodemailer, { type Transporter } from "nodemailer";
 import { getSiteSettings, symbolForCurrency } from "./siteSettings";
+import { buildOrderViewUrl } from "./orderViewToken";
 import {
   db,
   orderEmailEventsTable,
@@ -217,16 +218,26 @@ function renderOrderEmail(
   const storefrontUrl = getStorefrontUrl();
   const storefrontDisplay = getStorefrontDisplay(storefrontUrl);
   // For payment_failed the primary CTA points back to Paystack via the
-  // signed resume URL; for everything else it just opens the storefront.
+  // signed resume URL. For success-path templates (received,
+  // confirmation, shipped, delivered) it deep-links to a customer
+  // order-status page guarded by an HMAC-signed token, so "View your
+  // order" actually lands on the right order. Anything else (future
+  // generic kinds) falls through to the storefront homepage.
+  const orderViewUrl = buildOrderViewUrl(storefrontUrl, order.id);
   const ctaUrl =
     kind === "payment_failed" && payCtx?.retryUrl
       ? payCtx.retryUrl
-      : storefrontUrl;
+      : kind === "received" ||
+          kind === "confirmation" ||
+          kind === "shipped" ||
+          kind === "delivered"
+        ? orderViewUrl
+        : storefrontUrl;
   const ctaLabel =
     kind === "payment_failed"
       ? "Complete your payment"
       : kind === "delivered"
-        ? "Shop again"
+        ? "View your order"
         : kind === "confirmation" || kind === "received"
           ? "View your order"
           : "Visit the shop";
@@ -237,19 +248,19 @@ function renderOrderEmail(
   if (kind === "received") {
     heading = "Thanks — we've got your order";
     intro = `We just received your order #${orderRef} from ${storeName} and our team is reviewing it. You'll get a separate confirmation email the moment it's packed and ready to ship.`;
-    subject = `We received your order #${orderRef}`;
+    subject = `${storeName}: we received your order #${orderRef}`;
   } else if (kind === "confirmation") {
     heading = "Your order is confirmed";
     intro = `Great news — your order #${orderRef} from ${storeName} is confirmed and being packed for dispatch. We'll email you again as soon as it's on its way.`;
-    subject = `Your order #${orderRef} is confirmed`;
+    subject = `${storeName}: your order #${orderRef} is confirmed`;
   } else if (kind === "shipped") {
     heading = "Your order is on its way";
     intro = `Your order #${orderRef} from ${storeName} just shipped. Tracking details will follow as soon as the carrier scans it in.`;
-    subject = `Order #${orderRef} shipped`;
+    subject = `${storeName}: order #${orderRef} shipped`;
   } else if (kind === "delivered") {
     heading = "Your order has arrived";
     intro = `Your order #${orderRef} from ${storeName} has been delivered. We hope you love every piece — reply to this email if anything isn't quite right.`;
-    subject = `Order #${orderRef} delivered`;
+    subject = `${storeName}: order #${orderRef} delivered`;
   } else {
     // payment_failed — vary copy by sub-kind so the email reads
     // naturally for each failure mode.
@@ -328,14 +339,17 @@ function renderOrderEmail(
   // Surface the actual card-charge amount so the customer doesn't get
   // confused when their bank statement shows KES instead of USD. We
   // also include this on payment_failed so the retry CTA reads as
-  // "for THIS amount" rather than a vague total.
+  // "for THIS amount" rather than a vague total. The "via Paystack"
+  // wording is gated on the order's actual processor so non-Paystack
+  // orders don't carry a misleading provider name.
+  const isPaystackOrder = order.paymentProvider === "paystack";
   const chargeNoteHtml =
     chargeTotal &&
     (kind === "received" ||
       kind === "confirmation" ||
       kind === "payment_failed")
       ? `<p style="margin:12px 0 0 0;color:#666;font-size:12px;">
-          ${kind === "payment_failed" ? "We'll charge" : "Your card was charged"} ${chargeTotal} ${escapeHtml(view.chargeCurrency)} via Paystack (≈ ${total} ${escapeHtml(view.displayCurrency)}).
+          ${kind === "payment_failed" ? "We'll charge" : "Your card was charged"} ${chargeTotal} ${escapeHtml(view.chargeCurrency)}${isPaystackOrder ? " via Paystack" : ""} (≈ ${total} ${escapeHtml(view.displayCurrency)}).
         </p>`
       : "";
 
@@ -407,7 +421,7 @@ function renderOrderEmail(
   textLines.push(`Total: ${total}`);
   if (chargeTotal && (kind === "received" || kind === "confirmation")) {
     textLines.push(
-      `Card charged: ${chargeTotal} ${view.chargeCurrency} via Paystack (≈ ${total} ${view.displayCurrency})`,
+      `Card charged: ${chargeTotal} ${view.chargeCurrency}${isPaystackOrder ? " via Paystack" : ""} (≈ ${total} ${view.displayCurrency})`,
     );
   }
   if (addressLines.length > 0) {
@@ -879,10 +893,20 @@ export function resolveOrderSender(settings: SettingsLike): SenderResolution {
     from = `${storeName} <orders@resend.dev>`;
     configured = false;
   }
-  const replyTo =
+  // Reply-to fallback: if the operator hasn't set an explicit
+  // reply-to in Settings → Email, derive one from the resolved
+  // `from` header (stripped of any "Name <…>" wrapper) so EVERY
+  // order email — across SMTP and Resend, including the
+  // resend.dev sandbox path — carries an explicit Reply-To.
+  // Default mail clients route replies to From when Reply-To is
+  // absent, but explicitly setting it makes the routing predictable
+  // across Gmail/Apple Mail/Outlook.
+  const explicitReplyTo =
     settings.emailReplyTo && settings.emailReplyTo.trim()
       ? settings.emailReplyTo.trim()
       : null;
+  const fromAddressOnly = /<([^>]+)>/.exec(from)?.[1] ?? from;
+  const replyTo = explicitReplyTo ?? fromAddressOnly;
   return { from, replyTo, storeName, currencySymbol, configured };
 }
 

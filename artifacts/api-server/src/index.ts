@@ -21,6 +21,17 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+// SESSION_SECRET signs HMAC tokens used by the customer
+// order-status link in success-path order emails (see
+// lib/orderViewToken.ts). Without it, success-path email rendering
+// would throw at send time and customers would silently lose their
+// order-status link. Fail fast at boot instead.
+if (!process.env["SESSION_SECRET"] || !process.env["SESSION_SECRET"].trim()) {
+  throw new Error(
+    "SESSION_SECRET environment variable is required but was not provided.",
+  );
+}
+
 const storageConfigured = new ObjectStorageService().isConfigured();
 
 app.listen(port, (err) => {

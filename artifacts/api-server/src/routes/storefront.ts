@@ -21,6 +21,7 @@ import {
 } from "../lib/productCatalog";
 import { getOverridesMap } from "../lib/overrides";
 import { getSiteSettingsForStorefront } from "../lib/siteSettings";
+import { verifyOrderViewToken } from "../lib/orderViewToken";
 
 const router: IRouter = Router();
 
@@ -813,6 +814,57 @@ router.get("/storefront/products/:id", async (req: Request, res: Response) => {
     return;
   }
   res.json(applyOverride(row, ov));
+});
+
+/**
+ * Public order-status lookup. Backs the customer-facing
+ * /orders/:id page that the success-path order email CTA links to.
+ * Requires the HMAC-signed `t` token minted by mintOrderViewToken
+ * — without a valid token we 404 so order UUIDs remain
+ * non-enumerable. We return only the fields the customer page
+ * needs to render (no admin-only metadata, no audit columns).
+ */
+router.get("/storefront/orders/:id", async (req: Request, res: Response) => {
+  const idParam = req.params["id"];
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
+  const tokenParam = req.query["t"];
+  const token = typeof tokenParam === "string" ? tokenParam : "";
+  if (!id || !token || !verifyOrderViewToken(id, token)) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  const [row] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, id))
+    .limit(1);
+  if (!row) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  // Note: customer email and any other PII not needed by the
+  // OrderStatus page is intentionally omitted — even though the
+  // request is token-authenticated, the page only needs status,
+  // line items, totals, and the shipping address.
+  res.json({
+    id: row.id,
+    status: row.status,
+    items: row.items,
+    currency: row.currency,
+    subtotalCents: row.subtotalCents,
+    shippingCents: row.shippingCents,
+    taxCents: row.taxCents,
+    totalCents: row.totalCents,
+    displayCurrency: row.displayCurrency,
+    displaySubtotalCents: row.displaySubtotalCents,
+    displayShippingCents: row.displayShippingCents,
+    displayTaxCents: row.displayTaxCents,
+    displayTotalCents: row.displayTotalCents,
+    shippingAddress: row.shippingAddress,
+    paymentProvider: row.paymentProvider,
+    paidAt: row.paidAt,
+    createdAt: row.createdAt,
+  });
 });
 
 export default router;

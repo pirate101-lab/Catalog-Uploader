@@ -21,6 +21,7 @@ import { WishlistPage } from "@/pages/Wishlist";
 import { SignInPage } from "@/pages/SignIn";
 import { SignUpPage } from "@/pages/SignUp";
 import { ProfilePage } from "@/pages/Profile";
+import { OrderStatusPage } from "@/pages/OrderStatus";
 import NotFound from "@/pages/not-found";
 
 const AdminDashboard = lazy(() =>
@@ -83,6 +84,9 @@ function StorefrontShell() {
           <Route path="/product/:id" component={ProductDetailPage} />
           <Route path="/checkout" component={CheckoutPage} />
           <Route path="/profile" component={ProfilePage} />
+          <Route path="/orders/:id">
+            {(params) => <OrderStatusPage id={params.id} />}
+          </Route>
           <Route path="/sign-in" component={SignInPage} />
           <Route path="/sign-up" component={SignUpPage} />
           <Route component={NotFound} />
