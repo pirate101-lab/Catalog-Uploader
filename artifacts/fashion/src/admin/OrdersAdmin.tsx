@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { AdminShell, AdminPageHeader } from "./AdminShell";
-import { adminApi, fmtCents, type OrderRow, type OrderEmailEvent } from "./api";
+import {
+  adminApi,
+  fmtCentsFor,
+  type OrderRow,
+  type OrderEmailEvent,
+} from "./api";
 import { Button } from "@/components/ui/button";
 
 const STATUSES = ["new", "packed", "shipped", "delivered", "cancelled"];
@@ -106,7 +111,25 @@ export function OrdersAdmin() {
                 <td className="p-3 text-muted-foreground">
                   {Array.isArray(o.items) ? o.items.length : 0}
                 </td>
-                <td className="p-3 text-right">{fmtCents(o.totalCents)}</td>
+                <td className="p-3 text-right">
+                  {/* Lead with the storefront/display amount the
+                      shopper actually saw (USD today). Show the
+                      charge-currency total underneath when it differs
+                      so operators can reconcile against Paystack. */}
+                  <div>
+                    {fmtCentsFor(
+                      o.displayTotalCents ?? o.totalCents,
+                      o.displayCurrency ?? o.currency,
+                    )}
+                  </div>
+                  {o.displayCurrency &&
+                  o.displayCurrency.toUpperCase() !==
+                    o.currency.toUpperCase() ? (
+                    <div className="text-xs text-muted-foreground">
+                      {fmtCentsFor(o.totalCents, o.currency)} charged
+                    </div>
+                  ) : null}
+                </td>
                 <td className="p-3 capitalize">{o.status}</td>
                 <td className="p-3 text-muted-foreground text-xs">
                   {new Date(o.createdAt).toLocaleString()}
@@ -162,39 +185,89 @@ export function OrderDetailAdmin({ id }: { id: string }) {
             <h3 className="text-xs uppercase tracking-widest font-bold mb-4">
               Items
             </h3>
-            <ul className="divide-y">
-              {order.items.map((it, i) => (
-                <li key={i} className="py-3 flex gap-3">
-                  {it.image && (
-                    <img
-                      src={it.image}
-                      alt=""
-                      className="w-14 h-16 object-cover"
+            {(() => {
+              // Hybrid-currency rendering: prefer the locked-in display
+              // snapshot (USD) so the breakdown matches what the
+              // shopper agreed to. Fall back to the canonical columns
+              // for legacy orders that predate the FX-lock columns.
+              const displayCurrency = order.displayCurrency ?? order.currency;
+              const sub = order.displaySubtotalCents ?? order.subtotalCents;
+              const ship = order.displayShippingCents ?? order.shippingCents;
+              const tax = order.displayTaxCents ?? order.taxCents;
+              const total = order.displayTotalCents ?? order.totalCents;
+              const showCharge =
+                !!order.displayCurrency &&
+                displayCurrency.toUpperCase() !==
+                  order.currency.toUpperCase();
+              return (
+                <>
+                  <ul className="divide-y">
+                    {order.items.map((it, i) => (
+                      <li key={i} className="py-3 flex gap-3">
+                        {it.image && (
+                          <img
+                            src={it.image}
+                            alt=""
+                            className="w-14 h-16 object-cover"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{it.title}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {it.color ?? ""}{" "}
+                            {it.size ? `· ${it.size}` : ""} · qty {it.quantity}
+                          </div>
+                        </div>
+                        <div className="text-sm">
+                          {fmtCentsFor(
+                            it.unitPriceCents * it.quantity,
+                            displayCurrency,
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-4 pt-4 border-t text-sm space-y-1">
+                    <Row
+                      label="Subtotal"
+                      value={fmtCentsFor(sub, displayCurrency)}
                     />
-                  )}
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">{it.title}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {it.color ?? ""} {it.size ? `· ${it.size}` : ""} · qty{" "}
-                      {it.quantity}
-                    </div>
+                    <Row
+                      label="Shipping"
+                      value={fmtCentsFor(ship, displayCurrency)}
+                    />
+                    <Row label="Tax" value={fmtCentsFor(tax, displayCurrency)} />
+                    <Row
+                      label="Total"
+                      value={fmtCentsFor(total, displayCurrency)}
+                      bold
+                    />
+                    {showCharge ? (
+                      <div className="pt-2 mt-2 border-t text-xs text-muted-foreground space-y-0.5">
+                        <Row
+                          label={`Charged (${order.currency})`}
+                          value={fmtCentsFor(order.totalCents, order.currency)}
+                        />
+                        {order.fxRate ? (
+                          <Row
+                            label="FX rate"
+                            value={`$1 ≈ ${Number(order.fxRate).toFixed(2)} ${order.currency}`}
+                          />
+                        ) : null}
+                        {order.fxRateLockedAt ? (
+                          <Row
+                            label="Rate locked"
+                            value={new Date(
+                              order.fxRateLockedAt,
+                            ).toLocaleString()}
+                          />
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="text-sm">
-                    {fmtCents(it.unitPriceCents * it.quantity)}
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 pt-4 border-t text-sm space-y-1">
-              <Row label="Subtotal" value={fmtCents(order.subtotalCents)} />
-              <Row label="Shipping" value={fmtCents(order.shippingCents)} />
-              <Row label="Tax" value={fmtCents(order.taxCents)} />
-              <Row
-                label="Total"
-                value={fmtCents(order.totalCents)}
-                bold
-              />
-            </div>
+                </>
+              );
+            })()}
           </section>
           <aside className="space-y-4">
             <div className="border rounded-lg p-5">

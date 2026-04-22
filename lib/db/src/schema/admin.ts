@@ -232,6 +232,11 @@ export const siteSettingsTable = pgTable("site_settings", {
     .notNull()
     .default("130.000000"),
   fxRateUpdatedAt: timestamp("fx_rate_updated_at", { withTimezone: true }),
+  // When on, the server periodically refreshes usd_to_kes_rate from a
+  // free FX provider (open.er-api.com first, then exchangerate.host).
+  // Operators can still type a manual rate at any time — the next auto
+  // refresh will overwrite it.
+  fxAutoRefresh: boolean("fx_auto_refresh").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()

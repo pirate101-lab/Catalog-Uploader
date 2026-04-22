@@ -1,6 +1,6 @@
 import type { Logger } from "pino";
 import nodemailer, { type Transporter } from "nodemailer";
-import { getSiteSettings } from "./siteSettings";
+import { getSiteSettings, symbolForCurrency } from "./siteSettings";
 import {
   db,
   orderEmailEventsTable,
@@ -111,6 +111,45 @@ interface RenderedEmail {
   text: string;
 }
 
+/**
+ * Pick the right amounts to render in the email body.
+ *
+ * Hybrid-currency context: the storefront prices everything in USD
+ * (`displayCurrency` + `display*Cents`) but the Paystack charge — and
+ * therefore the canonical `order.currency` / `order.*Cents` columns —
+ * is denominated in KES. The customer agreed to a USD price on the
+ * storefront, so the breakdown has to lead with USD; we then surface
+ * the KES amount as a contextual "card was charged" line so the
+ * shopper isn't confused when their bank statement disagrees with the
+ * dollar figure.
+ *
+ * Legacy orders (pre-FX-lock) have NULL display columns; for those we
+ * fall back to the canonical columns so the old emails still render.
+ */
+function viewOrderAmounts(order: Order, fallbackSymbol: string) {
+  const hasDisplaySnapshot =
+    !!order.displayCurrency && order.displayTotalCents !== null;
+  const displayCurrency = order.displayCurrency ?? order.currency;
+  return {
+    displayCurrency,
+    displaySymbol: hasDisplaySnapshot
+      ? symbolForCurrency(displayCurrency)
+      : fallbackSymbol,
+    displaySubtotalCents:
+      order.displaySubtotalCents ?? order.subtotalCents,
+    displayShippingCents:
+      order.displayShippingCents ?? order.shippingCents,
+    displayTaxCents: order.displayTaxCents ?? order.taxCents,
+    displayTotalCents: order.displayTotalCents ?? order.totalCents,
+    chargeCurrency: order.currency,
+    chargeSymbol: symbolForCurrency(order.currency),
+    chargeTotalCents: order.totalCents,
+    showChargeContext:
+      hasDisplaySnapshot &&
+      order.currency.toUpperCase() !== displayCurrency.toUpperCase(),
+  };
+}
+
 function renderOrderEmail(
   order: Order,
   kind: OrderEmailKind,
@@ -118,6 +157,7 @@ function renderOrderEmail(
   currencySymbol: string,
 ): RenderedEmail {
   const items = (order.items as OrderItem[]) ?? [];
+  const view = viewOrderAmounts(order, currencySymbol);
   const orderRef = shortOrderId(order.id);
   const storefrontUrl = getStorefrontUrl();
   const storefrontDisplay = getStorefrontDisplay(storefrontUrl);
@@ -150,7 +190,7 @@ function renderOrderEmail(
       const variant = [it.color, it.size].filter(Boolean).join(" / ");
       const lineTotal = formatMoney(
         it.unitPriceCents * it.quantity,
-        currencySymbol,
+        view.displaySymbol,
       );
       return `<tr>
         <td style="padding:8px 0;border-bottom:1px solid #eee;">
@@ -165,10 +205,16 @@ function renderOrderEmail(
     })
     .join("");
 
-  const subtotal = formatMoney(order.subtotalCents, currencySymbol);
-  const shipping = formatMoney(order.shippingCents, currencySymbol);
-  const tax = formatMoney(order.taxCents, currencySymbol);
-  const total = formatMoney(order.totalCents, currencySymbol);
+  // Lead with the display currency the shopper saw on the storefront
+  // (USD today). `view` falls back to the canonical columns for legacy
+  // orders so older emails still render with the original symbol.
+  const subtotal = formatMoney(view.displaySubtotalCents, view.displaySymbol);
+  const shipping = formatMoney(view.displayShippingCents, view.displaySymbol);
+  const tax = formatMoney(view.displayTaxCents, view.displaySymbol);
+  const total = formatMoney(view.displayTotalCents, view.displaySymbol);
+  const chargeTotal = view.showChargeContext
+    ? formatMoney(view.chargeTotalCents, view.chargeSymbol)
+    : null;
 
   const showBreakdown = kind === "received" || kind === "confirmation";
   const breakdownHtml = showBreakdown
@@ -186,6 +232,15 @@ function renderOrderEmail(
         <td style="padding:4px 0;text-align:right;color:#444;">${tax}</td>
       </tr>`
     : "";
+
+  // Surface the actual card-charge amount so the customer doesn't get
+  // confused when their bank statement shows KES instead of USD.
+  const chargeNoteHtml =
+    chargeTotal && (kind === "received" || kind === "confirmation")
+      ? `<p style="margin:12px 0 0 0;color:#666;font-size:12px;">
+          Your card was charged ${chargeTotal} ${escapeHtml(view.chargeCurrency)} via Paystack (≈ ${total} ${escapeHtml(view.displayCurrency)}).
+        </p>`
+      : "";
 
   const addressLines =
     kind === "received" || kind === "confirmation"
@@ -217,6 +272,7 @@ function renderOrderEmail(
         <td style="padding:12px 0 0 0;text-align:right;font-weight:600;border-top:${showBreakdown ? "1px solid #eee" : "0"};">${total}</td>
       </tr>
     </table>
+    ${chargeNoteHtml}
     ${addressHtml}
     <p style="margin:32px 0 16px 0;">
       <a href="${escapeHtml(storefrontUrl)}" style="display:inline-block;background:#111;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:4px;font-size:14px;">${escapeHtml(ctaLabel)}</a>
@@ -236,7 +292,7 @@ function renderOrderEmail(
       const variantStr = variant ? ` (${variant})` : "";
       const lineTotal = formatMoney(
         it.unitPriceCents * it.quantity,
-        currencySymbol,
+        view.displaySymbol,
       );
       return `- ${it.title}${variantStr} x${it.quantity}  ${lineTotal}`;
     }),
@@ -250,6 +306,11 @@ function renderOrderEmail(
     );
   }
   textLines.push(`Total: ${total}`);
+  if (chargeTotal && (kind === "received" || kind === "confirmation")) {
+    textLines.push(
+      `Card charged: ${chargeTotal} ${view.chargeCurrency} via Paystack (≈ ${total} ${view.displayCurrency})`,
+    );
+  }
   if (addressLines.length > 0) {
     textLines.push("", "Shipping to:", ...addressLines);
   }

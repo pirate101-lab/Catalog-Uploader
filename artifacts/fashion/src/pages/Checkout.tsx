@@ -80,12 +80,43 @@ interface PaystackInitResponse {
 }
 
 interface CheckoutQuote {
+  // Display side — what the shopper sees on the storefront (USD).
   subtotalCents: number;
   shippingCents: number;
   taxCents: number;
   totalCents: number;
   currency: string;
   currencySymbol: string;
+  // Charge side — what Paystack will actually be asked to bill (KES,
+  // because the merchant account is locked to KES). Used by the
+  // hybrid-currency disclosure banner so the customer sees the exact
+  // amount that will hit their card before they redirect.
+  paymentCurrency: string;
+  paymentCurrencySymbol: string;
+  paymentSubtotalCents: number;
+  paymentShippingCents: number;
+  paymentTaxCents: number;
+  paymentTotalCents: number;
+  fxRate: number;
+  fxRateAsOf: string | null;
+}
+
+function fmtPayment(cents: number, currency: string): string {
+  const amount = (cents / 100).toFixed(2);
+  switch (currency.toUpperCase()) {
+    case 'KES':
+      return `KSh ${amount}`;
+    case 'USD':
+      return `$${amount}`;
+    case 'GHS':
+      return `GH₵${amount}`;
+    case 'ZAR':
+      return `R${amount}`;
+    case 'NGN':
+      return `₦${amount}`;
+    default:
+      return `${amount} ${currency}`;
+  }
 }
 
 // Only what the server needs. Prices/shipping/tax are NOT sent — the server
@@ -154,7 +185,10 @@ export function CheckoutPage() {
   const estTaxCents = Math.round(estSubtotalCents * TAX_RATE);
   const estTotalCents = estSubtotalCents + estShippingCents + estTaxCents;
 
-  const currencySymbol = quote?.currencySymbol ?? settings?.currencySymbol ?? '$';
+  // Display currency is hard-locked to USD across the storefront
+  // (CurrencyContext exposes the same constant). The fallback to '$'
+  // covers the brief loading window before /checkout/quote returns.
+  const currencySymbol = quote?.currencySymbol ?? '$';
   const subtotalCents = quote?.subtotalCents ?? estSubtotalCents;
   const shippingCents = quote?.shippingCents ?? estShippingCents;
   const taxCents = quote?.taxCents ?? estTaxCents;
@@ -696,6 +730,38 @@ export function CheckoutPage() {
                 className="inline-block"
               />
             </div>
+            {/* Hybrid-currency disclosure: shoppers price-shop in USD
+                but our Paystack merchant account is locked to KES, so
+                the actual card charge is in KES. We surface that fact
+                here (not just on the success page) to avoid surprise
+                charges and chargebacks. Only render when the quote
+                actually shows two distinct currencies. */}
+            {paystackReady &&
+            paymentMethod === 'paystack' &&
+            quote &&
+            quote.paymentCurrency !== quote.currency ? (
+              <div
+                className="mt-5 rounded-lg border border-border bg-muted/40 p-4 text-xs leading-relaxed"
+                data-testid="fx-disclosure"
+              >
+                <p className="text-foreground">
+                  Your card will be charged{' '}
+                  <span className="font-bold">
+                    {fmtPayment(quote.paymentTotalCents, quote.paymentCurrency)}
+                  </span>{' '}
+                  via Paystack (≈ {fmt(quote.totalCents, quote.currencySymbol)}{' '}
+                  {quote.currency}).
+                </p>
+                <p className="text-muted-foreground mt-1">
+                  Conversion rate: $1 ≈ {quote.fxRate.toFixed(2)} KSh
+                  {quote.fxRateAsOf
+                    ? ` · updated ${new Date(quote.fxRateAsOf).toLocaleDateString()}`
+                    : ''}
+                  . Your bank may apply its own fee for foreign-currency
+                  transactions.
+                </p>
+              </div>
+            ) : null}
           </aside>
         </div>
       </div>

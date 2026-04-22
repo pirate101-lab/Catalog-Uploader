@@ -185,26 +185,10 @@ export function SettingsAdmin() {
           </Section>
 
           <Section title="Shop">
-            {isSuper ? (
-              <Field label="Store currency">
-                <select
-                  value={s.currencyCode}
-                  onChange={(e) => set("currencyCode", e.target.value)}
-                  className="w-full h-10 rounded-md border bg-background px-3 text-sm"
-                >
-                  <option value="USD">US Dollar (USD — $)</option>
-                  <option value="NGN">Nigerian Naira (NGN — ₦)</option>
-                  <option value="GHS">Ghanaian Cedi (GHS — GH₵)</option>
-                  <option value="ZAR">South African Rand (ZAR — R)</option>
-                  <option value="KES">Kenyan Shilling (KES — KSh)</option>
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Drives storefront prices and the currency sent to
-                  Paystack on checkout. Existing orders keep their
-                  original currency.
-                </p>
-              </Field>
-            ) : null}
+            {/* Storefront currency is hard-locked to USD; the merchant
+                Paystack account is locked to KES. The conversion knob
+                lives in the FX rate card below — there's no per-store
+                currency dropdown anymore. */}
             <Field label="Default sort">
               <select
                 value={s.defaultSort}
@@ -230,6 +214,27 @@ export function SettingsAdmin() {
               />
             </Field>
           </Section>
+
+          {isSuper ? (
+            <FxRateSection
+              rate={s.usdToKesRate}
+              updatedAt={s.fxRateUpdatedAt}
+              autoRefresh={s.fxAutoRefresh}
+              onRateChange={(v) => set("usdToKesRate", v)}
+              onAutoRefreshChange={(v) => set("fxAutoRefresh", v)}
+              onRefreshed={(rate, asOf) => {
+                // Reflect the upstream pull immediately so the operator
+                // sees the new value without having to reload — and so
+                // they can save the form to commit the timestamp the
+                // server already wrote during the refresh.
+                setS((prev) =>
+                  prev
+                    ? { ...prev, usdToKesRate: rate.toFixed(6), fxRateUpdatedAt: asOf }
+                    : prev,
+                );
+              }}
+            />
+          ) : null}
 
           <Section title="Order email branding">
             <p className="text-xs text-muted-foreground -mt-2">
@@ -833,6 +838,102 @@ function LogoField({
         </div>
       </div>
     </Field>
+  );
+}
+
+function FxRateSection({
+  rate,
+  updatedAt,
+  autoRefresh,
+  onRateChange,
+  onAutoRefreshChange,
+  onRefreshed,
+}: {
+  rate: string;
+  updatedAt: string | null;
+  autoRefresh: boolean;
+  onRateChange: (v: string) => void;
+  onAutoRefreshChange: (v: boolean) => void;
+  onRefreshed: (rate: number, asOf: string | null) => void;
+}) {
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const result = await adminApi.refreshFxRate();
+      if (!result.ok || result.rate === undefined) {
+        setError(result.error || "Refresh failed");
+        return;
+      }
+      onRefreshed(result.rate, result.asOf ?? null);
+      toast.success(
+        `Refreshed: $1 ≈ KSh ${result.rate.toFixed(2)}${
+          result.source ? ` (via ${result.source})` : ""
+        }`,
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const numericRate = Number(rate);
+  const stamp = updatedAt ? new Date(updatedAt).toLocaleString() : "never";
+
+  return (
+    <Section title="USD → KES exchange rate">
+      <p className="text-xs text-muted-foreground -mt-2">
+        The storefront prices everything in USD, but the merchant
+        Paystack account is locked to KES. We multiply each cart total
+        by this rate at checkout time and lock it into the order so the
+        amount the customer agreed to pay is the amount their card sees.
+      </p>
+      <Field label="Rate (KSh per $1)">
+        <Input
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="50"
+          max="1000"
+          value={rate}
+          onChange={(e) => onRateChange(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Last refreshed: {stamp}.
+          {Number.isFinite(numericRate)
+            ? ` Preview: $1 ≈ KSh ${numericRate.toFixed(2)}.`
+            : ""}
+        </p>
+      </Field>
+      <div className="flex items-center gap-3">
+        <Switch
+          id="fx-auto"
+          checked={autoRefresh}
+          onCheckedChange={(v) => onAutoRefreshChange(!!v)}
+        />
+        <Label htmlFor="fx-auto" className="text-sm">
+          Auto-refresh from the public FX provider every 24 hours
+        </Label>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={refresh}
+          disabled={refreshing}
+        >
+          {refreshing ? "Refreshing…" : "Refresh now from upstream"}
+        </Button>
+        {error ? (
+          <span className="text-xs text-destructive">{error}</span>
+        ) : null}
+      </div>
+    </Section>
   );
 }
 

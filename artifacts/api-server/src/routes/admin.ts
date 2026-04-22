@@ -59,6 +59,7 @@ import {
   type OrderEmailKind,
 } from "../lib/email";
 import { deleteReviewById } from "../lib/reviewSummary";
+import { refreshFxRate, FX_RATE_MIN, FX_RATE_MAX } from "../lib/fx";
 
 const router: IRouter = Router();
 
@@ -994,7 +995,10 @@ router.get("/admin/customers", async (_req, res) => {
       email: ordersTable.email,
       name: sql<string | null>`MAX(${ordersTable.customerName})`,
       orderCount: sql<number>`COUNT(*)::int`,
-      totalSpentCents: sql<number>`COALESCE(SUM(${ordersTable.totalCents}), 0)::bigint`,
+      // Sum the display-currency snapshot (USD) so we don't add KES
+      // and USD orders together. Falls back to total_cents for legacy
+      // pre-FX-lock orders, which were already denominated in USD.
+      totalSpentCents: sql<number>`COALESCE(SUM(COALESCE(${ordersTable.displayTotalCents}, ${ordersTable.totalCents})), 0)::bigint`,
       lastOrderAt: sql<Date>`MAX(${ordersTable.createdAt})`,
     })
     .from(ordersTable)
@@ -1105,6 +1109,11 @@ const SUPER_ADMIN_ONLY_FIELDS = [
   // server-side from this code so it is also gated indirectly).
   "currencyCode",
   "currencySymbol",
+  // FX (USD→KES) controls the amount Paystack actually charges, so
+  // edits are super-admin only. The auto-refresh toggle is gated for
+  // the same reason — flipping it off "freezes" the charge ratio.
+  "usdToKesRate",
+  "fxAutoRefresh",
 ] as const;
 
 function shapeSettingsForAdmin(
@@ -1195,23 +1204,44 @@ router.put("/admin/settings", async (req, res) => {
     "smtpSecure",
     "smtpUsername",
     "paymentAlertRecipients",
+    "fxAutoRefresh",
   ];
   const patch: Record<string, unknown> = {};
   for (const k of allowed) if (k in body) patch[k] = body[k];
 
-  // Store currency: validate against the Paystack-supported set and
-  // ALWAYS recompute the matching symbol server-side so the storefront
-  // and email templates can never drift out of sync with the code.
-  if ("currencyCode" in body) {
-    const code = String(body["currencyCode"] ?? "").toUpperCase();
-    if (!isPaystackCurrency(code)) {
+  // Store currency is hard-locked to USD by the hybrid-currency design
+  // (USD on the storefront, KES on Paystack). The selector was removed
+  // from the admin UI, but a stale or crafted client could still POST
+  // `currencyCode` — so we ignore the field entirely and force the
+  // canonical pair on every save. This is defence-in-depth; flipping
+  // the storefront currency back to KES would silently break the
+  // disclosure banner and FX-locked checkout assumptions.
+  if ("currencyCode" in body || "currencySymbol" in body) {
+    patch["currencyCode"] = "USD";
+    patch["currencySymbol"] = symbolForCurrency("USD");
+  }
+
+  // FX rate: super-admin only. Defence-in-depth strips the field above
+  // for general admins, so by the time we get here it is safe to trust
+  // the role check. Validate the numeric range so a typo can never
+  // flip the rate to something that would massively over- or
+  // under-charge real customers (real KES has lived in 100–200 range).
+  if ("usdToKesRate" in body) {
+    const raw = body["usdToKesRate"];
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < FX_RATE_MIN || n > FX_RATE_MAX) {
       res.status(400).json({
-        error: `currencyCode must be one of: ${Object.keys(PAYSTACK_CURRENCIES).join(", ")}`,
+        error: `usdToKesRate must be a number between ${FX_RATE_MIN} and ${FX_RATE_MAX}`,
       });
       return;
     }
-    patch["currencyCode"] = code;
-    patch["currencySymbol"] = symbolForCurrency(code);
+    patch["usdToKesRate"] = n.toFixed(6);
+    // Stamp updatedAt so the admin UI shows "as of just now" instead
+    // of a stale timestamp from a previous auto-refresh.
+    patch["fxRateUpdatedAt"] = new Date();
+  }
+  if ("fxAutoRefresh" in patch) {
+    patch["fxAutoRefresh"] = !!patch["fxAutoRefresh"];
   }
 
   // Operator alert mode is enum-validated rather than free-form text
@@ -1359,6 +1389,31 @@ router.put("/admin/settings", async (req, res) => {
   const settings = await getSiteSettings();
   res.json(shapeSettingsForAdmin(settings, role));
 });
+
+/* ---------------- FX rate refresh ---------------- *
+ * Super-admin clicks "Refresh from upstream" in Settings → FX rate.
+ * We hit a free public provider (open.er-api.com → exchangerate.host)
+ * and persist the result. Always returns 200 so the UI can render
+ * { ok:false, error } inline without going through its generic error
+ * path, mirroring /admin/payments/test.
+ */
+router.post(
+  "/admin/settings/refresh-fx-rate",
+  requireSuperAdmin,
+  async (_req, res) => {
+    const result = await refreshFxRate();
+    if (!result.ok) {
+      res.status(200).json({ ok: false, error: result.error ?? "Refresh failed" });
+      return;
+    }
+    res.status(200).json({
+      ok: true,
+      rate: result.rate,
+      asOf: result.asOf?.toISOString() ?? null,
+      source: result.source ?? null,
+    });
+  },
+);
 
 /* ---------------- Branding logo upload ---------------- */
 
@@ -1707,7 +1762,9 @@ router.get("/admin/overview", async (_req, res) => {
     const [row] = await db
       .select({
         count: sql<number>`COUNT(*)::int`,
-        revenue: sql<number>`COALESCE(SUM(${ordersTable.totalCents}), 0)::bigint`,
+        // Hybrid currency: aggregate the storefront-display amount
+        // (USD) so dashboards don't accidentally sum KES + USD.
+        revenue: sql<number>`COALESCE(SUM(COALESCE(${ordersTable.displayTotalCents}, ${ordersTable.totalCents})), 0)::bigint`,
       })
       .from(ordersTable)
       .where(
@@ -1746,7 +1803,8 @@ router.get("/admin/overview", async (_req, res) => {
     db
       .select({
         count: sql<number>`COUNT(*)::int`,
-        revenue: sql<number>`COALESCE(SUM(${ordersTable.totalCents}), 0)::bigint`,
+        // Same display-currency normalization as `aggregate()` above.
+        revenue: sql<number>`COALESCE(SUM(COALESCE(${ordersTable.displayTotalCents}, ${ordersTable.totalCents})), 0)::bigint`,
       })
       .from(ordersTable)
       .where(

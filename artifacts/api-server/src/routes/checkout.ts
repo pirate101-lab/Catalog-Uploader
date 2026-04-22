@@ -11,6 +11,12 @@ import {
   initializeTransaction,
   isPaystackReady,
 } from "../lib/paystack";
+import {
+  CHARGE_CURRENCY,
+  DISPLAY_CURRENCY,
+  convertCart,
+} from "../lib/fx";
+import { symbolForCurrency } from "../lib/siteSettings";
 
 const router: IRouter = Router();
 
@@ -128,6 +134,29 @@ router.post("/checkout/quote", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * Lightweight FX-quote endpoint. The storefront calls this when the
+ * checkout disclosure banner needs the latest USD→KES rate without
+ * re-pricing the cart (e.g. on page open before items have loaded).
+ * Always returns the active stored rate — never hits an upstream
+ * provider, so it is cheap to call repeatedly.
+ */
+router.get("/checkout/fx-quote", async (_req: Request, res: Response) => {
+  const settings = await getSiteSettings();
+  const fx = convertCart(
+    { subtotalCents: 100, shippingCents: 0, taxCents: 0, totalCents: 100 },
+    settings,
+  );
+  res.json({
+    displayCurrency: DISPLAY_CURRENCY,
+    displayCurrencySymbol: symbolForCurrency(DISPLAY_CURRENCY),
+    paymentCurrency: CHARGE_CURRENCY,
+    paymentCurrencySymbol: symbolForCurrency(CHARGE_CURRENCY),
+    fxRate: fx.fxRate,
+    fxRateAsOf: fx.fxRateAsOf?.toISOString() ?? null,
+  });
+});
+
 // New endpoint: place an order WITHOUT payment processing. Used by the
 // storefront so checkout submissions land in the admin Orders queue even
 // though Stripe is not wired up.
@@ -148,12 +177,16 @@ router.post("/checkout/submit", async (req: Request, res: Response) => {
       return;
     }
     const priced = await priceCart(items);
-    const submitSettings = await getSiteSettings();
 
     const customerName = [customer.firstName, customer.lastName]
       .filter(Boolean)
       .join(" ") || null;
 
+    // Bank-transfer / "submit" path: no FX conversion happens because
+    // the customer is settling offline in display currency (USD). We
+    // still mirror the totals into the display_* columns so the order
+    // detail page and email templates can use the same code path as
+    // Paystack orders without falling back to legacy lookups.
     const [order] = await db
       .insert(ordersTable)
       .values({
@@ -173,7 +206,14 @@ router.post("/checkout/submit", async (req: Request, res: Response) => {
         shippingCents: priced.shippingCents,
         taxCents: priced.taxCents,
         totalCents: priced.totalCents,
-        currency: submitSettings.currencyCode,
+        currency: DISPLAY_CURRENCY,
+        displayCurrency: DISPLAY_CURRENCY,
+        displaySubtotalCents: priced.subtotalCents,
+        displayShippingCents: priced.shippingCents,
+        displayTaxCents: priced.taxCents,
+        displayTotalCents: priced.totalCents,
+        fxRate: null,
+        fxRateLockedAt: null,
         status: "new",
       })
       .returning();
@@ -233,6 +273,16 @@ router.post("/checkout/paystack/init", async (req: Request, res: Response) => {
     const customerName =
       [customer.firstName, customer.lastName].filter(Boolean).join(" ") || null;
 
+    // Hybrid currency: shopper sees USD on the storefront but the
+    // Paystack merchant account is locked to KES, so we convert the
+    // priced cart and persist BOTH sides — the charge totals (KES) go
+    // into the canonical `subtotal_cents/total_cents/currency` columns
+    // because that's what reconciles against the webhook payload, and
+    // the display totals (USD) get mirrored into the display_* columns
+    // so the order/email pages can keep showing what the customer saw.
+    const fx = convertCart(priced, settings);
+    const lockedAt = new Date();
+
     const [order] = await db
       .insert(ordersTable)
       .values({
@@ -248,11 +298,18 @@ router.post("/checkout/paystack/init", async (req: Request, res: Response) => {
           country: customer.country ?? null,
         },
         items: priced.lineItems,
-        subtotalCents: priced.subtotalCents,
-        shippingCents: priced.shippingCents,
-        taxCents: priced.taxCents,
-        totalCents: priced.totalCents,
-        currency: settings.currencyCode,
+        subtotalCents: fx.chargeSubtotalCents,
+        shippingCents: fx.chargeShippingCents,
+        taxCents: fx.chargeTaxCents,
+        totalCents: fx.chargeTotalCents,
+        currency: CHARGE_CURRENCY,
+        displayCurrency: DISPLAY_CURRENCY,
+        displaySubtotalCents: fx.displaySubtotalCents,
+        displayShippingCents: fx.displayShippingCents,
+        displayTaxCents: fx.displayTaxCents,
+        displayTotalCents: fx.displayTotalCents,
+        fxRate: fx.fxRate.toFixed(6),
+        fxRateLockedAt: lockedAt,
         status: "pending_payment",
         paymentProvider: "paystack",
       })
@@ -266,8 +323,8 @@ router.post("/checkout/paystack/init", async (req: Request, res: Response) => {
       email: normalisedEmail,
       // Paystack expects amounts in the smallest currency unit (kobo for
       // NGN, cents for USD/GHS/ZAR/KES). Our `totalCents` is already in
-      // the smallest unit of `order.currency`, so they line up 1:1 as
-      // long as we send the matching currency code below.
+      // the smallest unit of `order.currency` (KES sub-units here), so
+      // they line up 1:1 with the currency code below.
       amountKobo: order.totalCents,
       reference: order.id,
       callbackUrl: getCallbackUrl(req),
@@ -275,6 +332,12 @@ router.post("/checkout/paystack/init", async (req: Request, res: Response) => {
       metadata: {
         orderId: order.id,
         mode,
+        // Stash the FX context on the Paystack transaction for ops
+        // forensics — if a customer ever queries why their card was
+        // charged X KES for a $Y order, the receipt has the rate too.
+        displayCurrency: DISPLAY_CURRENCY,
+        displayTotalCents: fx.displayTotalCents,
+        fxRate: fx.fxRate,
       },
     });
     if (!init.ok || !init.authorizationUrl) {
@@ -293,8 +356,13 @@ router.post("/checkout/paystack/init", async (req: Request, res: Response) => {
     res.status(200).json({
       authorizationUrl: init.authorizationUrl,
       reference: order.id,
+      // Echo BOTH sides so the storefront can show "$Y will be charged
+      // as KSh X at $1 ≈ KSh Z" before redirecting to Paystack.
       totalCents: order.totalCents,
       currency: order.currency,
+      displayTotalCents: fx.displayTotalCents,
+      displayCurrency: DISPLAY_CURRENCY,
+      fxRate: fx.fxRate,
     });
   } catch (err) {
     req.log.error({ err }, "Paystack init failed");

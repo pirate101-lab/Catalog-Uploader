@@ -2,6 +2,10 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { ObjectStorageService } from "./lib/objectStorage";
 import { migrateAdminCredentials } from "./lib/adminCredentials";
+import { db, ordersTable } from "@workspace/db";
+import { sql, isNull } from "drizzle-orm";
+import { getSiteSettings } from "./lib/siteSettings";
+import { refreshFxRate } from "./lib/fx";
 
 const rawPort = process.env["PORT"];
 
@@ -42,4 +46,72 @@ app.listen(port, (err) => {
         "(provision an Object Storage bucket to get this value)"
     );
   }
+
+  // Skip background work in tests so unit/integration runs don't fan
+  // out HTTP calls to the FX provider or mutate fixture rows.
+  if (process.env["NODE_ENV"] === "test") return;
+
+  // One-time backfill: orders placed before the display_* split landed
+  // have nulls in those columns. Mirror the canonical totals into them
+  // so the admin order detail and email templates can use the same
+  // viewOrderAmounts() code path for legacy and new rows alike.
+  void backfillDisplayColumns().catch((err) => {
+    logger.error({ err }, "Failed to backfill display_* on orders");
+  });
+
+  // Auto-refresh USD→KES every hour while the toggle is on. We poll
+  // hourly but only call the upstream provider when the stored rate
+  // is stale (>24h) or never set, keeping the free-tier hit minimal.
+  const FX_POLL_MS = 60 * 60 * 1000;
+  const FX_STALE_MS = 24 * 60 * 60 * 1000;
+  const fxTimer = setInterval(() => {
+    void maybeRefreshFx(FX_STALE_MS).catch((err) => {
+      logger.warn({ err }, "FX auto-refresh attempt failed");
+    });
+  }, FX_POLL_MS);
+  fxTimer.unref?.();
+  // Kick once on boot so the very first deployment doesn't have to
+  // wait an hour for the first refresh.
+  void maybeRefreshFx(FX_STALE_MS).catch((err) => {
+    logger.warn({ err }, "FX auto-refresh attempt failed (boot)");
+  });
 });
+
+async function backfillDisplayColumns(): Promise<void> {
+  // Single UPDATE — run idempotently on every boot. Cheap because the
+  // WHERE clause uses the partial nullness of display_total_cents,
+  // which becomes empty after the first run.
+  const result = await db
+    .update(ordersTable)
+    .set({
+      displayCurrency: sql`COALESCE(${ordersTable.displayCurrency}, ${ordersTable.currency})`,
+      displaySubtotalCents: sql`COALESCE(${ordersTable.displaySubtotalCents}, ${ordersTable.subtotalCents})`,
+      displayShippingCents: sql`COALESCE(${ordersTable.displayShippingCents}, ${ordersTable.shippingCents})`,
+      displayTaxCents: sql`COALESCE(${ordersTable.displayTaxCents}, ${ordersTable.taxCents})`,
+      displayTotalCents: sql`COALESCE(${ordersTable.displayTotalCents}, ${ordersTable.totalCents})`,
+    })
+    .where(isNull(ordersTable.displayTotalCents))
+    .returning({ id: ordersTable.id });
+  if (result.length > 0) {
+    logger.info(
+      { count: result.length },
+      "Backfilled display_* columns on legacy orders",
+    );
+  }
+}
+
+async function maybeRefreshFx(staleMs: number): Promise<void> {
+  const settings = await getSiteSettings();
+  if (!settings.fxAutoRefresh) return;
+  const last = settings.fxRateUpdatedAt?.getTime?.() ?? 0;
+  if (last !== 0 && Date.now() - last < staleMs) return;
+  const result = await refreshFxRate();
+  if (result.ok) {
+    logger.info(
+      { rate: result.rate, source: result.source },
+      "Auto-refreshed USD→KES FX rate",
+    );
+  } else {
+    logger.warn({ error: result.error }, "Auto-refresh of FX rate failed");
+  }
+}

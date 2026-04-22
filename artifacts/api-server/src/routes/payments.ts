@@ -42,6 +42,13 @@ async function markOrderPaid(args: {
   // from Paystack actually match what we asked them to charge. A
   // mismatch means either tampering, a partial capture, or a bug in
   // pricing — either way we must NOT transition to paid.
+  //
+  // Hybrid-currency note: reconciliation is intentionally done in the
+  // CHARGE currency (existing.totalCents / existing.currency are KES
+  // for Paystack orders post-FX-lock). The display amounts the shopper
+  // saw on the storefront live in the `display_*` columns and are NOT
+  // checked here — Paystack only ever sees and reports the KES side,
+  // so comparing the USD snapshot would always 100% mismatch.
   const [existing] = await db
     .select()
     .from(ordersTable)

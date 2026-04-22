@@ -97,11 +97,28 @@ export interface OrderRow {
     unitPriceCents: number;
     image?: string;
   }>;
+  /** CHARGE-side amounts: what the merchant account was actually
+   *  billed (KES today for Paystack orders). For bank-transfer / legacy
+   *  orders this matches the display amounts because there's no FX
+   *  conversion happening. */
   subtotalCents: number;
   shippingCents: number;
   taxCents: number;
   totalCents: number;
   currency: string;
+  /** DISPLAY-side amounts: what the shopper saw on the storefront. Null
+   *  on rows that predate the hybrid-currency split — the boot-time
+   *  backfill normalises these but TypeScript still sees nullable until
+   *  the migration completes everywhere. */
+  displayCurrency: string | null;
+  displaySubtotalCents: number | null;
+  displayShippingCents: number | null;
+  displayTaxCents: number | null;
+  displayTotalCents: number | null;
+  /** Locked USD→KES rate used for this order (string from Drizzle
+   *  numeric column). Null when no FX conversion happened. */
+  fxRate: string | null;
+  fxRateLockedAt: string | null;
   status: string;
   createdAt: string;
   emailEvents?: OrderEmailEvent[];
@@ -180,6 +197,23 @@ export interface SiteSettings {
   smtpPasswordSet: boolean;
   paymentAlertMode: "off" | "instant" | "hourly";
   paymentAlertRecipients: string | null;
+  /** USD→KES conversion rate stored as a numeric string (Drizzle
+   *  numeric column). Drives Paystack charge amounts at checkout. */
+  usdToKesRate: string;
+  /** ISO timestamp of the last successful FX refresh (manual or auto),
+   *  or null if the rate has never been touched since seeding. */
+  fxRateUpdatedAt: string | null;
+  /** When true, the API server polls a free FX provider every hour and
+   *  refreshes the stored rate when it's older than 24h. */
+  fxAutoRefresh: boolean;
+}
+
+export interface FxRefreshResult {
+  ok: boolean;
+  rate?: number;
+  asOf?: string | null;
+  source?: string | null;
+  error?: string;
 }
 
 export type SmtpErrorCategory =
@@ -427,6 +461,13 @@ export const adminApi = {
       method: "PUT",
       body: JSON.stringify(data),
     }),
+  /** Pull a fresh USD→KES rate from the upstream provider and persist
+   *  it. Always resolves with a result object — `ok:false` carries the
+   *  human-readable error so the UI can render it inline. */
+  refreshFxRate: () =>
+    adminFetch<FxRefreshResult>("/admin/settings/refresh-fx-rate", {
+      method: "POST",
+    }),
   /**
    * Send a sample order email to `to` using the saved From / Reply-To
    * branding. Doesn't throw on provider failures — the caller should
@@ -663,4 +704,26 @@ export const adminApi = {
 
 export function fmtCents(cents: number, symbol = "$"): string {
   return `${symbol}${(cents / 100).toFixed(2)}`;
+}
+
+/** Format a charge-side amount with the order's stored currency code
+ *  (e.g. "KSh 1,234.56" for KES, "$12.34" for USD). Used in admin
+ *  rendering to tell shoppers what was actually billed alongside the
+ *  USD price they saw at checkout. */
+export function fmtCentsFor(cents: number, currency: string | null): string {
+  const amount = (cents / 100).toFixed(2);
+  switch ((currency ?? "USD").toUpperCase()) {
+    case "KES":
+      return `KSh ${amount}`;
+    case "USD":
+      return `$${amount}`;
+    case "GHS":
+      return `GH₵${amount}`;
+    case "ZAR":
+      return `R${amount}`;
+    case "NGN":
+      return `₦${amount}`;
+    default:
+      return `${amount} ${currency ?? ""}`.trim();
+  }
 }
