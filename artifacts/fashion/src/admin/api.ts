@@ -399,6 +399,12 @@ export interface RecategorisationRule {
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+  /** Number of moves attributed to this rule that have not yet been
+   *  reverted. Populated by GET /admin/recategorisation-rules so the
+   *  rules card can show a per-row "Revert all N" action without an
+   *  extra request per rule. Optional because POST/PATCH responses
+   *  from the same router don't include it. */
+  pendingRevertCount?: number;
 }
 
 export interface RecategorisationRuleInput {

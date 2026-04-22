@@ -613,7 +613,50 @@ router.get("/admin/recategorisation-rules", async (_req, res) => {
     /* swallow — listAll will still return [] on a hard DB failure */
   });
   const rows = await listAllRecategorisationRules();
-  res.json(rows);
+
+  // Attach a per-rule "pendingRevertCount" so the admin UI can offer a
+  // "Revert all N moves" button next to each disabled rule without an
+  // extra round-trip per row. The count mirrors the dry-run logic in
+  // /admin/reclassifications/revert-by-rule (records whose current
+  // category override doesn't match the originalCategory captured at
+  // move time), so the badge on the rule row equals the count shown in
+  // the bulk-revert confirmation dialog.
+  const events = await db
+    .select({
+      productId: reclassificationEventsTable.productId,
+      originalCategory: reclassificationEventsTable.originalCategory,
+      ruleId: reclassificationEventsTable.ruleId,
+    })
+    .from(reclassificationEventsTable);
+  const candidateIds = Array.from(
+    new Set(events.map((e) => e.productId).filter((id) => id.length > 0)),
+  );
+  const overrideRows =
+    candidateIds.length > 0
+      ? await db
+          .select({
+            productId: productOverridesTable.productId,
+            categoryOverride: productOverridesTable.categoryOverride,
+          })
+          .from(productOverridesTable)
+          .where(inArray(productOverridesTable.productId, candidateIds))
+      : [];
+  const overrideById = new Map(
+    overrideRows.map((o) => [o.productId, o.categoryOverride]),
+  );
+  const pendingByRule = new Map<number, number>();
+  for (const e of events) {
+    if (e.ruleId === null) continue;
+    if (overrideById.get(e.productId) === e.originalCategory) continue;
+    pendingByRule.set(e.ruleId, (pendingByRule.get(e.ruleId) ?? 0) + 1);
+  }
+
+  res.json(
+    rows.map((r) => ({
+      ...r,
+      pendingRevertCount: pendingByRule.get(r.id) ?? 0,
+    })),
+  );
 });
 
 interface RuleInput {

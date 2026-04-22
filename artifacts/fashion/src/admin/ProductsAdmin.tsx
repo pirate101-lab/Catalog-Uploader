@@ -1696,6 +1696,19 @@ function RecategorisationRulesCard({
       gender: "women" | "men";
     }[];
   } | null>(null);
+  // Bulk-revert state for the per-rule "Revert all N moves" button
+  // shown next to disabled rules. Mirrors the flow in
+  // AutoRecategorisedProductsPanel: a dry-run lookup re-confirms the
+  // count from the same query the apply step uses, then a confirmation
+  // dialog gates the actual write so staff can't accidentally revert
+  // dozens of rows. Keyed by ruleId so each row's spinner is local.
+  const [bulkRuleBusy, setBulkRuleBusy] = useState<number | null>(null);
+  const [bulkConfirm, setBulkConfirm] = useState<{
+    ruleId: number;
+    ruleLabel: string | null;
+    ruleStatus: "disabled" | "deleted";
+    count: number;
+  } | null>(null);
 
   const refresh = () => {
     setLoading(true);
@@ -1824,6 +1837,64 @@ function RecategorisationRulesCard({
       setPreviewError(friendly);
     } finally {
       setPreviewing(false);
+    }
+  };
+
+  // Two-step bulk revert mirrors AutoRecategorisedProductsPanel: first
+  // a dry-run to re-confirm the count from the same query the apply
+  // step uses, then — once staff confirm — the actual write. We can't
+  // skip the dry-run and trust the badge alone because the rules-list
+  // payload could be stale (another admin may have already reverted),
+  // and we never want to show a confirmation count that doesn't match
+  // the apply count.
+  const handleBulkRevertPrompt = async (rule: RecategorisationRule) => {
+    setBulkRuleBusy(rule.id);
+    try {
+      const res = await adminApi.revertReclassificationsByRule(rule.id, true);
+      if ((res.count ?? 0) === 0) {
+        toast.message(
+          `Nothing to revert for "${rule.label}" — every move from this rule has already been reverted.`,
+        );
+        // Refresh so the now-zero badge disappears from the row.
+        refresh();
+        return;
+      }
+      setBulkConfirm({
+        ruleId: rule.id,
+        ruleLabel: res.ruleLabel ?? rule.label,
+        // The endpoint won't classify an enabled rule as disabled, but
+        // we only ever call this from the disabled branch of the row
+        // render, so default to "disabled" if the response omits it.
+        ruleStatus: res.ruleStatus ?? "disabled",
+        count: res.count ?? 0,
+      });
+    } catch (e) {
+      toast.error(`Couldn't load count: ${(e as Error).message}`);
+    } finally {
+      setBulkRuleBusy(null);
+    }
+  };
+  const handleBulkRevertApply = async () => {
+    if (!bulkConfirm) return;
+    const { ruleId, ruleLabel } = bulkConfirm;
+    setBulkConfirm(null);
+    setBulkRuleBusy(ruleId);
+    try {
+      const res = await adminApi.revertReclassificationsByRule(ruleId, false);
+      const n = res.reverted ?? 0;
+      toast.success(
+        `Reverted ${n} move${n === 1 ? "" : "s"} from "${
+          res.ruleLabel ?? ruleLabel ?? `rule #${ruleId}`
+        }"`,
+      );
+      // Refresh both the rules card (to zero the badge) and the rest
+      // of the admin (audit panel + product grid).
+      refresh();
+      onChanged();
+    } catch (e) {
+      toast.error(`Bulk revert failed: ${(e as Error).message}`);
+    } finally {
+      setBulkRuleBusy(null);
     }
   };
 
@@ -1985,7 +2056,43 @@ function RecategorisationRulesCard({
                               </Button>
                             </div>
                           ) : (
-                            <div className="inline-flex gap-1">
+                            <div className="inline-flex gap-1 items-center">
+                              {/* Surface the bulk-revert action right
+                                  next to the rule that owns the moves
+                                  so staff don't have to scroll up to
+                                  the audit panel after toggling a rule
+                                  off. Only meaningful for disabled
+                                  rules with unreverted moves — enabled
+                                  rules would just re-fire on the next
+                                  catalog reload, and the API refuses
+                                  to revert them. Deleted rules don't
+                                  appear in this table at all and stay
+                                  in the audit panel. */}
+                              {!rule.enabled &&
+                                (rule.pendingRevertCount ?? 0) > 0 && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={
+                                      isBusy || bulkRuleBusy === rule.id
+                                    }
+                                    onClick={() =>
+                                      void handleBulkRevertPrompt(rule)
+                                    }
+                                    title={`Revert all ${rule.pendingRevertCount} unreverted move${
+                                      rule.pendingRevertCount === 1 ? "" : "s"
+                                    } from this rule`}
+                                  >
+                                    {bulkRuleBusy === rule.id ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <>
+                                        <RotateCcw className="w-3 h-3 mr-1" />
+                                        Revert all {rule.pendingRevertCount}
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -2160,6 +2267,35 @@ function RecategorisationRulesCard({
           </div>
         </div>
       )}
+      <AlertDialog
+        open={bulkConfirm !== null}
+        onOpenChange={(open) => {
+          if (!open) setBulkConfirm(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Revert {bulkConfirm?.count ?? 0} move
+              {bulkConfirm?.count === 1 ? "" : "s"} from "
+              {bulkConfirm?.ruleLabel ??
+                (bulkConfirm ? `rule #${bulkConfirm.ruleId}` : "")}
+              "?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Each affected product will be moved back to the category it
+              was in before this {bulkConfirm?.ruleStatus ?? "disabled"} rule
+              fired. This can't be undone in one click.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleBulkRevertApply()}>
+              Revert {bulkConfirm?.count ?? 0}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
