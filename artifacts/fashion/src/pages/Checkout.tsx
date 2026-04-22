@@ -688,12 +688,14 @@ export function CheckoutPage() {
                 </>
               )}
 
-              <p className="text-xs text-muted-foreground mt-4 flex items-center gap-2">
-                <Lock className="w-3 h-3" />{' '}
-                {paystackReady && paymentMethod === 'paystack'
-                  ? "You'll be redirected to Paystack's secure page — card details never touch our servers."
-                  : 'Payment is completed by bank transfer using the details shown after you place your order.'}
-              </p>
+              {paystackReady || bankReady ? (
+                <p className="text-xs text-muted-foreground mt-4 flex items-center gap-2">
+                  <Lock className="w-3 h-3" />{' '}
+                  {paystackReady && paymentMethod === 'paystack'
+                    ? "You'll be redirected to Paystack's secure page — card details never touch our servers."
+                    : 'Payment is completed by bank transfer using the details shown after you place your order.'}
+                </p>
+              ) : null}
             </section>
           </form>
 
