@@ -643,6 +643,26 @@ export const adminApi = {
       `/admin/products/${encodeURIComponent(productId)}/restore`,
       { method: "POST" },
     ),
+  bulkDeleteProducts: (productIds: string[]) =>
+    adminFetch<{ updated: number }>("/admin/products/bulk-delete", {
+      method: "POST",
+      body: JSON.stringify({ productIds }),
+    }),
+  bulkRestoreProducts: (productIds: string[]) =>
+    adminFetch<{ updated: number }>("/admin/products/bulk-restore", {
+      method: "POST",
+      body: JSON.stringify({ productIds }),
+    }),
+  bulkFeatureProducts: (productIds: string[], featured: boolean) =>
+    adminFetch<{ updated: number }>("/admin/products/bulk-feature", {
+      method: "POST",
+      body: JSON.stringify({ productIds, featured }),
+    }),
+  bulkSetProductCategory: (productIds: string[], category: string) =>
+    adminFetch<{ updated: number }>("/admin/products/bulk-category", {
+      method: "POST",
+      body: JSON.stringify({ productIds, category }),
+    }),
   createCustomProduct: (data: CustomProductInput) =>
     adminFetch<CustomProduct>("/admin/custom-products", {
       method: "POST",

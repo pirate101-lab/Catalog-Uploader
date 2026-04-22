@@ -12,6 +12,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Accordion,
   AccordionContent,
@@ -45,7 +51,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Search, Upload, Loader2, Pencil, Trash2, RotateCcw } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Upload,
+  Loader2,
+  Pencil,
+  Trash2,
+  RotateCcw,
+  Star,
+  FolderInput,
+  X,
+} from "lucide-react";
 
 type Row = ProductRow & { override: ProductOverride | null };
 
@@ -144,6 +161,10 @@ export function ProductsAdmin() {
   const [viewing, setViewing] = useState<Row | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkCategoryOpen, setBulkCategoryOpen] = useState(false);
+  const [bulkCategoryDraft, setBulkCategoryDraft] = useState("");
 
   useEffect(() => {
     adminApi
@@ -329,6 +350,64 @@ export function ProductsAdmin() {
     }
   };
 
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+
+  // Selection survives reloads when the row still exists, but cards
+  // that disappear (e.g. filtered out by search) shouldn't keep voting
+  // in the action bar count.
+  const visibleSelectedIds = useMemo(() => {
+    const visible = new Set(rows.map((r) => r.id));
+    return [...selectedIds].filter((id) => visible.has(id));
+  }, [rows, selectedIds]);
+  const selectionCount = visibleSelectedIds.length;
+
+  const runBulk = async (
+    label: string,
+    fn: () => Promise<{ updated: number }>,
+  ) => {
+    if (selectionCount === 0) return;
+    setBulkBusy(true);
+    try {
+      const { updated } = await fn();
+      toast.success(`${label} ${updated} product${updated === 1 ? "" : "s"}`);
+      clearSelection();
+      reload();
+    } catch (e) {
+      toast.error(`${label} failed: ${(e as Error).message}`);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleBulkDelete = () =>
+    runBulk("Deleted", () => adminApi.bulkDeleteProducts(visibleSelectedIds));
+  const handleBulkRestore = () =>
+    runBulk("Restored", () => adminApi.bulkRestoreProducts(visibleSelectedIds));
+  const handleBulkFeature = () =>
+    runBulk("Marked featured for", () =>
+      adminApi.bulkFeatureProducts(visibleSelectedIds, true),
+    );
+  const handleBulkCategory = async () => {
+    const cat = bulkCategoryDraft.trim();
+    if (!cat) {
+      toast.error("Pick a category first");
+      return;
+    }
+    setBulkCategoryOpen(false);
+    setBulkCategoryDraft("");
+    await runBulk(`Moved to "${cat}" —`, () =>
+      adminApi.bulkSetProductCategory(visibleSelectedIds, cat),
+    );
+  };
+
   const handleRestore = async (r: Row) => {
     try {
       await adminApi.restoreProduct(r.id);
@@ -408,15 +487,46 @@ export function ProductsAdmin() {
                     const isDeleted =
                       !!r.override?.deletedAt || !!r.deletedAt;
                     const isCustom = r.id.startsWith("cust_");
+                    const isSelected = selectedIds.has(r.id);
                     return (
-                      <button
+                      <div
                         key={r.id}
-                        type="button"
-                        onClick={() => setViewing(r)}
-                        className={`group relative text-left border rounded-lg overflow-hidden bg-card hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-ring ${
+                        className={`group relative border rounded-lg overflow-hidden bg-card hover:shadow-md transition-shadow ${
                           isDeleted ? "opacity-50" : ""
-                        }`}
+                        } ${isSelected ? "ring-2 ring-primary" : ""}`}
                       >
+                        {/* Checkbox overlay — clicking it toggles selection
+                            without opening the detail modal. Visible on
+                            hover, or whenever the card is selected. */}
+                        <div
+                          className={`absolute top-2 left-2 z-10 bg-background/90 backdrop-blur rounded p-1 transition-opacity ${
+                            isSelected || selectionCount > 0
+                              ? "opacity-100"
+                              : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
+                          }`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelected(r.id)}
+                            aria-label={`Select ${r.title}`}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // When a selection is in progress, treat the
+                            // card body as an extension of the checkbox
+                            // so power users can rake through dozens of
+                            // products without aiming for the corner.
+                            if (selectionCount > 0) {
+                              toggleSelected(r.id);
+                            } else {
+                              setViewing(r);
+                            }
+                          }}
+                          className="block w-full text-left focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
                         <div className="aspect-[4/5] bg-muted overflow-hidden">
                           {r.imageUrls?.[0] ? (
                             <img
@@ -465,7 +575,8 @@ export function ProductsAdmin() {
                             )}
                           </div>
                         </div>
-                      </button>
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -845,6 +956,106 @@ export function ProductsAdmin() {
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* Floating bulk action bar — shows once at least one product
+          card is selected. Keeps the actions reachable without
+          scrolling back to the top of long category accordions. */}
+      {selectionCount > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full border bg-background shadow-lg px-4 py-2">
+          <span className="text-sm font-medium">
+            {selectionCount} selected
+          </span>
+          <span className="w-px h-5 bg-border" />
+          <Popover
+            open={bulkCategoryOpen}
+            onOpenChange={(open) => {
+              setBulkCategoryOpen(open);
+              if (!open) setBulkCategoryDraft("");
+            }}
+          >
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="ghost" disabled={bulkBusy}>
+                <FolderInput className="w-4 h-4 mr-1" /> Category
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64" align="center">
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Move to category
+                </Label>
+                <Input
+                  list="admin-bulk-categories"
+                  value={bulkCategoryDraft}
+                  onChange={(e) => setBulkCategoryDraft(e.target.value)}
+                  placeholder="dresses"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleBulkCategory();
+                    }
+                  }}
+                />
+                <datalist id="admin-bulk-categories">
+                  {categories.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={handleBulkCategory}
+                  disabled={bulkBusy || !bulkCategoryDraft.trim()}
+                >
+                  Apply
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleBulkFeature}
+            disabled={bulkBusy}
+          >
+            <Star className="w-4 h-4 mr-1" /> Featured
+          </Button>
+          {/* Both Delete and Restore stay reachable in the bar — staff
+              often have a mix of live and tombstoned rows selected
+              when working in "Show deleted" view, and the bulk
+              endpoints are idempotent for either direction. */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            onClick={handleBulkDelete}
+            disabled={bulkBusy}
+          >
+            <Trash2 className="w-4 h-4 mr-1" /> Delete
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleBulkRestore}
+            disabled={bulkBusy}
+          >
+            <RotateCcw className="w-4 h-4 mr-1" /> Restore
+          </Button>
+          <span className="w-px h-5 bg-border" />
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={clearSelection}
+            disabled={bulkBusy}
+            aria-label="Clear selection"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+          {bulkBusy && (
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
+      )}
 
       <AlertDialog
         open={confirmDelete !== null}

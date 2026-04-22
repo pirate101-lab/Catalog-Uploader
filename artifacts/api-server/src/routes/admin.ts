@@ -579,6 +579,136 @@ router.post("/admin/products/:productId/restore", async (req, res) => {
   res.json({ ok: true, productId });
 });
 
+/* ---------------- Bulk product actions ----------------
+ * Powers the multi-select action bar in the admin product grid. Each
+ * endpoint accepts `{ productIds: string[] }` and routes per-id to the
+ * right table — `cust_*` ids edit custom_products in place, everything
+ * else writes through product_overrides so the JSON catalog file stays
+ * read-only. Cache invalidation is done once per call after the loop.
+ */
+
+function parseProductIds(body: unknown): string[] {
+  const ids = Array.isArray((body as { productIds?: unknown })?.productIds)
+    ? ((body as { productIds: unknown[] }).productIds as unknown[])
+    : [];
+  return ids
+    .filter((x): x is string => typeof x === "string" && x.length > 0)
+    .slice(0, 1000);
+}
+
+router.post("/admin/products/bulk-delete", async (req, res) => {
+  const ids = parseProductIds(req.body);
+  let custTouched = false;
+  let ovTouched = false;
+  const now = new Date();
+  for (const id of ids) {
+    if (id.startsWith("cust_")) {
+      await db
+        .update(customProductsTable)
+        .set({ deletedAt: now })
+        .where(eq(customProductsTable.id, id));
+      custTouched = true;
+    } else {
+      await db
+        .insert(productOverridesTable)
+        .values({ productId: id, deletedAt: now })
+        .onConflictDoUpdate({
+          target: productOverridesTable.productId,
+          set: { deletedAt: now },
+        });
+      ovTouched = true;
+    }
+  }
+  if (custTouched) invalidateCustomProducts();
+  if (ovTouched) invalidateOverrides();
+  res.json({ updated: ids.length });
+});
+
+router.post("/admin/products/bulk-restore", async (req, res) => {
+  const ids = parseProductIds(req.body);
+  let custTouched = false;
+  let ovTouched = false;
+  for (const id of ids) {
+    if (id.startsWith("cust_")) {
+      await db
+        .update(customProductsTable)
+        .set({ deletedAt: null })
+        .where(eq(customProductsTable.id, id));
+      custTouched = true;
+    } else {
+      await db
+        .update(productOverridesTable)
+        .set({ deletedAt: null })
+        .where(eq(productOverridesTable.productId, id));
+      ovTouched = true;
+    }
+  }
+  if (custTouched) invalidateCustomProducts();
+  if (ovTouched) invalidateOverrides();
+  res.json({ updated: ids.length });
+});
+
+router.post("/admin/products/bulk-feature", async (req, res) => {
+  const ids = parseProductIds(req.body);
+  const featured = !!(req.body as { featured?: unknown })?.featured;
+  let custTouched = false;
+  let ovTouched = false;
+  for (const id of ids) {
+    if (id.startsWith("cust_")) {
+      await db
+        .update(customProductsTable)
+        .set({ featured })
+        .where(eq(customProductsTable.id, id));
+      custTouched = true;
+    } else {
+      await db
+        .insert(productOverridesTable)
+        .values({ productId: id, featured })
+        .onConflictDoUpdate({
+          target: productOverridesTable.productId,
+          set: { featured },
+        });
+      ovTouched = true;
+    }
+  }
+  if (custTouched) invalidateCustomProducts();
+  if (ovTouched) invalidateOverrides();
+  res.json({ updated: ids.length });
+});
+
+router.post("/admin/products/bulk-category", async (req, res) => {
+  const ids = parseProductIds(req.body);
+  const rawCat = (req.body as { category?: unknown })?.category;
+  const category = typeof rawCat === "string" ? rawCat.trim() : "";
+  if (!category) {
+    res.status(400).json({ error: "category is required" });
+    return;
+  }
+  let custTouched = false;
+  let ovTouched = false;
+  for (const id of ids) {
+    if (id.startsWith("cust_")) {
+      await db
+        .update(customProductsTable)
+        .set({ category })
+        .where(eq(customProductsTable.id, id));
+      custTouched = true;
+    } else {
+      await db
+        .insert(productOverridesTable)
+        .values({ productId: id, categoryOverride: category })
+        .onConflictDoUpdate({
+          target: productOverridesTable.productId,
+          set: { categoryOverride: category },
+        });
+      ovTouched = true;
+    }
+  }
+  if (custTouched) invalidateCustomProducts();
+  if (ovTouched) invalidateOverrides();
+  res.json({ updated: ids.length });
+});
+
 /* ---------------- Custom Products (admin-authored) ----------------
  * Fully editable products that live in custom_products. IDs always
  * carry a `cust_` prefix (enforced by the schema check + here when we
