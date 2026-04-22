@@ -22,6 +22,7 @@ import {
 import { getOverridesMap } from "../lib/overrides";
 import { getSiteSettingsForStorefront } from "../lib/siteSettings";
 import { mintOrderViewToken, verifyOrderViewToken } from "../lib/orderViewToken";
+import { checkQuota } from "../lib/rateLimit";
 
 const router: IRouter = Router();
 
@@ -828,44 +829,28 @@ router.get("/storefront/products/:id", async (req: Request, res: Response) => {
  * shape so a partial match (right id, wrong email) cannot be
  * teased apart from a complete miss.
  */
-interface LookupBucket {
-  recent: number[];
-}
 const LOOKUP_LIMIT_PER_15M = 10;
+const LOOKUP_WINDOW_MS = 15 * 60 * 1000;
 const LOOKUP_MIN_GAP_MS = 1_000;
-const LOOKUP_BUCKETS = new Map<string, LookupBucket>();
 
-function checkLookupQuota(
+async function checkLookupQuota(
   key: string,
-): { ok: true } | { ok: false; retryAfterMs: number; reason: string } {
-  const now = Date.now();
-  const windowAgo = now - 15 * 60 * 1000;
-  const bucket = LOOKUP_BUCKETS.get(key) ?? { recent: [] };
-  bucket.recent = bucket.recent.filter((t) => t > windowAgo);
-  if (bucket.recent.length > 0) {
-    const last = bucket.recent[bucket.recent.length - 1] ?? 0;
-    const gap = now - last;
-    if (gap < LOOKUP_MIN_GAP_MS) {
-      LOOKUP_BUCKETS.set(key, bucket);
-      return {
-        ok: false,
-        retryAfterMs: LOOKUP_MIN_GAP_MS - gap,
-        reason: "Please wait a moment before trying again.",
-      };
-    }
-  }
-  if (bucket.recent.length >= LOOKUP_LIMIT_PER_15M) {
-    const earliest = bucket.recent[0] ?? now;
-    LOOKUP_BUCKETS.set(key, bucket);
-    return {
-      ok: false,
-      retryAfterMs: 15 * 60 * 1000 - (now - earliest),
-      reason: "Too many lookup attempts. Please try again later.",
-    };
-  }
-  bucket.recent.push(now);
-  LOOKUP_BUCKETS.set(key, bucket);
-  return { ok: true };
+): Promise<{ ok: true } | { ok: false; retryAfterMs: number; reason: string }> {
+  const result = await checkQuota({
+    key: `lookup:${key}`,
+    windowMs: LOOKUP_WINDOW_MS,
+    limit: LOOKUP_LIMIT_PER_15M,
+    minGapMs: LOOKUP_MIN_GAP_MS,
+  });
+  if (result.ok) return { ok: true };
+  return {
+    ok: false,
+    retryAfterMs: result.retryAfterMs,
+    reason:
+      result.kind === "gap"
+        ? "Please wait a moment before trying again."
+        : "Too many lookup attempts. Please try again later.",
+  };
 }
 
 const lookupSchema = z.object({
@@ -878,7 +863,7 @@ const LOOKUP_GENERIC_ERROR =
 
 router.post("/storefront/orders/lookup", async (req: Request, res: Response) => {
   const ip = req.ip ?? req.socket?.remoteAddress ?? "unknown";
-  const quota = checkLookupQuota(`ip:${ip}`);
+  const quota = await checkLookupQuota(`ip:${ip}`);
   if (!quota.ok) {
     res
       .status(429)

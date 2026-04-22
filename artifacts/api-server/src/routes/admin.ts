@@ -62,6 +62,7 @@ import {
 } from "../lib/email";
 import { deleteReviewById } from "../lib/reviewSummary";
 import { refreshFxRate, FX_RATE_MIN, FX_RATE_MAX } from "../lib/fx";
+import { checkQuota } from "../lib/rateLimit";
 
 const router: IRouter = Router();
 
@@ -1585,43 +1586,28 @@ router.post("/admin/payments/test", requireSuperAdmin, async (_req, res) => {
  * from being abused as a free-form mailer.
  */
 
-interface TestSendBucket {
-  /** unix-ms timestamps of recent successful submissions */
-  recent: number[];
-}
 const TEST_SEND_LIMIT_HOUR = 5;
+const TEST_SEND_WINDOW_MS = 60 * 60 * 1000;
 const TEST_SEND_MIN_GAP_MS = 10_000;
-const TEST_SEND_BUCKETS = new Map<string, TestSendBucket>();
 
-function checkTestSendQuota(key: string): { ok: true } | { ok: false; retryAfterMs: number; reason: string } {
-  const now = Date.now();
-  const hourAgo = now - 60 * 60 * 1000;
-  const bucket = TEST_SEND_BUCKETS.get(key) ?? { recent: [] };
-  bucket.recent = bucket.recent.filter((t) => t > hourAgo);
-  if (bucket.recent.length > 0) {
-    const last = bucket.recent[bucket.recent.length - 1] ?? 0;
-    const gap = now - last;
-    if (gap < TEST_SEND_MIN_GAP_MS) {
-      TEST_SEND_BUCKETS.set(key, bucket);
-      return {
-        ok: false,
-        retryAfterMs: TEST_SEND_MIN_GAP_MS - gap,
-        reason: "Please wait a few seconds before sending another test email.",
-      };
-    }
-  }
-  if (bucket.recent.length >= TEST_SEND_LIMIT_HOUR) {
-    const earliest = bucket.recent[0] ?? now;
-    TEST_SEND_BUCKETS.set(key, bucket);
-    return {
-      ok: false,
-      retryAfterMs: 60 * 60 * 1000 - (now - earliest),
-      reason: `Test-send limit reached (${TEST_SEND_LIMIT_HOUR} per hour). Try again later.`,
-    };
-  }
-  bucket.recent.push(now);
-  TEST_SEND_BUCKETS.set(key, bucket);
-  return { ok: true };
+async function checkTestSendQuota(
+  key: string,
+): Promise<{ ok: true } | { ok: false; retryAfterMs: number; reason: string }> {
+  const result = await checkQuota({
+    key: `test-email:${key}`,
+    windowMs: TEST_SEND_WINDOW_MS,
+    limit: TEST_SEND_LIMIT_HOUR,
+    minGapMs: TEST_SEND_MIN_GAP_MS,
+  });
+  if (result.ok) return { ok: true };
+  return {
+    ok: false,
+    retryAfterMs: result.retryAfterMs,
+    reason:
+      result.kind === "gap"
+        ? "Please wait a few seconds before sending another test email."
+        : `Test-send limit reached (${TEST_SEND_LIMIT_HOUR} per hour). Try again later.`,
+  };
 }
 
 const TEST_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1637,7 +1623,7 @@ router.post("/admin/settings/test-email", requireSuperAdmin, async (req, res) =>
   const adminEmail = req.user?.email?.toLowerCase();
   const ip = req.ip ?? req.socket?.remoteAddress ?? "unknown";
   const quotaKey = adminEmail ?? `ip:${ip}`;
-  const quota = checkTestSendQuota(quotaKey);
+  const quota = await checkTestSendQuota(quotaKey);
   if (!quota.ok) {
     res
       .status(429)
