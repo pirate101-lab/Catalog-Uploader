@@ -1,5 +1,5 @@
 import type { SiteSettings } from "@workspace/db";
-import { getSiteSettings, invalidateSiteSettings } from "./siteSettings";
+import { getSiteSettings, invalidateSiteSettings } from "./siteSettings.ts";
 import { db, siteSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 

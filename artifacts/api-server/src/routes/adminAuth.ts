@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { getSiteSettings } from "../lib/siteSettings";
+import { getSiteSettings } from "../lib/siteSettings.ts";
 import {
   adminUsersCount,
   createAdmin,
@@ -12,7 +12,7 @@ import {
   updateAdminUsername,
   USERNAME_RE,
   verifyAdminPassword,
-} from "../lib/adminCredentials";
+} from "../lib/adminCredentials.ts";
 import {
   clearSession,
   createSession,
@@ -21,8 +21,8 @@ import {
   SESSION_COOKIE,
   SESSION_TTL,
   type SessionData,
-} from "../lib/auth";
-import { getAdminRole } from "../middlewares/adminGuard";
+} from "../lib/auth.ts";
+import { getAdminRole } from "../middlewares/adminGuard.ts";
 
 const router: IRouter = Router();
 

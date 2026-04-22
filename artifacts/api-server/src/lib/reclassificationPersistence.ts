@@ -7,8 +7,8 @@ import {
 import {
   setReclassificationPersister,
   type ReclassificationRecord,
-} from "./catalog";
-import { logger } from "./logger";
+} from "./catalog.ts";
+import { logger } from "./logger.ts";
 
 /**
  * Records older than this without a fresh sighting are pruned on each

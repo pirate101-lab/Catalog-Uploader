@@ -1,14 +1,14 @@
-import app from "./app";
-import { logger } from "./lib/logger";
-import { ObjectStorageService } from "./lib/objectStorage";
-import { migrateAdminCredentials } from "./lib/adminCredentials";
+import app from "./app.ts";
+import { logger } from "./lib/logger.ts";
+import { ObjectStorageService } from "./lib/objectStorage.ts";
+import { migrateAdminCredentials } from "./lib/adminCredentials.ts";
 import { db, ordersTable } from "@workspace/db";
 import { sql, isNull } from "drizzle-orm";
-import { getSiteSettings } from "./lib/siteSettings";
-import { refreshFxRate } from "./lib/fx";
-import { pruneStaleBuckets } from "./lib/rateLimit";
-import { ensureRecategorisationRulesLoaded } from "./lib/recategorisationRules";
-import { registerReclassificationPersister } from "./lib/reclassificationPersistence";
+import { getSiteSettings } from "./lib/siteSettings.ts";
+import { refreshFxRate } from "./lib/fx.ts";
+import { pruneStaleBuckets } from "./lib/rateLimit.ts";
+import { ensureRecategorisationRulesLoaded } from "./lib/recategorisationRules.ts";
+import { registerReclassificationPersister } from "./lib/reclassificationPersistence.ts";
 
 const rawPort = process.env["PORT"];
 

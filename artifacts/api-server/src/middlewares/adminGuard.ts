@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
-import { findAdminById, type AdminRole } from "../lib/adminCredentials";
-import { clearSession, getSession, getSessionId } from "../lib/auth";
+import { findAdminById, type AdminRole } from "../lib/adminCredentials.ts";
+import { clearSession, getSession, getSessionId } from "../lib/auth.ts";
 
 function getAdminEmails(): Set<string> {
   const raw = process.env["ADMIN_EMAILS"] ?? "";

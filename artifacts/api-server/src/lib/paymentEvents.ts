@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { db, paymentEventsTable, type PaymentEvent } from "@workspace/db";
-import { logger } from "./logger";
-import { dispatchPaymentAlert } from "./email";
+import { logger } from "./logger.ts";
+import { dispatchPaymentAlert } from "./email.ts";
 
 /**
  * In-process pub/sub for payment events. The admin SSE endpoint

@@ -3,8 +3,8 @@ import crypto from "node:crypto";
 import net from "node:net";
 import { and, eq, gte, sql } from "drizzle-orm";
 import nodemailer, { type Transporter } from "nodemailer";
-import { getSiteSettings, symbolForCurrency } from "./siteSettings";
-import { buildOrderViewUrl } from "./orderViewToken";
+import { getSiteSettings, symbolForCurrency } from "./siteSettings.ts";
+import { buildOrderViewUrl } from "./orderViewToken.ts";
 import {
   db,
   orderEmailEventsTable,
@@ -12,7 +12,7 @@ import {
   type PaymentEvent,
   type SiteSettings,
 } from "@workspace/db";
-import { logger as baseLogger } from "./logger";
+import { logger as baseLogger } from "./logger.ts";
 
 /**
  * Has a "sent" email of `kind` been recorded for this order within the

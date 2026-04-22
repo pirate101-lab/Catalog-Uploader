@@ -3,8 +3,8 @@ import { Readable } from "stream";
 import {
   ObjectStorageService,
   StorageNotConfiguredError,
-} from "../lib/objectStorage";
-import { requireAdmin } from "../middlewares/adminGuard";
+} from "../lib/objectStorage.ts";
+import { requireAdmin } from "../middlewares/adminGuard.ts";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();

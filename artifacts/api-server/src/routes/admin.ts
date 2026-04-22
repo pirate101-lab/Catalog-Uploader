@@ -5,7 +5,7 @@ import {
   type Response,
   raw as expressRaw,
 } from "express";
-import { ObjectStorageService, StorageNotConfiguredError } from "../lib/objectStorage";
+import { ObjectStorageService, StorageNotConfiguredError } from "../lib/objectStorage.ts";
 import { eq, sql, desc, asc, and, gte, lte, or, ilike, inArray } from "drizzle-orm";
 import {
   db,
@@ -22,26 +22,26 @@ import {
   type CustomProduct,
 } from "@workspace/db";
 import { randomUUID } from "node:crypto";
-import { paymentEventBus } from "../lib/paymentEvents";
-import { getAdminRole, requireAdmin, requireSuperAdmin } from "../middlewares/adminGuard";
-import { invalidateOverrides } from "../lib/overrides";
+import { paymentEventBus } from "../lib/paymentEvents.ts";
+import { getAdminRole, requireAdmin, requireSuperAdmin } from "../middlewares/adminGuard.ts";
+import { invalidateOverrides } from "../lib/overrides.ts";
 import {
   invalidateSiteSettings,
   getSiteSettings,
   isPaystackCurrency,
   symbolForCurrency,
   PAYSTACK_CURRENCIES,
-} from "../lib/siteSettings";
-import { getAllProducts, previewShoesByPattern } from "../lib/catalog";
+} from "../lib/siteSettings.ts";
+import { getAllProducts, previewShoesByPattern } from "../lib/catalog.ts";
 import {
   awaitLastPersistence,
   listPersistedReclassifications,
-} from "../lib/reclassificationPersistence";
+} from "../lib/reclassificationPersistence.ts";
 import {
   ensureRecategorisationRulesLoaded,
   invalidateRecategorisationRules,
   listAllRecategorisationRules,
-} from "../lib/recategorisationRules";
+} from "../lib/recategorisationRules.ts";
 import {
   recategorisationRulesTable,
   reclassificationEventsTable,
@@ -51,7 +51,7 @@ import {
   getMergedProductById,
   applyOverride,
   invalidateCustomProducts,
-} from "../lib/productCatalog";
+} from "../lib/productCatalog.ts";
 import {
   getActivePaystackKeys,
   getCallbackUrl,
@@ -60,8 +60,8 @@ import {
   isPaystackReady,
   maskSecret,
   probeSecretKey,
-} from "../lib/paystack";
-import { buildResumeUrl } from "../lib/paystackResume";
+} from "../lib/paystack.ts";
+import { buildResumeUrl } from "../lib/paystackResume.ts";
 import {
   sendOrderStatusEmail,
   sendOrderConfirmationEmail,
@@ -72,10 +72,10 @@ import {
   parseAlertRecipients,
   ORDER_EMAIL_KINDS,
   type OrderEmailKind,
-} from "../lib/email";
-import { deleteReviewById } from "../lib/reviewSummary";
-import { refreshFxRate, FX_RATE_MIN, FX_RATE_MAX } from "../lib/fx";
-import { checkQuota } from "../lib/rateLimit";
+} from "../lib/email.ts";
+import { deleteReviewById } from "../lib/reviewSummary.ts";
+import { refreshFxRate, FX_RATE_MIN, FX_RATE_MAX } from "../lib/fx.ts";
+import { checkQuota } from "../lib/rateLimit.ts";
 
 const router: IRouter = Router();
 

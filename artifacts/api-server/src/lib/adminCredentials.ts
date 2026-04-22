@@ -1,8 +1,8 @@
 import bcrypt from "bcryptjs";
 import { eq, sql } from "drizzle-orm";
 import { db, adminUsersTable, siteSettingsTable } from "@workspace/db";
-import { getSiteSettings, invalidateSiteSettings } from "./siteSettings";
-import { logger } from "./logger";
+import { getSiteSettings, invalidateSiteSettings } from "./siteSettings.ts";
+import { logger } from "./logger.ts";
 
 /** Synthetic user-id prefix used for the admin-local session's `user.id`.
  *  Combined with the numeric admin_users.id so different admins get

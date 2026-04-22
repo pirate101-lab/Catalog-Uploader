@@ -2,20 +2,20 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import type { Logger } from "pino";
 import { and, eq, isNull } from "drizzle-orm";
 import { db, ordersTable, type Order } from "@workspace/db";
-import { getSiteSettings } from "../lib/siteSettings";
+import { getSiteSettings } from "../lib/siteSettings.ts";
 import {
   getActivePaystackKeys,
   getPublicOrigin,
   verifyWebhookSignature,
   verifyTransaction,
-} from "../lib/paystack";
+} from "../lib/paystack.ts";
 import {
   claimAndSendPaymentFailedEmail,
   sendOrderConfirmationEmail,
   type PaymentFailedVariant,
-} from "../lib/email";
-import { recordPaymentEvent } from "../lib/paymentEvents";
-import { buildResumeUrl } from "../lib/paystackResume";
+} from "../lib/email.ts";
+import { recordPaymentEvent } from "../lib/paymentEvents.ts";
+import { buildResumeUrl } from "../lib/paystackResume.ts";
 
 /**
  * Fire a customer-facing payment_failed reminder. Skipped silently when:

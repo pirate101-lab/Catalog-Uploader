@@ -9,20 +9,20 @@ import {
   reviewsTable,
   wishlistSignalsTable,
 } from "@workspace/db";
-import { refreshProductReviewSummary } from "../lib/reviewSummary";
+import { refreshProductReviewSummary } from "../lib/reviewSummary.ts";
 import {
   type BucketKey,
   type ProductRow,
-} from "../lib/catalog";
+} from "../lib/catalog.ts";
 import {
   getMergedProducts,
   getMergedProductById,
   applyOverride,
-} from "../lib/productCatalog";
-import { getOverridesMap } from "../lib/overrides";
-import { getSiteSettingsForStorefront } from "../lib/siteSettings";
-import { mintOrderViewToken, verifyOrderViewToken } from "../lib/orderViewToken";
-import { checkQuota } from "../lib/rateLimit";
+} from "../lib/productCatalog.ts";
+import { getOverridesMap } from "../lib/overrides.ts";
+import { getSiteSettingsForStorefront } from "../lib/siteSettings.ts";
+import { mintOrderViewToken, verifyOrderViewToken } from "../lib/orderViewToken.ts";
+import { checkQuota } from "../lib/rateLimit.ts";
 
 const router: IRouter = Router();
 

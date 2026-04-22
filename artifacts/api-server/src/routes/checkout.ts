@@ -2,24 +2,24 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, ordersTable } from "@workspace/db";
-import { getMergedProductById } from "../lib/productCatalog";
-import { getOverridesMap } from "../lib/overrides";
-import { getSiteSettings } from "../lib/siteSettings";
-import { sendOrderReceivedEmail } from "../lib/email";
+import { getMergedProductById } from "../lib/productCatalog.ts";
+import { getOverridesMap } from "../lib/overrides.ts";
+import { getSiteSettings } from "../lib/siteSettings.ts";
+import { sendOrderReceivedEmail } from "../lib/email.ts";
 import {
   getActivePaystackKeys,
   getCallbackUrl,
   getPublicOrigin,
   initializeTransaction,
   isPaystackReady,
-} from "../lib/paystack";
+} from "../lib/paystack.ts";
 import {
   CHARGE_CURRENCY,
   DISPLAY_CURRENCY,
   convertCart,
-} from "../lib/fx";
-import { symbolForCurrency } from "../lib/siteSettings";
-import { verifyResumeToken } from "../lib/paystackResume";
+} from "../lib/fx.ts";
+import { symbolForCurrency } from "../lib/siteSettings.ts";
+import { verifyResumeToken } from "../lib/paystackResume.ts";
 
 const router: IRouter = Router();
 

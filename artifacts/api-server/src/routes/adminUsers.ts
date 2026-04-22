@@ -12,9 +12,9 @@ import {
   updateAdminRole,
   USERNAME_RE,
   type AdminRole,
-} from "../lib/adminCredentials";
-import { getSession, getSessionId } from "../lib/auth";
-import { requireAdmin, requireSuperAdmin } from "../middlewares/adminGuard";
+} from "../lib/adminCredentials.ts";
+import { getSession, getSessionId } from "../lib/auth.ts";
+import { requireAdmin, requireSuperAdmin } from "../middlewares/adminGuard.ts";
 
 const router: IRouter = Router();
 

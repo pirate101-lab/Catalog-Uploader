@@ -1,6 +1,6 @@
 import { db, customProductsTable, type CustomProduct, type ProductOverride } from "@workspace/db";
 import { isNull, or, eq } from "drizzle-orm";
-import { getAllProducts as getJsonCatalog, type ProductRow, type Gender } from "./catalog";
+import { getAllProducts as getJsonCatalog, type ProductRow, type Gender } from "./catalog.ts";
 
 // Short-lived cache so the storefront's repeated catalog reads don't
 // hammer Postgres. Custom-product CRUD calls invalidate explicitly.

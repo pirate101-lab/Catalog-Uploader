@@ -8,7 +8,7 @@ import {
   getSession,
   updateSession,
   type SessionData,
-} from "../lib/auth";
+} from "../lib/auth.ts";
 
 declare global {
   namespace Express {

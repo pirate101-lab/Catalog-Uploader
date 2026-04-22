@@ -1,14 +1,14 @@
 import { Router, type IRouter } from "express";
-import healthRouter from "./health";
-import authRouter from "./auth";
-import adminAuthRouter from "./adminAuth";
-import adminUsersRouter from "./adminUsers";
-import storageRouter from "./storage";
-import storefrontRouter from "./storefront";
-import checkoutRouter from "./checkout";
-import paymentsRouter from "./payments";
-import adminRouter from "./admin";
-import addressesRouter from "./addresses";
+import healthRouter from "./health.ts";
+import authRouter from "./auth.ts";
+import adminAuthRouter from "./adminAuth.ts";
+import adminUsersRouter from "./adminUsers.ts";
+import storageRouter from "./storage.ts";
+import storefrontRouter from "./storefront.ts";
+import checkoutRouter from "./checkout.ts";
+import paymentsRouter from "./payments.ts";
+import adminRouter from "./admin.ts";
+import addressesRouter from "./addresses.ts";
 
 const router: IRouter = Router();
 
