@@ -718,13 +718,32 @@ export function ProductsAdmin() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr] gap-4 py-2">
-                  <div className="aspect-[4/5] bg-muted rounded overflow-hidden border">
-                    {r.imageUrls?.[0] && (
-                      <img
-                        src={r.imageUrls[0]}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
+                  <div className="space-y-2">
+                    <div className="aspect-[4/5] bg-muted rounded overflow-hidden border">
+                      {r.imageUrls?.[0] && (
+                        <img
+                          src={r.imageUrls[0]}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
+                    {r.imageUrls && r.imageUrls.length > 1 && (
+                      <div className="grid grid-cols-4 gap-1">
+                        {r.imageUrls.slice(0, 8).map((url, i) => (
+                          <div
+                            key={url + i}
+                            className="aspect-square bg-muted rounded overflow-hidden border"
+                          >
+                            <img
+                              src={url}
+                              alt=""
+                              loading="lazy"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                   <dl className="space-y-2 text-sm">
