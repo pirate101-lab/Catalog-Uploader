@@ -271,13 +271,53 @@ const NON_SHOE_HINTS: Array<{ re: RegExp; category: string }> = [
 ];
 
 /**
+ * Audit record for a single auto-recategorisation, surfaced to the
+ * admin so staff can spot-check the heuristic and revert false moves.
+ */
+export interface ReclassificationRecord {
+  id: string;
+  title: string;
+  gender: Gender;
+  originalCategory: string;
+  newCategory: string;
+  /** The non-shoe garment keyword that triggered the move (e.g.
+   *  "t-shirt", "bootcut", "dress"). Null for the rare case where the
+   *  category was changed without a hint capture. */
+  matchedHint: string | null;
+  /** ISO timestamp of when the record was captured (boot time). */
+  observedAt: string;
+}
+
+// In-process audit log of reclassifications. Built up at boot when
+// loadCatalog → reclassifyMislabeledShoes runs, kept in memory and
+// exposed via the admin API. Bounded so a runaway catalog cannot
+// balloon process memory.
+const MAX_RECLASSIFICATION_RECORDS = 1000;
+const reclassificationLog: ReclassificationRecord[] = [];
+
+export function getReclassifications(): ReclassificationRecord[] {
+  // Newest first so the admin UI can render "most recent" without
+  // re-sorting on the client.
+  return [...reclassificationLog].reverse();
+}
+
+/**
+ * Test/seed helper — clears the audit log so unit tests don't carry
+ * state between cases. Not part of the public storefront contract.
+ */
+export function _resetReclassificationLogForTests(): void {
+  reclassificationLog.length = 0;
+}
+
+/**
  * Some upstream rows are mis-tagged with `category: "shoes"` but are
  * actually apparel (e.g. "Boot Graphic T-Shirt", "Bootcut Pants"). We
  * keep a row in shoes ONLY if its title contains a real footwear
  * keyword AND no stronger garment signal — otherwise we move it to
  * the matching apparel bucket so the storefront's Shoes filter is clean.
  *
- * Mutates rows in place.
+ * Mutates rows in place AND appends an audit record for each change so
+ * staff can inspect the moves in the admin (see getReclassifications).
  */
 export function reclassifyMislabeledShoes(rows: ProductRow[]): void {
   for (const r of rows) {
@@ -299,7 +339,22 @@ export function reclassifyMislabeledShoes(rows: ProductRow[]): void {
         (m) => !/^boot(s|ie|ies)?$/i.test(m),
       );
       if (strongShoe) continue;
+      const hintMatch = title.match(garment.re);
+      const matchedHint = hintMatch ? hintMatch[0] : null;
+      const original = r.category;
       r.category = garment.category;
+      if (reclassificationLog.length >= MAX_RECLASSIFICATION_RECORDS) {
+        reclassificationLog.shift();
+      }
+      reclassificationLog.push({
+        id: r.id,
+        title,
+        gender: r.gender,
+        originalCategory: original,
+        newCategory: garment.category,
+        matchedHint,
+        observedAt: new Date().toISOString(),
+      });
     }
   }
 }

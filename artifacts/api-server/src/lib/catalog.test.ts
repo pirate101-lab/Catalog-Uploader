@@ -1,7 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { reclassifyMislabeledShoes, type ProductRow } from "./catalog.ts";
+import {
+  reclassifyMislabeledShoes,
+  getReclassifications,
+  _resetReclassificationLogForTests,
+  type ProductRow,
+} from "./catalog.ts";
 
 function makeRow(id: string, title: string, category: string): ProductRow {
   return {
@@ -71,5 +76,35 @@ describe("reclassifyMislabeledShoes", () => {
     ];
     reclassifyMislabeledShoes(rows);
     for (const r of rows) assert.equal(r.category, "shoes");
+  });
+});
+
+describe("reclassifyMislabeledShoes audit log", () => {
+  it("captures one record per moved row, with hint and original category", () => {
+    _resetReclassificationLogForTests();
+    const rows = [
+      makeRow("audit-1", "Boot Graphic T-Shirt", "shoes"),
+      makeRow("audit-2", "Bootcut Pants", "shoes"),
+      makeRow("audit-3", "Ankle Boots Black Leather", "shoes"), // stays
+    ];
+    reclassifyMislabeledShoes(rows);
+    const log = getReclassifications();
+    assert.equal(log.length, 2);
+    const byId = new Map(log.map((r) => [r.id, r]));
+    const tee = byId.get("audit-1")!;
+    assert.equal(tee.originalCategory, "shoes");
+    assert.equal(tee.newCategory, "tops");
+    assert.ok(tee.matchedHint, "expected a matchedHint to be captured");
+    const pants = byId.get("audit-2")!;
+    assert.equal(pants.newCategory, "bottoms");
+    assert.ok(pants.observedAt);
+  });
+
+  it("does not record anything for rows that stay in shoes", () => {
+    _resetReclassificationLogForTests();
+    reclassifyMislabeledShoes([
+      makeRow("only-shoe", "White Sneakers", "shoes"),
+    ]);
+    assert.equal(getReclassifications().length, 0);
   });
 });

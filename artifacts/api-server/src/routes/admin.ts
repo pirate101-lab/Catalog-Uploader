@@ -32,7 +32,7 @@ import {
   symbolForCurrency,
   PAYSTACK_CURRENCIES,
 } from "../lib/siteSettings";
-import { getAllProducts } from "../lib/catalog";
+import { getAllProducts, getReclassifications } from "../lib/catalog";
 import {
   getMergedProducts,
   getMergedProductById,
@@ -497,6 +497,47 @@ router.get("/admin/products", async (req: Request, res: Response) => {
 
   const slice = decorated.slice(offset, offset + limit);
   res.json({ rows: slice, total: decorated.length, limit, offset });
+});
+
+/* ---------------- Auto-recategorisation audit log ----------------
+ * The boot-time `reclassifyMislabeledShoes` heuristic moves rows out
+ * of the "shoes" bucket when the title contains an apparel keyword
+ * (e.g. "Boot Graphic T-Shirt" → tops). This endpoint surfaces those
+ * moves to the admin so staff can spot-check them and, if needed,
+ * revert by setting a `categoryOverride: "shoes"` via the existing
+ * bulk-category endpoint. Reverted rows are filtered out so the list
+ * shows only moves that are still in effect on the live storefront.
+ */
+router.get("/admin/reclassifications", async (req, res) => {
+  const limit = Math.min(
+    Number((req.query["limit"] as string) ?? 200) || 200,
+    1000,
+  );
+  // Force catalog initialization so the in-memory audit log is
+  // populated even when this endpoint is the very first thing hit
+  // after a process restart (the log is filled as a side effect of
+  // loadCatalog() inside getAllProducts()).
+  getAllProducts();
+  const records = getReclassifications();
+  const overrideRows = await db
+    .select({
+      productId: productOverridesTable.productId,
+      categoryOverride: productOverridesTable.categoryOverride,
+    })
+    .from(productOverridesTable);
+  const overrideById = new Map(
+    overrideRows.map((o) => [o.productId, o.categoryOverride]),
+  );
+  const decorated = records.map((r) => {
+    const ov = overrideById.get(r.id) ?? null;
+    return { ...r, currentCategoryOverride: ov, reverted: ov === r.originalCategory };
+  });
+  const visible = decorated.filter((r) => !r.reverted);
+  res.json({
+    rows: visible.slice(0, limit),
+    total: visible.length,
+    totalEverMoved: records.length,
+  });
 });
 
 /* ---------------- Catalog category list ----------------

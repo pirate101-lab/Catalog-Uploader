@@ -366,6 +366,18 @@ export interface PaymentEventRow {
   createdAt: string;
 }
 
+export interface ReclassificationRow {
+  id: string;
+  title: string;
+  gender: "women" | "men";
+  originalCategory: string;
+  newCategory: string;
+  matchedHint: string | null;
+  observedAt: string;
+  currentCategoryOverride: string | null;
+  reverted: boolean;
+}
+
 export interface ProductRow {
   id: string;
   title: string;
@@ -663,6 +675,12 @@ export const adminApi = {
       method: "POST",
       body: JSON.stringify({ productIds, category }),
     }),
+  listReclassifications: () =>
+    adminFetch<{
+      rows: ReclassificationRow[];
+      total: number;
+      totalEverMoved: number;
+    }>("/admin/reclassifications"),
   createCustomProduct: (data: CustomProductInput) =>
     adminFetch<CustomProduct>("/admin/custom-products", {
       method: "POST",

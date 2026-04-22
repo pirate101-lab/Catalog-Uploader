@@ -5,6 +5,7 @@ import {
   type CustomProductInput,
   type ProductOverride,
   type ProductRow,
+  type ReclassificationRow,
 } from "./api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,7 @@ import {
   Star,
   FolderInput,
   X,
+  Wand2,
 } from "lucide-react";
 
 type Row = ProductRow & { override: ProductOverride | null };
@@ -451,6 +453,11 @@ export function ProductsAdmin() {
           </Label>
         </div>
       </div>
+
+      <ReclassificationsCard
+        reloadTick={reloadTick}
+        onReverted={reload}
+      />
 
       {loading && (
         <div className="text-sm text-muted-foreground py-8 text-center">
@@ -1082,6 +1089,166 @@ export function ProductsAdmin() {
         </AlertDialogContent>
       </AlertDialog>
     </AdminShell>
+  );
+}
+
+/**
+ * Surfaces the boot-time `reclassifyMislabeledShoes` audit log so
+ * staff can see which products were auto-moved out of "shoes" and
+ * (with one click) put them back. Reverting writes a category
+ * override of "shoes" via the existing bulk-category endpoint, which
+ * also drops the row from the visible list on the next reload.
+ */
+function ReclassificationsCard({
+  reloadTick,
+  onReverted,
+}: {
+  reloadTick: number;
+  onReverted: () => void;
+}) {
+  const [data, setData] = useState<{
+    rows: ReclassificationRow[];
+    total: number;
+    totalEverMoved: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [revertingId, setRevertingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    adminApi
+      .listReclassifications()
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch(() => {
+        // Non-fatal — the products grid still works without this panel.
+        if (!cancelled) setData({ rows: [], total: 0, totalEverMoved: 0 });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadTick]);
+
+  const handleRevert = async (row: ReclassificationRow) => {
+    setRevertingId(row.id);
+    try {
+      await adminApi.bulkSetProductCategory([row.id], row.originalCategory);
+      toast.success(`Restored "${row.title}" to ${row.originalCategory}`);
+      onReverted();
+    } catch (e) {
+      toast.error(`Revert failed: ${(e as Error).message}`);
+    } finally {
+      setRevertingId(null);
+    }
+  };
+
+  // Hide the section entirely when the heuristic hasn't moved anything
+  // and we're not still loading — no point taking up screen real estate.
+  if (!loading && data && data.totalEverMoved === 0) return null;
+
+  const rows = data?.rows ?? [];
+  const visibleCount = data?.total ?? 0;
+
+  return (
+    <div className="border rounded-lg mb-4 bg-card">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+        aria-expanded={open}
+      >
+        <Wand2 className="w-4 h-4 text-muted-foreground" />
+        <span className="font-medium text-sm">Auto-recategorised products</span>
+        <Badge variant="secondary">{loading ? "…" : visibleCount}</Badge>
+        <span className="text-xs text-muted-foreground ml-auto">
+          {open ? "Hide" : "Show"}
+        </span>
+      </button>
+      {open && (
+        <div className="border-t">
+          <div className="px-4 py-3 text-xs text-muted-foreground">
+            The catalog loader moves rows out of <code>shoes</code> when their
+            title contains an apparel keyword (e.g. "Boot Graphic T-Shirt").
+            Spot-check the list and revert any false moves.
+          </div>
+          {loading && (
+            <div className="px-4 py-6 text-sm text-muted-foreground text-center">
+              Loading…
+            </div>
+          )}
+          {!loading && rows.length === 0 && (
+            <div className="px-4 py-6 text-sm text-muted-foreground text-center">
+              Nothing to review — all auto-moves have been reverted or accepted.
+            </div>
+          )}
+          {!loading && rows.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="text-left font-medium px-4 py-2">Product</th>
+                    <th className="text-left font-medium px-4 py-2">Gender</th>
+                    <th className="text-left font-medium px-4 py-2">From → To</th>
+                    <th className="text-left font-medium px-4 py-2">Hint</th>
+                    <th className="text-right font-medium px-4 py-2">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.id} className="border-t">
+                      <td className="px-4 py-2">
+                        <div className="font-medium line-clamp-1">{r.title}</div>
+                        <div className="text-xs text-muted-foreground">{r.id}</div>
+                      </td>
+                      <td className="px-4 py-2 capitalize text-muted-foreground">
+                        {r.gender}
+                      </td>
+                      <td className="px-4 py-2">
+                        <span className="text-muted-foreground line-through">
+                          {r.originalCategory}
+                        </span>
+                        <span className="mx-1 text-muted-foreground">→</span>
+                        <span className="font-medium">{r.newCategory}</span>
+                      </td>
+                      <td className="px-4 py-2 text-muted-foreground">
+                        {r.matchedHint ? (
+                          <code className="text-xs">{r.matchedHint}</code>
+                        ) : (
+                          <span className="text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={revertingId === r.id}
+                          onClick={() => handleRevert(r)}
+                        >
+                          {revertingId === r.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <>
+                              <RotateCcw className="w-3 h-3 mr-1" />
+                              Revert to {r.originalCategory}
+                            </>
+                          )}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
