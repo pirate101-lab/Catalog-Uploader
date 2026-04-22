@@ -334,10 +334,15 @@ export interface ReclassificationRecord {
   observedAt: string;
 }
 
-// In-process audit log of reclassifications. Built up at boot when
-// loadCatalog → reclassifyMislabeledShoes runs, kept in memory and
-// exposed via the admin API. Bounded so a runaway catalog cannot
-// balloon process memory.
+// In-process scratch log of reclassifications observed by the most
+// recent `reclassifyMislabeledShoes` run(s). The authoritative store
+// is now the `reclassification_events` DB table — see
+// `lib/reclassificationPersistence.ts` — but we still buffer the
+// current load's records here so:
+//   1. unit tests can assert on what fired without touching the DB;
+//   2. `loadCatalog()` has a single batch to hand off to the persister
+//      after the synchronous classification step completes.
+// Bounded so a runaway catalog cannot balloon process memory.
 const MAX_RECLASSIFICATION_RECORDS = 1000;
 const reclassificationLog: ReclassificationRecord[] = [];
 
@@ -353,6 +358,25 @@ export function getReclassifications(): ReclassificationRecord[] {
  */
 export function _resetReclassificationLogForTests(): void {
   reclassificationLog.length = 0;
+}
+
+/**
+ * Callback invoked once per `loadCatalog()` call with the records
+ * captured during that load. Wired up by
+ * `lib/reclassificationPersistence.ts` to upsert into the DB and prune
+ * stale rows. Kept as a module-level setter (rather than a direct
+ * import) to avoid a circular dep between catalog.ts and the
+ * persistence module that depends on it.
+ */
+type ReclassificationPersister = (
+  records: ReclassificationRecord[],
+) => void | Promise<void>;
+let persister: ReclassificationPersister | null = null;
+
+export function setReclassificationPersister(
+  fn: ReclassificationPersister | null,
+): void {
+  persister = fn;
 }
 
 /**
@@ -439,6 +463,15 @@ function loadCatalog(): ProductRow[] {
     if (ca !== cb) return ca.localeCompare(cb);
     return a.title.localeCompare(b.title);
   });
+  // Hand the freshly captured reclassification records to the
+  // persister (DB upsert + prune). Always invoked — even with an
+  // empty batch — so the 90-day prune still runs when a load produces
+  // zero events (e.g. all rules disabled or upstream catalog cleaned
+  // up). Fire-and-forget so a slow/failing DB write never blocks a
+  // storefront request; errors are logged inside the persister.
+  if (persister) {
+    void Promise.resolve(persister([...reclassificationLog]));
+  }
   return all;
 }
 

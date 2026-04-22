@@ -32,7 +32,11 @@ import {
   symbolForCurrency,
   PAYSTACK_CURRENCIES,
 } from "../lib/siteSettings";
-import { getAllProducts, getReclassifications } from "../lib/catalog";
+import { getAllProducts } from "../lib/catalog";
+import {
+  awaitLastPersistence,
+  listPersistedReclassifications,
+} from "../lib/reclassificationPersistence";
 import {
   ensureRecategorisationRulesLoaded,
   invalidateRecategorisationRules,
@@ -519,12 +523,14 @@ router.get("/admin/reclassifications", async (req, res) => {
     Number((req.query["limit"] as string) ?? 200) || 200,
     1000,
   );
-  // Force catalog initialization so the in-memory audit log is
-  // populated even when this endpoint is the very first thing hit
-  // after a process restart (the log is filled as a side effect of
-  // loadCatalog() inside getAllProducts()).
+  // Force catalog initialization so the persistence callback runs at
+  // least once after a cold boot — the DB query below is otherwise
+  // empty on the very first hit until the storefront triggers a load.
+  // Awaiting `lastPersistence` closes the cold-boot race between the
+  // fire-and-forget upsert and our SELECT below.
   getAllProducts();
-  const records = getReclassifications();
+  await awaitLastPersistence();
+  const records = await listPersistedReclassifications();
   const overrideRows = await db
     .select({
       productId: productOverridesTable.productId,
@@ -535,8 +541,21 @@ router.get("/admin/reclassifications", async (req, res) => {
     overrideRows.map((o) => [o.productId, o.categoryOverride]),
   );
   const decorated = records.map((r) => {
-    const ov = overrideById.get(r.id) ?? null;
-    return { ...r, currentCategoryOverride: ov, reverted: ov === r.originalCategory };
+    const ov = overrideById.get(r.productId) ?? null;
+    return {
+      // Mirror the previous in-memory shape so the admin UI doesn't
+      // need to change: `id` (== productId) + observedAt as ISO.
+      id: r.productId,
+      title: r.title,
+      gender: r.gender,
+      originalCategory: r.originalCategory,
+      newCategory: r.newCategory,
+      matchedHint: r.matchedHint,
+      observedAt: r.observedAt.toISOString(),
+      lastObservedAt: r.lastObservedAt.toISOString(),
+      currentCategoryOverride: ov,
+      reverted: ov === r.originalCategory,
+    };
   });
   const visible = decorated.filter((r) => !r.reverted);
   res.json({

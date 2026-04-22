@@ -8,6 +8,7 @@ import { getSiteSettings } from "./lib/siteSettings";
 import { refreshFxRate } from "./lib/fx";
 import { pruneStaleBuckets } from "./lib/rateLimit";
 import { ensureRecategorisationRulesLoaded } from "./lib/recategorisationRules";
+import { registerReclassificationPersister } from "./lib/reclassificationPersistence";
 
 const rawPort = process.env["PORT"];
 
@@ -103,6 +104,12 @@ app.listen(port, (err) => {
   // Run once on boot so a fresh deploy immediately reaps anything
   // left over from the previous process.
   void pruneRateLimitBuckets(RATE_LIMIT_GC_MAX_AGE_MS);
+
+  // Wire the catalog reclassification audit to the DB BEFORE the rule
+  // loader kicks the first catalog rebuild — otherwise the very first
+  // load's records are lost (the persister is null when loadCatalog
+  // runs and the in-memory log is cleared on the next invalidation).
+  registerReclassificationPersister();
 
   // Pull (and seed if empty) the editable auto-recategorisation rules
   // before the catalog is read for the first time. The catalog loader

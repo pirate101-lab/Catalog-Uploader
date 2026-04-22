@@ -458,6 +458,53 @@ export type InsertRecategorisationRule =
   typeof recategorisationRulesTable.$inferInsert;
 
 /**
+ * Persistent audit log of every auto-recategorisation that fires on
+ * catalog load. Replaces the in-memory `reclassificationLog` that used
+ * to live in `catalog.ts` so staff don't lose the trail of moves they
+ * have already reviewed every time the server restarts. One row per
+ * product (the same product reclassified by the same rule on every
+ * boot would otherwise create endless duplicates) — `observedAt`
+ * records the first sighting, `lastObservedAt` is bumped to NOW() on
+ * every reload and drives the 90-day prune.
+ */
+export const reclassificationEventsTable = pgTable(
+  "reclassification_events",
+  {
+    productId: varchar("product_id").primaryKey(),
+    title: text("title").notNull(),
+    gender: varchar("gender", { length: 8 }).notNull(),
+    originalCategory: text("original_category").notNull(),
+    newCategory: text("new_category").notNull(),
+    /** The non-shoe garment keyword that triggered the move. Null when
+     *  the rule fired without capturing a hint. */
+    matchedHint: text("matched_hint"),
+    /** First time we saw this product reclassified — preserved across
+     *  catalog reloads via `onConflictDoUpdate`. */
+    observedAt: timestamp("observed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** Refreshed to NOW() on every catalog reload that re-observes the
+     *  same move. Drives the 90-day prune so records for products that
+     *  are no longer being reclassified eventually fall off. */
+    lastObservedAt: timestamp("last_observed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("IDX_reclassification_events_last_observed").on(table.lastObservedAt),
+    check(
+      "CK_reclassification_events_gender",
+      sql`gender IN ('men','women')`,
+    ),
+  ],
+);
+
+export type ReclassificationEvent =
+  typeof reclassificationEventsTable.$inferSelect;
+export type InsertReclassificationEvent =
+  typeof reclassificationEventsTable.$inferInsert;
+
+/**
  * Singleton marker recording that the default recategorisation rules
  * have been seeded at least once. We deliberately do NOT auto-reseed
  * defaults whenever the table is empty: if an admin deletes every rule
