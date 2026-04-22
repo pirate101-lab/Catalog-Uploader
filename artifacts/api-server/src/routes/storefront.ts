@@ -21,7 +21,7 @@ import {
 } from "../lib/productCatalog";
 import { getOverridesMap } from "../lib/overrides";
 import { getSiteSettingsForStorefront } from "../lib/siteSettings";
-import { verifyOrderViewToken } from "../lib/orderViewToken";
+import { mintOrderViewToken, verifyOrderViewToken } from "../lib/orderViewToken";
 
 const router: IRouter = Router();
 
@@ -814,6 +814,104 @@ router.get("/storefront/products/:id", async (req: Request, res: Response) => {
     return;
   }
   res.json(applyOverride(row, ov));
+});
+
+/**
+ * Public order lookup form. Backs the storefront /orders page that
+ * lets a shopper recover their order-status link by entering the
+ * order id + the email used at checkout.
+ *
+ * Rate-limited per client IP to keep the form from being used as
+ * an order-id oracle: a hostile caller cannot probe random ids
+ * without quickly hitting a 429, and the success / failure
+ * responses are intentionally indistinguishable in latency and
+ * shape so a partial match (right id, wrong email) cannot be
+ * teased apart from a complete miss.
+ */
+interface LookupBucket {
+  recent: number[];
+}
+const LOOKUP_LIMIT_PER_15M = 10;
+const LOOKUP_MIN_GAP_MS = 1_000;
+const LOOKUP_BUCKETS = new Map<string, LookupBucket>();
+
+function checkLookupQuota(
+  key: string,
+): { ok: true } | { ok: false; retryAfterMs: number; reason: string } {
+  const now = Date.now();
+  const windowAgo = now - 15 * 60 * 1000;
+  const bucket = LOOKUP_BUCKETS.get(key) ?? { recent: [] };
+  bucket.recent = bucket.recent.filter((t) => t > windowAgo);
+  if (bucket.recent.length > 0) {
+    const last = bucket.recent[bucket.recent.length - 1] ?? 0;
+    const gap = now - last;
+    if (gap < LOOKUP_MIN_GAP_MS) {
+      LOOKUP_BUCKETS.set(key, bucket);
+      return {
+        ok: false,
+        retryAfterMs: LOOKUP_MIN_GAP_MS - gap,
+        reason: "Please wait a moment before trying again.",
+      };
+    }
+  }
+  if (bucket.recent.length >= LOOKUP_LIMIT_PER_15M) {
+    const earliest = bucket.recent[0] ?? now;
+    LOOKUP_BUCKETS.set(key, bucket);
+    return {
+      ok: false,
+      retryAfterMs: 15 * 60 * 1000 - (now - earliest),
+      reason: "Too many lookup attempts. Please try again later.",
+    };
+  }
+  bucket.recent.push(now);
+  LOOKUP_BUCKETS.set(key, bucket);
+  return { ok: true };
+}
+
+const lookupSchema = z.object({
+  orderId: z.string().trim().min(1).max(128),
+  email: z.string().trim().toLowerCase().email().max(254),
+});
+
+const LOOKUP_GENERIC_ERROR =
+  "We couldn't find an order matching those details. Double-check the order number and email from your confirmation.";
+
+router.post("/storefront/orders/lookup", async (req: Request, res: Response) => {
+  const ip = req.ip ?? req.socket?.remoteAddress ?? "unknown";
+  const quota = checkLookupQuota(`ip:${ip}`);
+  if (!quota.ok) {
+    res
+      .status(429)
+      .setHeader("Retry-After", Math.ceil(quota.retryAfterMs / 1000))
+      .json({ error: quota.reason });
+    return;
+  }
+  const parsed = lookupSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    // Same generic message as a miss — we don't tell the caller
+    // whether the failure was a malformed id, a bad email, or no
+    // such order. That keeps the form from leaking which inputs
+    // were "almost right".
+    res.status(404).json({ error: LOOKUP_GENERIC_ERROR });
+    return;
+  }
+  const { orderId, email } = parsed.data;
+  const [row] = await db
+    .select({ id: ordersTable.id, email: ordersTable.email })
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId))
+    .limit(1);
+  const matches = !!row && (row.email ?? "").toLowerCase() === email;
+  if (!matches) {
+    res.status(404).json({ error: LOOKUP_GENERIC_ERROR });
+    return;
+  }
+  const token = mintOrderViewToken(row.id);
+  res.json({
+    orderId: row.id,
+    token,
+    url: `/orders/${encodeURIComponent(row.id)}?t=${encodeURIComponent(token)}`,
+  });
 });
 
 /**
