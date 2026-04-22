@@ -194,7 +194,7 @@ function FilterPanel(props: FilterPanelProps) {
             <button
               key={size}
               onClick={() => toggleSize(size)}
-              className={`h-10 text-xs font-semibold border transition-all ${
+              className={`h-9 sm:h-10 text-xs font-semibold border transition-all ${
                 selectedSizes.includes(size)
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border text-foreground hover:border-foreground'
@@ -609,13 +609,16 @@ export function ShopPage() {
                 </div>
                 <button
                   onClick={() => setMobileFiltersOpen(true)}
-                  className="lg:hidden inline-flex items-center gap-2 h-10 px-4 border border-border text-xs uppercase tracking-widest"
+                  className="lg:hidden inline-flex items-center gap-1.5 sm:gap-2 h-9 sm:h-10 px-2.5 sm:px-4 border border-border text-[10px] sm:text-xs uppercase tracking-widest"
                   data-testid="button-mobile-filters"
                 >
-                  <SlidersHorizontal className="w-4 h-4" /> Filter
+                  <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Filter
                 </button>
                 <Select value={sort} onValueChange={(v) => updateSort(v as SortKey)}>
-                  <SelectTrigger className="w-[180px] rounded-lg h-10" data-testid="select-sort">
+                  <SelectTrigger
+                    className="w-[130px] sm:w-[180px] rounded-lg h-9 sm:h-10 text-[10px] sm:text-xs px-2.5 sm:px-3"
+                    data-testid="select-sort"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
