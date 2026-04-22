@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import net from "node:net";
 import nodemailer, { type Transporter } from "nodemailer";
 import { getSiteSettings, symbolForCurrency } from "./siteSettings";
 import {
@@ -468,7 +469,7 @@ export function categorizeSmtpError(err: unknown): SmtpVerifyError {
       code,
       statusCode,
       message,
-      hint: "Authentication failed. Double-check the SMTP username and password — most providers require an app-specific password rather than your inbox password.",
+      hint: "Authentication failed. Double-check the SMTP username (it must be the full email address) and password. Titan, Zoho and Google Workspace require an app-specific password when 2FA is on — your normal mailbox password will be rejected. On Titan, a wrong password often shows up as a silent timeout instead of a clean 535 error, so if the host/port are right this is the most likely cause.",
     };
   }
 
@@ -538,6 +539,68 @@ export function categorizeSmtpError(err: unknown): SmtpVerifyError {
     message,
     hint: "Unrecognised SMTP error. The full message above is from your mail provider — search it in their docs to identify the next step.",
   };
+}
+
+/**
+ * Open a raw TCP socket to host:port with a tight timeout, then
+ * immediately close it. Used as a pre-flight before {@link verifySmtp}
+ * so we can tell the difference between:
+ *
+ *   - a true network problem (DNS, blocked port, host typo) — the
+ *     probe fails and we report a clean network category, AND
+ *
+ *   - a credential problem masquerading as a timeout — the probe
+ *     succeeds (proving the network is fine) but the subsequent SMTP
+ *     conversation hangs because the server silently drops the socket
+ *     after AUTH. Titan and Zoho both do this; without the probe the
+ *     operator sees ETIMEDOUT and assumes a firewall issue.
+ *
+ * Returns null on success, or a probe error object that mirrors the
+ * shape nodemailer would have given us so categorizeSmtpError() can
+ * consume it directly.
+ */
+async function probeSmtpReachable(
+  host: string,
+  port: number,
+  timeoutMs = 6_000,
+): Promise<{ code: string; message: string } | null> {
+  return await new Promise((resolve) => {
+    const sock = new net.Socket();
+    let settled = false;
+    const finish = (err: { code: string; message: string } | null) => {
+      if (settled) return;
+      settled = true;
+      try {
+        sock.destroy();
+      } catch {
+        /* socket already closed */
+      }
+      resolve(err);
+    };
+    sock.setTimeout(timeoutMs);
+    sock.once("timeout", () =>
+      finish({
+        code: "ETIMEDOUT",
+        message: `TCP connect to ${host}:${port} timed out after ${timeoutMs}ms`,
+      }),
+    );
+    sock.once("error", (err: NodeJS.ErrnoException) =>
+      finish({
+        code: err.code ?? "ESOCKET",
+        message: err.message || `TCP connect to ${host}:${port} failed`,
+      }),
+    );
+    sock.once("connect", () => finish(null));
+    try {
+      sock.connect(port, host);
+    } catch (err) {
+      finish({
+        code: "ESOCKET",
+        message:
+          err instanceof Error ? err.message : `Could not initiate connect to ${host}:${port}`,
+      });
+    }
+  });
 }
 
 function buildTransport(cfg: SmtpConfig): Transporter {
@@ -636,16 +699,54 @@ export async function verifySmtp(s: SettingsLike): Promise<SmtpVerifyResult> {
       },
     };
   }
+  // Pre-flight: prove the TCP socket can actually open. If this fails
+  // we report a real network category and skip the (much longer)
+  // nodemailer handshake — saves the operator 15s and avoids the
+  // misleading "ETIMEDOUT during AUTH" hint.
+  const probeError = await probeSmtpReachable(cfg.host, cfg.port);
+  if (probeError) {
+    return {
+      ok: false,
+      configured: true,
+      missing: [],
+      error: categorizeSmtpError(probeError),
+    };
+  }
+
   const transport = buildTransport(cfg);
   try {
     await transport.verify();
     return { ok: true, configured: true, missing: [], error: null };
   } catch (err) {
+    const categorized = categorizeSmtpError(err);
+    // Network was demonstrably reachable (probe succeeded), so any
+    // socket-level timeout / reset / generic socket error from
+    // nodemailer means the server accepted the connection and then
+    // silently hung up — overwhelmingly that's bad credentials on
+    // providers like Titan and Zoho. Re-categorize as `auth` so the UI
+    // points the operator at the password instead of their firewall.
+    if (
+      categorized.category === "timeout" ||
+      categorized.category === "connection"
+    ) {
+      return {
+        ok: false,
+        configured: true,
+        missing: [],
+        error: {
+          category: "auth",
+          code: categorized.code,
+          statusCode: categorized.statusCode,
+          message: `TCP to ${cfg.host}:${cfg.port} succeeded, but the SMTP session was dropped before completion (${categorized.message}).`,
+          hint: "The network reached your SMTP server, but the server cut the connection mid-conversation. On Titan and Zoho this almost always means the username or password is wrong (they drop the socket instead of returning a 535 error). Double-check that the username is the full email address, that you used an app-specific password if 2FA is on, and that the mailbox finished provisioning in the provider's webmail.",
+        },
+      };
+    }
     return {
       ok: false,
       configured: true,
       missing: [],
-      error: categorizeSmtpError(err),
+      error: categorized,
     };
   } finally {
     transport.close();
