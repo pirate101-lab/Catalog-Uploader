@@ -1519,6 +1519,7 @@ const SUPER_ADMIN_ONLY_FIELDS = [
   "smtpPasswordSet",
   "resendApiKey",
   "resendApiKeySet",
+  "bankTransferEnabled",
   "bankName",
   "bankAccountName",
   "bankAccountNumber",

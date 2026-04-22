@@ -385,7 +385,9 @@ export function CheckoutPage() {
             <p className="text-muted-foreground mb-2">
               {wasPaidOnline
                 ? "Thanks — we've received your payment and will email you a receipt and shipping update shortly."
-                : "Your order has been recorded. Please complete payment by bank transfer using the details below — once we see the deposit we'll ship your order and email you a confirmation."}
+                : bankReady
+                  ? "Your order has been recorded. Please complete payment by bank transfer using the details below — once we see the deposit we'll ship your order and email you a confirmation."
+                  : "Your order has been recorded. Our team will be in touch shortly with payment instructions."}
             </p>
             <p className="text-sm uppercase tracking-widest mb-10">
               Order #
@@ -398,7 +400,7 @@ export function CheckoutPage() {
             </p>
           </div>
 
-          {wasPaidOnline ? null : (
+          {wasPaidOnline || !bankReady ? null : (
             <div className="rounded-2xl border border-border bg-muted/20 p-8 mb-10">
               <h2 className="text-xs font-bold uppercase tracking-widest mb-6">
                 Payment Instructions
