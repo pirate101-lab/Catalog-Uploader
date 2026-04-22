@@ -34,6 +34,12 @@ import {
 } from "../lib/siteSettings";
 import { getAllProducts, getReclassifications } from "../lib/catalog";
 import {
+  ensureRecategorisationRulesLoaded,
+  invalidateRecategorisationRules,
+  listAllRecategorisationRules,
+} from "../lib/recategorisationRules";
+import { recategorisationRulesTable } from "@workspace/db";
+import {
   getMergedProducts,
   getMergedProductById,
   applyOverride,
@@ -538,6 +544,167 @@ router.get("/admin/reclassifications", async (req, res) => {
     total: visible.length,
     totalEverMoved: records.length,
   });
+});
+
+/* ---------------- Recategorisation rules CRUD ----------------
+ * Editable copy of what used to be the hard-coded `NON_SHOE_HINTS`
+ * list in catalog.ts. Each rule has a label, a regex pattern (compiled
+ * case-insensitively), a target category, and an enabled flag. Adding,
+ * editing, disabling, or deleting a rule clears the in-process rule
+ * cache + the catalog cache so the very next product fetch re-runs
+ * `reclassifyMislabeledShoes` against the new rule set — no restart
+ * needed.
+ */
+router.get("/admin/recategorisation-rules", async (_req, res) => {
+  // Make sure the table is seeded with defaults the very first time
+  // this endpoint is hit (covers fresh databases where the boot-time
+  // loader hasn't run yet, e.g. inside an integration test harness).
+  await ensureRecategorisationRulesLoaded().catch(() => {
+    /* swallow — listAll will still return [] on a hard DB failure */
+  });
+  const rows = await listAllRecategorisationRules();
+  res.json(rows);
+});
+
+interface RuleInput {
+  label?: unknown;
+  pattern?: unknown;
+  targetCategory?: unknown;
+  enabled?: unknown;
+  sortOrder?: unknown;
+}
+
+function parseRuleBody(
+  body: RuleInput,
+  partial: boolean,
+):
+  | { ok: true; values: Partial<typeof recategorisationRulesTable.$inferInsert> }
+  | { ok: false; error: string } {
+  const out: Partial<typeof recategorisationRulesTable.$inferInsert> = {};
+  if (body.label !== undefined) {
+    if (typeof body.label !== "string" || !body.label.trim()) {
+      return { ok: false, error: "label must be a non-empty string" };
+    }
+    out.label = body.label.trim();
+  } else if (!partial) {
+    return { ok: false, error: "label is required" };
+  }
+  if (body.pattern !== undefined) {
+    if (typeof body.pattern !== "string" || !body.pattern.trim()) {
+      return { ok: false, error: "pattern must be a non-empty string" };
+    }
+    // Validate the regex up-front so the admin gets a clean 400 instead
+    // of silently saving a rule that the catalog loader will skip.
+    try {
+      new RegExp(body.pattern, "i");
+    } catch (e) {
+      return { ok: false, error: `pattern is not a valid regex: ${(e as Error).message}` };
+    }
+    out.pattern = body.pattern;
+  } else if (!partial) {
+    return { ok: false, error: "pattern is required" };
+  }
+  if (body.targetCategory !== undefined) {
+    if (typeof body.targetCategory !== "string" || !body.targetCategory.trim()) {
+      return { ok: false, error: "targetCategory must be a non-empty string" };
+    }
+    out.targetCategory = body.targetCategory.trim();
+  } else if (!partial) {
+    return { ok: false, error: "targetCategory is required" };
+  }
+  if (body.enabled !== undefined) {
+    // Strict boolean check — string payloads like "false" should not
+    // silently coerce to true via `!!`. Reject anything that isn't a
+    // literal boolean so the admin can't accidentally mass-enable rules.
+    if (typeof body.enabled !== "boolean") {
+      return { ok: false, error: "enabled must be a boolean" };
+    }
+    out.enabled = body.enabled;
+  }
+  if (body.sortOrder !== undefined) {
+    const n = Number(body.sortOrder);
+    if (!Number.isFinite(n)) {
+      return { ok: false, error: "sortOrder must be a number" };
+    }
+    out.sortOrder = Math.floor(n);
+  }
+  return { ok: true, values: out };
+}
+
+router.post("/admin/recategorisation-rules", async (req, res) => {
+  const parsed = parseRuleBody((req.body ?? {}) as RuleInput, false);
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  // Default sortOrder to "after the current max" so new rules append
+  // to the end of the list rather than colliding with sortOrder=0.
+  if (parsed.values.sortOrder === undefined) {
+    const [maxRow] = await db
+      .select({
+        max: sql<number>`COALESCE(MAX(${recategorisationRulesTable.sortOrder}), -1)`,
+      })
+      .from(recategorisationRulesTable);
+    parsed.values.sortOrder = (maxRow?.max ?? -1) + 1;
+  }
+  const [created] = await db
+    .insert(recategorisationRulesTable)
+    .values(parsed.values as typeof recategorisationRulesTable.$inferInsert)
+    .returning();
+  invalidateRecategorisationRules();
+  // Re-prime the cache so the very next /admin/products call picks up
+  // the new rule without a cold-load penalty.
+  await ensureRecategorisationRulesLoaded().catch(() => {
+    /* non-fatal */
+  });
+  res.status(201).json(created);
+});
+
+router.patch("/admin/recategorisation-rules/:id", async (req, res) => {
+  const id = Number(req.params["id"]);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const parsed = parseRuleBody((req.body ?? {}) as RuleInput, true);
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  if (Object.keys(parsed.values).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  const [updated] = await db
+    .update(recategorisationRulesTable)
+    .set(parsed.values)
+    .where(eq(recategorisationRulesTable.id, id))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  invalidateRecategorisationRules();
+  await ensureRecategorisationRulesLoaded().catch(() => {
+    /* non-fatal */
+  });
+  res.json(updated);
+});
+
+router.delete("/admin/recategorisation-rules/:id", async (req, res) => {
+  const id = Number(req.params["id"]);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  await db
+    .delete(recategorisationRulesTable)
+    .where(eq(recategorisationRulesTable.id, id));
+  invalidateRecategorisationRules();
+  await ensureRecategorisationRulesLoaded().catch(() => {
+    /* non-fatal */
+  });
+  res.status(204).end();
 });
 
 /* ---------------- Catalog category list ----------------

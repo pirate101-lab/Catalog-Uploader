@@ -260,6 +260,14 @@ const SHOE_KEYWORDS = /\b(boot|bootie|booties|sneaker|sandal|heel|heels|loafer|p
 
 // Strong signals the title is something OTHER than footwear, even if
 // the word "boot" appears (e.g. "Boot Graphic T-Shirt", "Bootcut Pants").
+//
+// These are the *fallback* rules used by `reclassifyMislabeledShoes`
+// when the caller doesn't pass an explicit rule list AND when the
+// editable rule cache from the database hasn't been populated yet (e.g.
+// during the very first request after a cold boot, or in unit tests
+// that exercise the function directly without touching the DB). The
+// authoritative source of truth for production is the
+// `recategorisation_rules` table — see `lib/recategorisationRules.ts`.
 const NON_SHOE_HINTS: Array<{ re: RegExp; category: string }> = [
   { re: /\bbootcut\b|\bjeans?\b|\bdenim\b|\bpants?\b|\btrouser|\bleggings?\b|\bshorts?\b|\bskirt|\bskort/i, category: "bottoms" },
   { re: /\b(t[\s-]?shirt|tee|tees|sweatshirt|hoodie|blouse|cami|tank|crop\s?top|polo|shirt|top|graphic)\b/i, category: "tops" },
@@ -269,6 +277,44 @@ const NON_SHOE_HINTS: Array<{ re: RegExp; category: string }> = [
   { re: /\bsweater|\bknit\b|\bpullover/i, category: "sweaters" },
   { re: /\b(set|sets|two[\s-]?piece|2[\s-]?piece|3[\s-]?piece)\b/i, category: "sets" },
 ];
+
+/**
+ * Module-level injectable rule list used by `loadCatalog`. Tri-state
+ * by design:
+ *   - `null`  → DB-backed rules have not been loaded yet (very first
+ *               boot before `ensureRecategorisationRulesLoaded`
+ *               resolves, or unit tests that never touch the DB). We
+ *               fall back to the hard-coded NON_SHOE_HINTS so the
+ *               classifier still produces sane output during that
+ *               narrow bootstrap window.
+ *   - `[]`   → Admin has loaded the rules from the DB and the active
+ *               set is intentionally empty (every rule disabled or
+ *               deleted). We must respect that and skip recategorisation
+ *               entirely — falling back to NON_SHOE_HINTS here would
+ *               silently override the admin's choice.
+ *   - `[…]`  → Use exactly these rules.
+ *
+ * Kept as a module-level binding (rather than read on every call to
+ * `reclassifyMislabeledShoes`) so importing the rule module from this
+ * file would create a circular dependency — instead the rules module
+ * pushes its compiled rules in via `setActiveRecategorisationRules`.
+ */
+let activeRules: Array<{ re: RegExp; category: string }> | null = null;
+
+/**
+ * Replace the live rule list used by the next catalog reload. Called
+ * by `recategorisationRules.ts` whenever the DB-backed rule cache is
+ * loaded or invalidated. Pass an empty array to mean "no rules" — the
+ * loader will skip recategorisation entirely. Pass `null` only to
+ * reset to the not-loaded bootstrap state (used by tests). Pair with
+ * `invalidateCatalog()` to force the already-built catalog to rebuild
+ * with the new rules on the next `getAllProducts()` call.
+ */
+export function setActiveRecategorisationRules(
+  rules: Array<{ re: RegExp; category: string }> | null,
+): void {
+  activeRules = rules;
+}
 
 /**
  * Audit record for a single auto-recategorisation, surfaced to the
@@ -319,12 +365,15 @@ export function _resetReclassificationLogForTests(): void {
  * Mutates rows in place AND appends an audit record for each change so
  * staff can inspect the moves in the admin (see getReclassifications).
  */
-export function reclassifyMislabeledShoes(rows: ProductRow[]): void {
+export function reclassifyMislabeledShoes(
+  rows: ProductRow[],
+  rules: Array<{ re: RegExp; category: string }> = NON_SHOE_HINTS,
+): void {
   for (const r of rows) {
     if (r.category !== "shoes") continue;
     const title = r.title ?? "";
     // Find the first non-shoe garment hint that matches the title.
-    const garment = NON_SHOE_HINTS.find((h) => h.re.test(title));
+    const garment = rules.find((h) => h.re.test(title));
     const hasShoeKeyword = SHOE_KEYWORDS.test(title);
     // If a garment hint matches and we don't see an unambiguous shoe
     // keyword (other than "boot", which is the source of the false
@@ -365,8 +414,15 @@ function loadCatalog(): ProductRow[] {
   // Move mis-categorised "shoes" rows (e.g. "Boot Graphic T-Shirt")
   // into the right apparel bucket BEFORE bucket derivation so the
   // featured grids don't surface them under Shoes.
-  reclassifyMislabeledShoes(women);
-  reclassifyMislabeledShoes(men);
+  // `activeRules === null` means the DB-backed rule cache hasn't loaded
+  // yet — use the hard-coded defaults so we still produce sane output.
+  // `activeRules === []` is a deliberate admin choice to disable every
+  // rule and must be respected.
+  const rulesToApply = activeRules ?? NON_SHOE_HINTS;
+  if (rulesToApply.length > 0) {
+    reclassifyMislabeledShoes(women, rulesToApply);
+    reclassifyMislabeledShoes(men, rulesToApply);
+  }
   // Synthesise the four merch buckets for both catalogs. The top-nav
   // tabs (New In / Collection / TikTok Verified / Trending) are
   // women-only, but the homepage featured grid filters by
@@ -393,6 +449,18 @@ export function getAllProducts(): ProductRow[] {
     cache = loadCatalog();
   }
   return cache;
+}
+
+/**
+ * Drop the cached catalog so the next `getAllProducts()` call rebuilds
+ * from disk and re-runs `reclassifyMislabeledShoes` against whatever
+ * rule set is currently installed via `setActiveRecategorisationRules`.
+ * Also clears the in-memory reclassification audit log so the admin
+ * panel reflects only the moves produced by the new rule set.
+ */
+export function invalidateCatalog(): void {
+  cache = null;
+  reclassificationLog.length = 0;
 }
 
 export function getProductById(id: string): ProductRow | null {

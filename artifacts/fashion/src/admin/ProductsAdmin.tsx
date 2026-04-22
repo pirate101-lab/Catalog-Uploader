@@ -6,6 +6,7 @@ import {
   type ProductOverride,
   type ProductRow,
   type ReclassificationRow,
+  type RecategorisationRule,
 } from "./api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -475,6 +476,11 @@ export function ProductsAdmin() {
       <ReclassificationsCard
         reloadTick={reloadTick}
         onReverted={reload}
+      />
+
+      <RecategorisationRulesCard
+        reloadTick={reloadTick}
+        onChanged={reload}
       />
 
       {loading && (
@@ -1296,6 +1302,376 @@ function ReclassificationsCard({
               </table>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Editable view of the auto-recategorisation rule list. Adding,
+ * editing, toggling, or deleting a rule hits the admin CRUD endpoint,
+ * which in turn invalidates the in-process catalog cache so the
+ * change influences the very next product fetch — no server restart
+ * required. The card lazy-renders rules in a table with inline edit
+ * controls; expanded by default the first time a row exists, since
+ * staff coming to this page usually want to see the rules they're
+ * tuning.
+ */
+function RecategorisationRulesCard({
+  reloadTick,
+  onChanged,
+}: {
+  reloadTick: number;
+  onChanged: () => void;
+}) {
+  const [rules, setRules] = useState<RecategorisationRule[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [busyId, setBusyId] = useState<number | "new" | null>(null);
+  const [draft, setDraft] = useState<{
+    label: string;
+    pattern: string;
+    targetCategory: string;
+  }>({ label: "", pattern: "", targetCategory: "" });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<{
+    label: string;
+    pattern: string;
+    targetCategory: string;
+  }>({ label: "", pattern: "", targetCategory: "" });
+
+  const refresh = () => {
+    setLoading(true);
+    adminApi
+      .listRecategorisationRules()
+      .then((rows) => setRules(rows))
+      .catch((e) =>
+        toast.error(`Couldn't load rules: ${(e as Error).message}`),
+      )
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloadTick]);
+
+  const handleCreate = async () => {
+    const label = draft.label.trim();
+    const pattern = draft.pattern.trim();
+    const targetCategory = draft.targetCategory.trim();
+    if (!label || !pattern || !targetCategory) {
+      toast.error("Label, pattern, and target category are all required");
+      return;
+    }
+    setBusyId("new");
+    try {
+      await adminApi.createRecategorisationRule({
+        label,
+        pattern,
+        targetCategory,
+      });
+      toast.success("Rule added");
+      setDraft({ label: "", pattern: "", targetCategory: "" });
+      refresh();
+      onChanged();
+    } catch (e) {
+      toast.error(`Add failed: ${(e as Error).message}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleToggle = async (rule: RecategorisationRule) => {
+    setBusyId(rule.id);
+    try {
+      await adminApi.updateRecategorisationRule(rule.id, {
+        enabled: !rule.enabled,
+      });
+      refresh();
+      onChanged();
+    } catch (e) {
+      toast.error(`Update failed: ${(e as Error).message}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const startEdit = (rule: RecategorisationRule) => {
+    setEditingId(rule.id);
+    setEditDraft({
+      label: rule.label,
+      pattern: rule.pattern,
+      targetCategory: rule.targetCategory,
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (editingId === null) return;
+    const label = editDraft.label.trim();
+    const pattern = editDraft.pattern.trim();
+    const targetCategory = editDraft.targetCategory.trim();
+    if (!label || !pattern || !targetCategory) {
+      toast.error("All fields are required");
+      return;
+    }
+    setBusyId(editingId);
+    try {
+      await adminApi.updateRecategorisationRule(editingId, {
+        label,
+        pattern,
+        targetCategory,
+      });
+      toast.success("Rule updated");
+      setEditingId(null);
+      refresh();
+      onChanged();
+    } catch (e) {
+      toast.error(`Save failed: ${(e as Error).message}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDelete = async (rule: RecategorisationRule) => {
+    if (
+      !confirm(
+        `Delete the "${rule.label}" rule? This will stop moving rows that match its pattern.`,
+      )
+    ) {
+      return;
+    }
+    setBusyId(rule.id);
+    try {
+      await adminApi.deleteRecategorisationRule(rule.id);
+      toast.success("Rule deleted");
+      refresh();
+      onChanged();
+    } catch (e) {
+      toast.error(`Delete failed: ${(e as Error).message}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const count = rules?.length ?? 0;
+  const enabledCount = rules?.filter((r) => r.enabled).length ?? 0;
+
+  return (
+    <div className="border rounded-lg mb-4 bg-card">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+        aria-expanded={open}
+      >
+        <Wand2 className="w-4 h-4 text-muted-foreground" />
+        <span className="font-medium text-sm">Recategorisation rules</span>
+        <Badge variant="secondary">
+          {loading ? "…" : `${enabledCount}/${count}`}
+        </Badge>
+        <span className="text-xs text-muted-foreground ml-auto">
+          {open ? "Hide" : "Show"}
+        </span>
+      </button>
+      {open && (
+        <div className="border-t">
+          <div className="px-4 py-3 text-xs text-muted-foreground">
+            Each rule pairs a regex pattern with a target category. When the
+            catalog reloads, any product currently tagged{" "}
+            <code>shoes</code> whose title matches a rule's pattern is moved
+            into that rule's category. Disable a rule to keep its definition
+            on file without applying it. Changes take effect on the next
+            product reload.
+          </div>
+          {loading && !rules && (
+            <div className="px-4 py-6 text-sm text-muted-foreground text-center">
+              Loading…
+            </div>
+          )}
+          {rules && rules.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="text-left font-medium px-4 py-2">Label</th>
+                    <th className="text-left font-medium px-4 py-2">Pattern</th>
+                    <th className="text-left font-medium px-4 py-2">
+                      Target category
+                    </th>
+                    <th className="text-left font-medium px-4 py-2">Enabled</th>
+                    <th className="text-right font-medium px-4 py-2">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rules.map((rule) => {
+                    const isEditing = editingId === rule.id;
+                    const isBusy = busyId === rule.id;
+                    return (
+                      <tr key={rule.id} className="border-t align-top">
+                        <td className="px-4 py-2">
+                          {isEditing ? (
+                            <Input
+                              value={editDraft.label}
+                              onChange={(e) =>
+                                setEditDraft((d) => ({
+                                  ...d,
+                                  label: e.target.value,
+                                }))
+                              }
+                            />
+                          ) : (
+                            <div className="font-medium">{rule.label}</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          {isEditing ? (
+                            <Input
+                              value={editDraft.pattern}
+                              onChange={(e) =>
+                                setEditDraft((d) => ({
+                                  ...d,
+                                  pattern: e.target.value,
+                                }))
+                              }
+                              className="font-mono text-xs"
+                            />
+                          ) : (
+                            <code className="text-xs break-all">
+                              {rule.pattern}
+                            </code>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          {isEditing ? (
+                            <Input
+                              value={editDraft.targetCategory}
+                              onChange={(e) =>
+                                setEditDraft((d) => ({
+                                  ...d,
+                                  targetCategory: e.target.value,
+                                }))
+                              }
+                              placeholder="tops"
+                            />
+                          ) : (
+                            <span className="capitalize">
+                              {rule.targetCategory}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          <Switch
+                            checked={rule.enabled}
+                            disabled={isBusy || isEditing}
+                            onCheckedChange={() => handleToggle(rule)}
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-right whitespace-nowrap">
+                          {isEditing ? (
+                            <div className="inline-flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditingId(null)}
+                                disabled={isBusy}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={handleSaveEdit}
+                                disabled={isBusy}
+                              >
+                                {isBusy ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  "Save"
+                                )}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="inline-flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => startEdit(rule)}
+                                disabled={isBusy}
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleDelete(rule)}
+                                disabled={isBusy}
+                              >
+                                {isBusy ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3 h-3" />
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {/* Add-new row sits below the table so staff can keep adding
+              hints without scrolling — labels above each field keep
+              the form readable on narrow screens. */}
+          <div className="border-t bg-muted/20 px-4 py-3">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+              Add a rule
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_160px_auto] gap-2">
+              <Input
+                placeholder="Label (e.g. Activewear)"
+                value={draft.label}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, label: e.target.value }))
+                }
+              />
+              <Input
+                placeholder="Pattern (e.g. \\bjogger|\\blegging)"
+                value={draft.pattern}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, pattern: e.target.value }))
+                }
+                className="font-mono text-xs"
+              />
+              <Input
+                placeholder="Target (e.g. activewear)"
+                value={draft.targetCategory}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    targetCategory: e.target.value,
+                  }))
+                }
+              />
+              <Button
+                size="sm"
+                onClick={handleCreate}
+                disabled={busyId === "new"}
+              >
+                {busyId === "new" ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <>
+                    <Plus className="w-3 h-3 mr-1" /> Add
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

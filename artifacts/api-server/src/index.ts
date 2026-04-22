@@ -7,6 +7,7 @@ import { sql, isNull } from "drizzle-orm";
 import { getSiteSettings } from "./lib/siteSettings";
 import { refreshFxRate } from "./lib/fx";
 import { pruneStaleBuckets } from "./lib/rateLimit";
+import { ensureRecategorisationRulesLoaded } from "./lib/recategorisationRules";
 
 const rawPort = process.env["PORT"];
 
@@ -102,6 +103,18 @@ app.listen(port, (err) => {
   // Run once on boot so a fresh deploy immediately reaps anything
   // left over from the previous process.
   void pruneRateLimitBuckets(RATE_LIMIT_GC_MAX_AGE_MS);
+
+  // Pull (and seed if empty) the editable auto-recategorisation rules
+  // before the catalog is read for the first time. The catalog loader
+  // falls back to the hard-coded defaults if a request lands before
+  // this resolves; once it does, the next product fetch picks up the
+  // DB-backed rule set.
+  void ensureRecategorisationRulesLoaded().catch((err) => {
+    logger.warn(
+      { err },
+      "Failed to load recategorisation rules; using built-in defaults",
+    );
+  });
 });
 
 async function backfillDisplayColumns(): Promise<void> {

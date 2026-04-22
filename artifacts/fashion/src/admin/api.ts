@@ -378,6 +378,25 @@ export interface ReclassificationRow {
   reverted: boolean;
 }
 
+export interface RecategorisationRule {
+  id: number;
+  label: string;
+  pattern: string;
+  targetCategory: string;
+  enabled: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecategorisationRuleInput {
+  label: string;
+  pattern: string;
+  targetCategory: string;
+  enabled?: boolean;
+  sortOrder?: number;
+}
+
 export interface ProductRow {
   id: string;
   title: string;
@@ -681,6 +700,25 @@ export const adminApi = {
       total: number;
       totalEverMoved: number;
     }>("/admin/reclassifications"),
+  listRecategorisationRules: () =>
+    adminFetch<RecategorisationRule[]>("/admin/recategorisation-rules"),
+  createRecategorisationRule: (data: RecategorisationRuleInput) =>
+    adminFetch<RecategorisationRule>("/admin/recategorisation-rules", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateRecategorisationRule: (
+    id: number,
+    data: Partial<RecategorisationRuleInput>,
+  ) =>
+    adminFetch<RecategorisationRule>(
+      `/admin/recategorisation-rules/${id}`,
+      { method: "PATCH", body: JSON.stringify(data) },
+    ),
+  deleteRecategorisationRule: (id: number) =>
+    adminFetch<void>(`/admin/recategorisation-rules/${id}`, {
+      method: "DELETE",
+    }),
   createCustomProduct: (data: CustomProductInput) =>
     adminFetch<CustomProduct>("/admin/custom-products", {
       method: "POST",

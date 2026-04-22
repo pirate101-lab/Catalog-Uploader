@@ -421,3 +421,57 @@ export const adminUsersTable = pgTable(
 
 export type AdminUser = typeof adminUsersTable.$inferSelect;
 export type InsertAdminUser = typeof adminUsersTable.$inferInsert;
+
+/**
+ * Editable rules that drive the boot-time
+ * `reclassifyMislabeledShoes` heuristic. Each row pairs a regex/keyword
+ * pattern with a target apparel category — when the pattern matches a
+ * row currently tagged as "shoes" (and no strong shoe keyword wins
+ * precedence), the row is moved into `targetCategory` instead. Staff
+ * can add, edit, disable, or delete rules from the admin so tweaks no
+ * longer require a code change + redeploy. Defaults are seeded on the
+ * first boot when the table is empty (see ensureRecategorisationRulesLoaded).
+ */
+export const recategorisationRulesTable = pgTable("recategorisation_rules", {
+  id: serial("id").primaryKey(),
+  /** Friendly description shown in the admin list. */
+  label: text("label").notNull(),
+  /** Case-insensitive regex source (compiled with /…/i at load time). */
+  pattern: text("pattern").notNull(),
+  /** Where to move the row when the pattern matches (e.g. "tops"). */
+  targetCategory: text("target_category").notNull(),
+  /** Disabled rules stay in the table for reference but don't fire. */
+  enabled: boolean("enabled").notNull().default(true),
+  /** Lower numbers evaluate first — the first match wins. */
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export type RecategorisationRule = typeof recategorisationRulesTable.$inferSelect;
+export type InsertRecategorisationRule =
+  typeof recategorisationRulesTable.$inferInsert;
+
+/**
+ * Singleton marker recording that the default recategorisation rules
+ * have been seeded at least once. We deliberately do NOT auto-reseed
+ * defaults whenever the table is empty: if an admin deletes every rule
+ * (a legitimate "I want zero hints firing" choice) we must not bring
+ * the defaults back the next time the server boots. The presence of
+ * the row — not the timestamp — is what gates seeding; the timestamp
+ * is just for forensics.
+ */
+export const recategorisationRulesMetaTable = pgTable(
+  "recategorisation_rules_meta",
+  {
+    id: integer("id").primaryKey(),
+    seededAt: timestamp("seeded_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
