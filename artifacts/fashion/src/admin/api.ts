@@ -374,6 +374,17 @@ export interface ReclassificationRow {
   originalCategory: string;
   newCategory: string;
   matchedHint: string | null;
+  /** Editable rule that fired for this move, if known. Null when the
+   *  row was captured by the bootstrap fallback before the DB-backed
+   *  rules loaded (legacy rows). */
+  ruleId: number | null;
+  /** Friendly rule name to show next to the move. Falls back to a
+   *  snapshot from the audit row when the rule was later deleted. */
+  ruleLabel: string | null;
+  /** "active" / "disabled" / "deleted" / "unknown" — drives the
+   *  highlight on rows whose source rule no longer fires so staff can
+   *  spot-review them before the next reload reclassifies again. */
+  ruleStatus: "active" | "disabled" | "deleted" | "unknown";
   observedAt: string;
   currentCategoryOverride: string | null;
   reverted: boolean;

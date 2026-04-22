@@ -1285,59 +1285,107 @@ function ReclassificationsCard({
           )}
           {!loading && rows.length > 0 && (
             <div className="overflow-x-auto">
+              {rows.some(
+                (r) => r.ruleStatus === "disabled" || r.ruleStatus === "deleted",
+              ) && (
+                <div className="px-4 py-2 text-xs bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 border-b border-amber-200 dark:border-amber-900">
+                  Some rows below were moved by a rule that is now
+                  <strong className="mx-1">disabled or deleted</strong>
+                  — review them before the next catalog reload locks in the
+                  current category.
+                </div>
+              )}
               <table className="w-full text-sm">
                 <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="text-left font-medium px-4 py-2">Product</th>
                     <th className="text-left font-medium px-4 py-2">Gender</th>
                     <th className="text-left font-medium px-4 py-2">From → To</th>
+                    <th className="text-left font-medium px-4 py-2">Rule</th>
                     <th className="text-left font-medium px-4 py-2">Hint</th>
                     <th className="text-right font-medium px-4 py-2">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id} className="border-t">
-                      <td className="px-4 py-2">
-                        <div className="font-medium line-clamp-1">{r.title}</div>
-                        <div className="text-xs text-muted-foreground">{r.id}</div>
-                      </td>
-                      <td className="px-4 py-2 capitalize text-muted-foreground">
-                        {r.gender}
-                      </td>
-                      <td className="px-4 py-2">
-                        <span className="text-muted-foreground line-through">
-                          {r.originalCategory}
-                        </span>
-                        <span className="mx-1 text-muted-foreground">→</span>
-                        <span className="font-medium">{r.newCategory}</span>
-                      </td>
-                      <td className="px-4 py-2 text-muted-foreground">
-                        {r.matchedHint ? (
-                          <code className="text-xs">{r.matchedHint}</code>
-                        ) : (
-                          <span className="text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={revertingId === r.id}
-                          onClick={() => handleRevert(r)}
-                        >
-                          {revertingId === r.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
+                  {rows.map((r) => {
+                    const flagged =
+                      r.ruleStatus === "disabled" || r.ruleStatus === "deleted";
+                    // Tint the whole row when the responsible rule no
+                    // longer fires so flagged moves are obvious at a
+                    // glance even in a long list.
+                    const rowClass = flagged
+                      ? "border-t bg-amber-50/60 dark:bg-amber-950/20"
+                      : "border-t";
+                    return (
+                      <tr key={r.id} className={rowClass}>
+                        <td className="px-4 py-2">
+                          <div className="font-medium line-clamp-1">{r.title}</div>
+                          <div className="text-xs text-muted-foreground">{r.id}</div>
+                        </td>
+                        <td className="px-4 py-2 capitalize text-muted-foreground">
+                          {r.gender}
+                        </td>
+                        <td className="px-4 py-2">
+                          <span className="text-muted-foreground line-through">
+                            {r.originalCategory}
+                          </span>
+                          <span className="mx-1 text-muted-foreground">→</span>
+                          <span className="font-medium">{r.newCategory}</span>
+                        </td>
+                        <td className="px-4 py-2">
+                          {r.ruleLabel ? (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs">{r.ruleLabel}</span>
+                              {r.ruleStatus === "disabled" && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-amber-700 border-amber-400 dark:text-amber-300 dark:border-amber-700 text-[10px] uppercase tracking-wider"
+                                >
+                                  Disabled
+                                </Badge>
+                              )}
+                              {r.ruleStatus === "deleted" && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-red-700 border-red-400 dark:text-red-300 dark:border-red-700 text-[10px] uppercase tracking-wider"
+                                >
+                                  Deleted
+                                </Badge>
+                              )}
+                            </div>
                           ) : (
-                            <>
-                              <RotateCcw className="w-3 h-3 mr-1" />
-                              Revert to {r.originalCategory}
-                            </>
+                            <span className="text-xs text-muted-foreground">
+                              (legacy)
+                            </span>
                           )}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-4 py-2 text-muted-foreground">
+                          {r.matchedHint ? (
+                            <code className="text-xs">{r.matchedHint}</code>
+                          ) : (
+                            <span className="text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={revertingId === r.id}
+                            onClick={() => handleRevert(r)}
+                          >
+                            {revertingId === r.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <>
+                                <RotateCcw className="w-3 h-3 mr-1" />
+                                Revert to {r.originalCategory}
+                              </>
+                            )}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

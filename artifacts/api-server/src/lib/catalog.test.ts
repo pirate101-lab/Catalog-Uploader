@@ -107,4 +107,33 @@ describe("reclassifyMislabeledShoes audit log", () => {
     ]);
     assert.equal(getReclassifications().length, 0);
   });
+
+  it("captures rule id + label when a DB-backed rule fires", () => {
+    _resetReclassificationLogForTests();
+    const rules = [
+      {
+        id: 42,
+        label: "Tops (custom)",
+        re: /\b(t-shirt|tee|hoodie|graphic)\b/i,
+        category: "tops",
+      },
+    ];
+    reclassifyMislabeledShoes(
+      [makeRow("rule-1", "Boot Graphic T-Shirt", "shoes")],
+      rules,
+    );
+    const log = getReclassifications();
+    assert.equal(log.length, 1);
+    assert.equal(log[0]!.ruleId, 42);
+    assert.equal(log[0]!.ruleLabel, "Tops (custom)");
+  });
+
+  it("falls back to null rule id/label when bootstrap defaults fire", () => {
+    _resetReclassificationLogForTests();
+    reclassifyMislabeledShoes([makeRow("rule-2", "Bootcut Pants", "shoes")]);
+    const log = getReclassifications();
+    assert.equal(log.length, 1);
+    assert.equal(log[0]!.ruleId, null);
+    assert.equal(log[0]!.ruleLabel, null);
+  });
 });

@@ -479,6 +479,17 @@ export const reclassificationEventsTable = pgTable(
     /** The non-shoe garment keyword that triggered the move. Null when
      *  the rule fired without capturing a hint. */
     matchedHint: text("matched_hint"),
+    /** ID of the rule (in `recategorisation_rules`) that fired for this
+     *  move. Nullable because (a) records captured before this column
+     *  existed have no ruleId, and (b) the bootstrap fallback path uses
+     *  the hard-coded NON_SHOE_HINTS list, which has no DB row. Not a
+     *  FK so deleting a rule doesn't wipe the audit trail — staff need
+     *  the surviving rows to know what the now-deleted rule moved. */
+    ruleId: integer("rule_id"),
+    /** Snapshot of the rule label at the time of the move so the admin
+     *  list can keep showing a friendly name even after the rule is
+     *  renamed or deleted. */
+    ruleLabel: text("rule_label"),
     /** First time we saw this product reclassified — preserved across
      *  catalog reloads via `onConflictDoUpdate`. */
     observedAt: timestamp("observed_at", { withTimezone: true })

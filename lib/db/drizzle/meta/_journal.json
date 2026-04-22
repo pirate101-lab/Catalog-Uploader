@@ -22,6 +22,13 @@
       "when": 1776867316326,
       "tag": "0002_nervous_shadowcat",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776868721516,
+      "tag": "0003_mature_stone_men",
+      "breakpoints": true
     }
   ]
 }

@@ -299,7 +299,20 @@ const NON_SHOE_HINTS: Array<{ re: RegExp; category: string }> = [
  * file would create a circular dependency — instead the rules module
  * pushes its compiled rules in via `setActiveRecategorisationRules`.
  */
-let activeRules: Array<{ re: RegExp; category: string }> | null = null;
+/**
+ * Optional id/label fields let DB-backed rules carry their identity
+ * through to the audit log so the admin can see which rule fired.
+ * The hard-coded NON_SHOE_HINTS bootstrap fallback omits both — those
+ * records get persisted with `ruleId = null, ruleLabel = null`.
+ */
+export interface ReclassificationRule {
+  re: RegExp;
+  category: string;
+  id?: number | null;
+  label?: string | null;
+}
+
+let activeRules: ReclassificationRule[] | null = null;
 
 /**
  * Replace the live rule list used by the next catalog reload. Called
@@ -311,7 +324,7 @@ let activeRules: Array<{ re: RegExp; category: string }> | null = null;
  * with the new rules on the next `getAllProducts()` call.
  */
 export function setActiveRecategorisationRules(
-  rules: Array<{ re: RegExp; category: string }> | null,
+  rules: ReclassificationRule[] | null,
 ): void {
   activeRules = rules;
 }
@@ -330,6 +343,14 @@ export interface ReclassificationRecord {
    *  "t-shirt", "bootcut", "dress"). Null for the rare case where the
    *  category was changed without a hint capture. */
   matchedHint: string | null;
+  /** ID of the editable rule (in `recategorisation_rules`) that fired
+   *  for this move, or null when the bootstrap NON_SHOE_HINTS fallback
+   *  was responsible (no DB row exists for those). */
+  ruleId: number | null;
+  /** Snapshot of the rule's friendly label at the time of the move so
+   *  the admin can show "moved by <rule name>" even after the rule is
+   *  later renamed or deleted. Null when no rule identity is available. */
+  ruleLabel: string | null;
   /** ISO timestamp of when the record was captured (boot time). */
   observedAt: string;
 }
@@ -391,7 +412,7 @@ export function setReclassificationPersister(
  */
 export function reclassifyMislabeledShoes(
   rows: ProductRow[],
-  rules: Array<{ re: RegExp; category: string }> = NON_SHOE_HINTS,
+  rules: ReclassificationRule[] = NON_SHOE_HINTS,
 ): void {
   for (const r of rows) {
     if (r.category !== "shoes") continue;
@@ -426,6 +447,8 @@ export function reclassifyMislabeledShoes(
         originalCategory: original,
         newCategory: garment.category,
         matchedHint,
+        ruleId: garment.id ?? null,
+        ruleLabel: garment.label ?? null,
         observedAt: new Date().toISOString(),
       });
     }

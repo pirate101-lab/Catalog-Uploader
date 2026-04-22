@@ -540,8 +540,30 @@ router.get("/admin/reclassifications", async (req, res) => {
   const overrideById = new Map(
     overrideRows.map((o) => [o.productId, o.categoryOverride]),
   );
+  // Fetch the live rule set so we can flag rows whose responsible rule
+  // has been disabled or deleted — staff need that highlighted before
+  // they decide whether to revert each move.
+  const ruleRows = await db
+    .select({
+      id: recategorisationRulesTable.id,
+      label: recategorisationRulesTable.label,
+      enabled: recategorisationRulesTable.enabled,
+    })
+    .from(recategorisationRulesTable);
+  const ruleById = new Map(ruleRows.map((r) => [r.id, r]));
   const decorated = records.map((r) => {
     const ov = overrideById.get(r.productId) ?? null;
+    const liveRule = r.ruleId !== null ? ruleById.get(r.ruleId) ?? null : null;
+    // "deleted"  → we have a ruleId but the rule no longer exists
+    // "disabled" → rule exists but is turned off
+    // "active"   → rule exists and is enabled (the normal case)
+    // "unknown"  → row was captured by the bootstrap NON_SHOE_HINTS
+    //              fallback (no ruleId), so there's nothing to attribute
+    let ruleStatus: "active" | "disabled" | "deleted" | "unknown";
+    if (r.ruleId === null) ruleStatus = "unknown";
+    else if (!liveRule) ruleStatus = "deleted";
+    else if (!liveRule.enabled) ruleStatus = "disabled";
+    else ruleStatus = "active";
     return {
       // Mirror the previous in-memory shape so the admin UI doesn't
       // need to change: `id` (== productId) + observedAt as ISO.
@@ -551,6 +573,12 @@ router.get("/admin/reclassifications", async (req, res) => {
       originalCategory: r.originalCategory,
       newCategory: r.newCategory,
       matchedHint: r.matchedHint,
+      ruleId: r.ruleId,
+      // Prefer the live label so a renamed rule shows the current name;
+      // fall back to the snapshot stored on the row when the rule was
+      // deleted (so the admin can still tell which rule moved this row).
+      ruleLabel: liveRule?.label ?? r.ruleLabel,
+      ruleStatus,
       observedAt: r.observedAt.toISOString(),
       lastObservedAt: r.lastObservedAt.toISOString(),
       currentCategoryOverride: ov,

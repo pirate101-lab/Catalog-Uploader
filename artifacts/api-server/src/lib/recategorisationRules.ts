@@ -170,7 +170,12 @@ export async function ensureRecategorisationRulesLoaded(): Promise<
   // intentionally-empty admin rule set instead of falling back to the
   // hard-coded defaults.
   setActiveRecategorisationRules(
-    cache.map((r) => ({ re: r.re, category: r.category })),
+    cache.map((r) => ({
+      re: r.re,
+      category: r.category,
+      id: r.id,
+      label: r.label,
+    })),
   );
   invalidateCatalog();
   return cache;

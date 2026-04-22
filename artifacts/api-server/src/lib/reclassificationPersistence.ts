@@ -48,6 +48,8 @@ export async function persistReclassifications(
         originalCategory: r.originalCategory,
         newCategory: r.newCategory,
         matchedHint: r.matchedHint,
+        ruleId: r.ruleId,
+        ruleLabel: r.ruleLabel,
       }));
       await db
         .insert(reclassificationEventsTable)
@@ -58,6 +60,13 @@ export async function persistReclassifications(
             title: sql`excluded.title`,
             newCategory: sql`excluded.new_category`,
             matchedHint: sql`excluded.matched_hint`,
+            // Refresh rule attribution on every sighting so a row whose
+            // rule was reassigned (admin edited the pattern, or a
+            // different rule now wins precedence) ends up attributed to
+            // whichever rule fires today rather than the one captured
+            // on first sighting.
+            ruleId: sql`excluded.rule_id`,
+            ruleLabel: sql`excluded.rule_label`,
             // Preserve the original observed_at (first sighting); only
             // bump the last_observed_at watermark.
             lastObservedAt: sql`NOW()`,
