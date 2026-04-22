@@ -42,11 +42,13 @@ import {
 import {
   getActivePaystackKeys,
   getCallbackUrl,
+  getPublicOrigin,
   getWebhookUrl,
   isPaystackReady,
   maskSecret,
   probeSecretKey,
 } from "../lib/paystack";
+import { buildResumeUrl } from "./checkout";
 import {
   sendOrderStatusEmail,
   sendOrderConfirmationEmail,
@@ -928,7 +930,27 @@ router.post(
       res.status(404).json({ error: "Order not found" });
       return;
     }
-    await sendOrderEmailByKind(order, kind, req.log);
+    // payment_failed needs a freshly-signed Paystack resume URL — mint
+    // one from the current request origin + active Paystack secret so
+    // the operator's manual resend gives the customer a working link.
+    if (kind === "payment_failed") {
+      const settings = await getSiteSettings();
+      const { secretKey } = getActivePaystackKeys(settings);
+      if (!secretKey) {
+        res.status(503).json({
+          error:
+            "Cannot resend a payment-failed email — Paystack is not configured.",
+        });
+        return;
+      }
+      const retryUrl = buildResumeUrl(getPublicOrigin(req), order.id, secretKey);
+      await sendOrderEmailByKind(order, kind, req.log, {
+        variant: "declined",
+        retryUrl,
+      });
+    } else {
+      await sendOrderEmailByKind(order, kind, req.log);
+    }
     // Return the freshly-recorded email events so the UI can refresh
     // without a second round-trip.
     const events = await db

@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import crypto from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, ordersTable } from "@workspace/db";
 import { getMergedProductById } from "../lib/productCatalog";
@@ -8,6 +9,7 @@ import { sendOrderReceivedEmail } from "../lib/email";
 import {
   getActivePaystackKeys,
   getCallbackUrl,
+  getPublicOrigin,
   initializeTransaction,
   isPaystackReady,
 } from "../lib/paystack";
@@ -370,4 +372,130 @@ router.post("/checkout/paystack/init", async (req: Request, res: Response) => {
   }
 });
 
+/* ------------------------------------------------------------------ *
+ * Resume-payment link (used in customer payment-failed emails)
+ * ------------------------------------------------------------------ *
+ * The "Complete your payment" button in our payment_failed email
+ * points at GET /api/checkout/paystack/resume?order=<id>&token=<sig>.
+ * The token is an HMAC of `<orderId>.<expiryMs>` keyed off the active
+ * Paystack secret, so:
+ *   - the link is non-guessable (you'd need the secret to forge one)
+ *   - it expires after 7 days
+ *   - rotating the Paystack secret invalidates all in-flight links,
+ *     which is the right behaviour for a security rotation
+ * The endpoint re-initializes a Paystack transaction against the same
+ * order id and 302-redirects the customer to Paystack's hosted
+ * authorization URL — so they finish payment in the exact same UI as
+ * the original checkout, and the existing webhook/callback flow flips
+ * the order to paid with no changes.
+ */
+const RESUME_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function signResumePayload(orderId: string, expiresAt: number, secret: string): string {
+  return crypto
+    .createHmac("sha256", secret)
+    .update(`${orderId}.${expiresAt}`)
+    .digest("base64url");
+}
+
+/** Mint a fresh signed token + URL for the given order. */
+export function buildResumeUrl(
+  origin: string,
+  orderId: string,
+  secret: string,
+): string {
+  const exp = Date.now() + RESUME_TOKEN_TTL_MS;
+  const sig = signResumePayload(orderId, exp, secret);
+  const token = `${exp}.${sig}`;
+  return `${origin}/api/checkout/paystack/resume?order=${encodeURIComponent(orderId)}&token=${encodeURIComponent(token)}`;
+}
+
+function verifyResumeToken(orderId: string, token: string, secret: string): boolean {
+  const dot = token.indexOf(".");
+  if (dot <= 0) return false;
+  const expStr = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+  const exp = Number(expStr);
+  if (!Number.isFinite(exp) || exp < Date.now()) return false;
+  const expected = signResumePayload(orderId, exp, secret);
+  if (sig.length !== expected.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
+
+router.get("/checkout/paystack/resume", async (req: Request, res: Response) => {
+  const orderId = String(req.query["order"] ?? "");
+  const token = String(req.query["token"] ?? "");
+  if (!orderId || !token) {
+    res.redirect("/checkout?paid=0&error=missing_token");
+    return;
+  }
+  const settings = await getSiteSettings();
+  if (!isPaystackReady(settings)) {
+    res.redirect("/checkout?paid=0&error=not_configured");
+    return;
+  }
+  const { secretKey, mode } = getActivePaystackKeys(settings);
+  if (!secretKey) {
+    res.redirect("/checkout?paid=0&error=not_configured");
+    return;
+  }
+  if (!verifyResumeToken(orderId, token, secretKey)) {
+    req.log.warn({ orderId }, "Paystack resume link rejected (bad/expired token)");
+    res.redirect("/checkout?paid=0&error=expired_link");
+    return;
+  }
+  const [order] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId));
+  if (!order) {
+    res.redirect("/checkout?paid=0&error=order_not_found");
+    return;
+  }
+  // Already paid — bounce them to the success page instead of opening
+  // a fresh Paystack session that would attempt a duplicate charge.
+  if (order.paidAt) {
+    res.redirect(`/checkout?paid=1&order=${encodeURIComponent(orderId)}`);
+    return;
+  }
+  // Paystack rejects re-using a reference that has already been
+  // initialized — even if the original attempt was abandoned without
+  // any charge being made. So each resume mints a fresh, unique
+  // reference of the form "<orderId>.r<random>". The webhook +
+  // callback handlers strip the trailing ".r…" segment via
+  // `orderIdFromReference()` to resolve back to the same order row,
+  // so a customer can retry as many times as they need from the same
+  // signed link without colliding with their own previous attempts.
+  const retrySuffix = crypto.randomBytes(6).toString("hex");
+  const retryReference = `${order.id}.r${retrySuffix}`;
+  const init = await initializeTransaction(secretKey, {
+    email: order.email,
+    amountKobo: order.totalCents,
+    reference: retryReference,
+    callbackUrl: getCallbackUrl(req),
+    currency: order.currency,
+    metadata: {
+      orderId: order.id,
+      mode,
+      resumed: true,
+    },
+  });
+  if (!init.ok || !init.authorizationUrl) {
+    req.log.error(
+      { orderId, error: init.error },
+      "Failed to re-initialize Paystack for resume link",
+    );
+    res.redirect(
+      `/checkout?paid=0&order=${encodeURIComponent(orderId)}&error=${encodeURIComponent(init.error ?? "resume_failed")}`,
+    );
+    return;
+  }
+  res.redirect(init.authorizationUrl);
+});
+
+export { getPublicOrigin };
 export default router;

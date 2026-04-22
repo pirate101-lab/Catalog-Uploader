@@ -325,6 +325,7 @@ const EMAIL_KIND_LABEL: Record<OrderEmailEvent["kind"], string> = {
   confirmation: "Order confirmed",
   shipped: "Shipped notification",
   delivered: "Delivered notification",
+  payment_failed: "Payment failed reminder",
 };
 
 const EMAIL_KIND_HINT: Record<OrderEmailEvent["kind"], string> = {
@@ -332,6 +333,8 @@ const EMAIL_KIND_HINT: Record<OrderEmailEvent["kind"], string> = {
   confirmation: "Sent when the status moves from new → packed.",
   shipped: "Sent when the status moves to shipped.",
   delivered: "Sent when the status moves to delivered.",
+  payment_failed:
+    "Sent automatically when Paystack reports a failed, abandoned, or mismatched payment. Resend to nudge the customer with a fresh retry link.",
 };
 
 function EmailEventsCard({
@@ -355,6 +358,7 @@ function EmailEventsCard({
     "confirmation",
     "shipped",
     "delivered",
+    "payment_failed",
   ];
 
   const resend = async (kind: OrderEmailEvent["kind"]) => {

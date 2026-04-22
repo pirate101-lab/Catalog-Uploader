@@ -468,20 +468,60 @@ export function SettingsAdmin() {
               </Field>
             </div>
 
-            <div className="border-t pt-4 mt-2 flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={verifySmtp}
-                disabled={verifying}
-              >
-                {verifying ? "Verifying…" : "Verify connection"}
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Save your changes first, then verify.
-              </p>
-            </div>
-            {verifyResult ? (
+            {(() => {
+              // When Resend is the active transport (either freshly
+              // typed in this session, or already saved on the server),
+              // hide the SMTP "Verify connection" UI — it would always
+              // fail for hosts that block outbound 25/465/587, leaving
+              // a misleading red banner even though emails are
+              // actually sending fine over Resend's HTTPS API.
+              const resendActive =
+                (s.resendApiKey?.trim() ?? "").length > 0 ||
+                s.resendApiKeySet;
+              if (resendActive) {
+                return (
+                  <div className="border-t pt-4 mt-2">
+                    <div
+                      role="status"
+                      className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300"
+                    >
+                      <p className="font-medium">
+                        Sending via Resend HTTPS API.
+                      </p>
+                      <p className="text-xs mt-1 opacity-80">
+                        SMTP fields above are kept as a fallback but
+                        aren't used while a Resend API key is saved.
+                        Clear the Resend field to switch back to SMTP.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <>
+                  <div className="border-t pt-4 mt-2 flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={verifySmtp}
+                      disabled={verifying}
+                    >
+                      {verifying ? "Verifying…" : "Verify connection"}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Save your changes first, then verify.
+                    </p>
+                  </div>
+                  {/* SMTP verify banner only meaningful when SMTP is the
+                      live transport — rendered just below by the
+                      original verifyResult block. */}
+                </>
+              );
+            })()}
+            {verifyResult &&
+            !(
+              (s.resendApiKey?.trim() ?? "").length > 0 || s.resendApiKeySet
+            ) ? (
               <div
                 role="status"
                 aria-live="polite"

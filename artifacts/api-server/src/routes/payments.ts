@@ -1,16 +1,79 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import type { Logger } from "pino";
 import { and, eq, isNull } from "drizzle-orm";
-import { db, ordersTable } from "@workspace/db";
+import { db, ordersTable, type Order } from "@workspace/db";
 import { getSiteSettings } from "../lib/siteSettings";
 import {
   getActivePaystackKeys,
+  getPublicOrigin,
   verifyWebhookSignature,
   verifyTransaction,
 } from "../lib/paystack";
-import { sendOrderConfirmationEmail } from "../lib/email";
+import {
+  claimAndSendPaymentFailedEmail,
+  sendOrderConfirmationEmail,
+  type PaymentFailedVariant,
+} from "../lib/email";
 import { recordPaymentEvent } from "../lib/paymentEvents";
+import { buildResumeUrl } from "./checkout";
+
+/**
+ * Fire a customer-facing payment_failed reminder. Skipped silently when:
+ *   - the order isn't on file (forged reference, deleted order)
+ *   - the order has no email (legacy / corrupt row)
+ *   - the order is already paid (race we lost — confirmation will fire)
+ *   - we already sent one within the last hour (webhook + callback dedupe)
+ *   - Paystack isn't configured (no secret to sign the resume link)
+ *
+ * Always returns void; never throws so the payment-event recording above
+ * it remains the source of truth for ops alerts.
+ */
+async function notifyCustomerOfFailedPayment(
+  order: Order | null,
+  variant: PaymentFailedVariant,
+  req: { log: Logger } & Parameters<typeof getPublicOrigin>[0],
+): Promise<void> {
+  try {
+    if (!order || !order.email || order.paidAt) return;
+    const settings = await getSiteSettings();
+    const { secretKey } = getActivePaystackKeys(settings);
+    if (!secretKey) return;
+    // Atomic dedupe lives inside `claimAndSendPaymentFailedEmail`: a
+    // transactional advisory lock + recheck + placeholder-row insert
+    // closes the TOCTOU window between the webhook + browser callback
+    // racing on the same failed charge. The plain "check then send"
+    // pattern is not race-safe under concurrent fire.
+    const retryUrl = buildResumeUrl(getPublicOrigin(req), order.id, secretKey);
+    await claimAndSendPaymentFailedEmail(
+      order,
+      { variant, retryUrl },
+      req.log,
+    );
+  } catch (err) {
+    req.log.error(
+      { err, orderId: order?.id, variant },
+      "Failed to send customer payment_failed email (non-fatal)",
+    );
+  }
+}
 
 const router: IRouter = Router();
+
+/**
+ * Extract the canonical order id from a Paystack `reference`. Plain
+ * checkout init uses the order id verbatim — first attempt → ref ===
+ * order.id (no dot, helper returns the input unchanged). The resume
+ * link path mints a unique reference per attempt as
+ * `<orderId>.r<random>` because Paystack rejects re-init with a
+ * previously-used reference. The leading segment up to the first dot
+ * is always the order id, which lets webhook + callback handlers
+ * resolve back to the correct row regardless of how many retry
+ * attempts a customer makes.
+ */
+export function orderIdFromReference(reference: string): string {
+  const dot = reference.indexOf(".");
+  return dot > 0 ? reference.slice(0, dot) : reference;
+}
 
 interface PaystackWebhookEvent {
   event?: string;
@@ -49,10 +112,16 @@ async function markOrderPaid(args: {
   // saw on the storefront live in the `display_*` columns and are NOT
   // checked here — Paystack only ever sees and reports the KES side,
   // so comparing the USD snapshot would always 100% mismatch.
+  // Resume-link retries arrive with a suffixed reference like
+  // "<orderId>.rABCD" because Paystack rejects re-using the original
+  // reference once it's been initialized. Always look up the order by
+  // its canonical id, but persist the actual reference Paystack sent
+  // below so the audit log shows which attempt completed the charge.
+  const orderId = orderIdFromReference(args.reference);
   const [existing] = await db
     .select()
     .from(ordersTable)
-    .where(eq(ordersTable.id, args.reference));
+    .where(eq(ordersTable.id, orderId));
   if (!existing) {
     return { updated: false, alreadyPaid: false, mismatch: null, order: null };
   }
@@ -107,7 +176,7 @@ async function markOrderPaid(args: {
       paidAt,
     })
     .where(
-      and(eq(ordersTable.id, args.reference), isNull(ordersTable.paidAt)),
+      and(eq(ordersTable.id, orderId), isNull(ordersTable.paidAt)),
     )
     .returning();
   if (updatedRows.length > 0) {
@@ -122,7 +191,7 @@ async function markOrderPaid(args: {
   const [reread] = await db
     .select()
     .from(ordersTable)
-    .where(eq(ordersTable.id, args.reference));
+    .where(eq(ordersTable.id, orderId));
   return {
     updated: false,
     alreadyPaid: !!reread?.paidAt,
@@ -175,6 +244,23 @@ router.post(
           amountCents: event.data?.amount ?? null,
           currency: event.data?.currency ?? null,
         });
+        if (ref) {
+          // Look up the order so we can email the customer a retry link.
+          // Wrapped in its own try so a missing/forged ref never 500s.
+          try {
+            const [order] = await db
+              .select()
+              .from(ordersTable)
+              .where(eq(ordersTable.id, orderIdFromReference(ref)));
+            await notifyCustomerOfFailedPayment(
+              order ?? null,
+              "declined",
+              req,
+            );
+          } catch (err) {
+            req.log.error({ err, ref }, "Failed to load order for failure email");
+          }
+        }
       }
       res.status(200).json({ ok: true, ignored: event.event });
       return;
@@ -233,6 +319,7 @@ router.post(
         amountCents: event.data?.amount ?? null,
         currency: event.data?.currency ?? null,
       });
+      await notifyCustomerOfFailedPayment(result.order, "mismatch", req);
       res.status(200).json({ ok: true, mismatch: result.mismatch.field });
       return;
     }
@@ -306,6 +393,24 @@ router.get(
         amountCents: verify.amount ?? null,
         currency: verify.currency ?? null,
       });
+      // The callback runs in the customer's browser, so we have a real
+      // order id to look up and email. Skip silently if the row is gone.
+      try {
+        const [order] = await db
+          .select()
+          .from(ordersTable)
+          .where(eq(ordersTable.id, orderIdFromReference(reference)));
+        await notifyCustomerOfFailedPayment(
+          order ?? null,
+          abandoned ? "abandoned" : "verification",
+          req,
+        );
+      } catch (err) {
+        req.log.error(
+          { err, reference },
+          "Failed to load order for callback failure email",
+        );
+      }
       res.redirect(
         `/checkout?paid=0&order=${encodeURIComponent(reference)}&error=${encodeURIComponent(verify.error ?? verify.status ?? "verification_failed")}`,
       );
@@ -352,6 +457,7 @@ router.get(
         amountCents: verify.amount ?? null,
         currency: verify.currency ?? null,
       });
+      await notifyCustomerOfFailedPayment(result.order, "mismatch", req);
       res.redirect(
         `/checkout?paid=0&order=${encodeURIComponent(reference)}&error=amount_mismatch`,
       );

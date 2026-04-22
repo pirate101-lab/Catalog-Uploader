@@ -1,5 +1,7 @@
 import type { Logger } from "pino";
+import crypto from "node:crypto";
 import net from "node:net";
+import { and, eq, gte, sql } from "drizzle-orm";
 import nodemailer, { type Transporter } from "nodemailer";
 import { getSiteSettings, symbolForCurrency } from "./siteSettings";
 import {
@@ -10,6 +12,38 @@ import {
   type SiteSettings,
 } from "@workspace/db";
 import { logger as baseLogger } from "./logger";
+
+/**
+ * Has a "sent" email of `kind` been recorded for this order within the
+ * given time window? Used to dedupe customer-facing failure emails when
+ * the Paystack webhook + browser callback both fire back-to-back.
+ */
+export async function hasRecentSentEmail(
+  orderId: string,
+  kind: OrderEmailKind,
+  withinMs: number,
+): Promise<boolean> {
+  try {
+    const since = new Date(Date.now() - withinMs);
+    const rows = await db
+      .select({ id: orderEmailEventsTable.id })
+      .from(orderEmailEventsTable)
+      .where(
+        and(
+          eq(orderEmailEventsTable.orderId, orderId),
+          eq(orderEmailEventsTable.kind, kind),
+          eq(orderEmailEventsTable.status, "sent"),
+          gte(orderEmailEventsTable.createdAt, since),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  } catch {
+    // If the dedupe check itself fails, fall back to "no recent" so the
+    // worst case is a duplicate email rather than a silent miss.
+    return false;
+  }
+}
 
 async function recordOrderEmailEvent(args: {
   orderId: string;
@@ -65,7 +99,8 @@ export type OrderEmailKind =
   | "received"
   | "confirmation"
   | "shipped"
-  | "delivered";
+  | "delivered"
+  | "payment_failed";
 
 /** Display labels mirrored on the admin UI. */
 export const ORDER_EMAIL_KINDS: readonly OrderEmailKind[] = [
@@ -73,7 +108,25 @@ export const ORDER_EMAIL_KINDS: readonly OrderEmailKind[] = [
   "confirmation",
   "shipped",
   "delivered",
+  "payment_failed",
 ] as const;
+
+/**
+ * Sub-kind of payment failure surfaced in the customer email subject and
+ * body — lets us distinguish "you closed the modal" from "your card was
+ * declined" so the copy reads naturally.
+ */
+export type PaymentFailedVariant =
+  | "abandoned"
+  | "declined"
+  | "verification"
+  | "mismatch";
+
+export interface PaymentFailedContext {
+  variant: PaymentFailedVariant;
+  /** Pre-baked HMAC-signed resume URL the email button links to. */
+  retryUrl: string;
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -156,14 +209,27 @@ function renderOrderEmail(
   kind: OrderEmailKind,
   storeName: string,
   currencySymbol: string,
+  payCtx?: PaymentFailedContext,
 ): RenderedEmail {
   const items = (order.items as OrderItem[]) ?? [];
   const view = viewOrderAmounts(order, currencySymbol);
   const orderRef = shortOrderId(order.id);
   const storefrontUrl = getStorefrontUrl();
   const storefrontDisplay = getStorefrontDisplay(storefrontUrl);
+  // For payment_failed the primary CTA points back to Paystack via the
+  // signed resume URL; for everything else it just opens the storefront.
+  const ctaUrl =
+    kind === "payment_failed" && payCtx?.retryUrl
+      ? payCtx.retryUrl
+      : storefrontUrl;
   const ctaLabel =
-    kind === "delivered" ? "Shop again" : "Visit the shop";
+    kind === "payment_failed"
+      ? "Complete your payment"
+      : kind === "delivered"
+        ? "Shop again"
+        : kind === "confirmation" || kind === "received"
+          ? "View your order"
+          : "Visit the shop";
 
   let heading: string;
   let intro: string;
@@ -180,10 +246,31 @@ function renderOrderEmail(
     heading = "Your order is on its way";
     intro = `Your order #${orderRef} from ${storeName} just shipped. Tracking details will follow as soon as the carrier scans it in.`;
     subject = `Order #${orderRef} shipped`;
-  } else {
+  } else if (kind === "delivered") {
     heading = "Your order has arrived";
     intro = `Your order #${orderRef} from ${storeName} has been delivered. We hope you love every piece — reply to this email if anything isn't quite right.`;
     subject = `Order #${orderRef} delivered`;
+  } else {
+    // payment_failed — vary copy by sub-kind so the email reads
+    // naturally for each failure mode.
+    const variant = payCtx?.variant ?? "declined";
+    if (variant === "abandoned") {
+      heading = "Your cart is waiting";
+      intro = `Looks like checkout for order #${orderRef} from ${storeName} didn't finish. Your items are still reserved — pick up where you left off in one click.`;
+      subject = `Finish checking out at ${storeName} — order #${orderRef}`;
+    } else if (variant === "verification") {
+      heading = "We couldn't verify your payment";
+      intro = `Paystack couldn't confirm the payment for order #${orderRef} from ${storeName}. No charge was completed. You can try again with the same card or a different one.`;
+      subject = `Action needed — finish your ${storeName} order #${orderRef}`;
+    } else if (variant === "mismatch") {
+      heading = "We couldn't accept that payment";
+      intro = `The payment received for order #${orderRef} from ${storeName} didn't match the order total, so we held it back to protect you. Please try again — if you've already been charged, reply to this email and we'll sort it out.`;
+      subject = `Action needed — finish your ${storeName} order #${orderRef}`;
+    } else {
+      heading = "Your payment didn't go through";
+      intro = `Your card was declined for order #${orderRef} from ${storeName} and no charge was completed. Tap below to try again — the items are still reserved for you.`;
+      subject = `Your payment didn't go through — order #${orderRef}`;
+    }
   }
 
   const itemsHtml = items
@@ -217,7 +304,8 @@ function renderOrderEmail(
     ? formatMoney(view.chargeTotalCents, view.chargeSymbol)
     : null;
 
-  const showBreakdown = kind === "received" || kind === "confirmation";
+  const showBreakdown =
+    kind === "received" || kind === "confirmation" || kind === "payment_failed";
   const breakdownHtml = showBreakdown
     ? `
       <tr>
@@ -235,16 +323,23 @@ function renderOrderEmail(
     : "";
 
   // Surface the actual card-charge amount so the customer doesn't get
-  // confused when their bank statement shows KES instead of USD.
+  // confused when their bank statement shows KES instead of USD. We
+  // also include this on payment_failed so the retry CTA reads as
+  // "for THIS amount" rather than a vague total.
   const chargeNoteHtml =
-    chargeTotal && (kind === "received" || kind === "confirmation")
+    chargeTotal &&
+    (kind === "received" ||
+      kind === "confirmation" ||
+      kind === "payment_failed")
       ? `<p style="margin:12px 0 0 0;color:#666;font-size:12px;">
-          Your card was charged ${chargeTotal} ${escapeHtml(view.chargeCurrency)} via Paystack (≈ ${total} ${escapeHtml(view.displayCurrency)}).
+          ${kind === "payment_failed" ? "We'll charge" : "Your card was charged"} ${chargeTotal} ${escapeHtml(view.chargeCurrency)} via Paystack (≈ ${total} ${escapeHtml(view.displayCurrency)}).
         </p>`
       : "";
 
   const addressLines =
-    kind === "received" || kind === "confirmation"
+    kind === "received" ||
+    kind === "confirmation" ||
+    kind === "payment_failed"
       ? formatAddressLines(order.shippingAddress as ShippingAddress | null)
       : [];
   const addressHtml =
@@ -276,7 +371,7 @@ function renderOrderEmail(
     ${chargeNoteHtml}
     ${addressHtml}
     <p style="margin:32px 0 16px 0;">
-      <a href="${escapeHtml(storefrontUrl)}" style="display:inline-block;background:#111;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:4px;font-size:14px;">${escapeHtml(ctaLabel)}</a>
+      <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:#111;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:4px;font-size:14px;">${escapeHtml(ctaLabel)}</a>
     </p>
     <p style="margin:24px 0 0 0;color:#888;font-size:12px;">${escapeHtml(storeName)} · <a href="${escapeHtml(storefrontUrl)}" style="color:#888;">${escapeHtml(storefrontDisplay)}</a></p>
   </div>
@@ -315,7 +410,7 @@ function renderOrderEmail(
   if (addressLines.length > 0) {
     textLines.push("", "Shipping to:", ...addressLines);
   }
-  textLines.push("", `${ctaLabel}: ${storefrontUrl}`, "", storeName);
+  textLines.push("", `${ctaLabel}: ${ctaUrl}`, "", storeName);
 
   return { subject, html, text: textLines.join("\n") };
 }
@@ -839,6 +934,7 @@ async function sendOrderEmail(
   order: Order,
   kind: OrderEmailKind,
   log: Logger,
+  payCtx?: PaymentFailedContext,
 ): Promise<void> {
   const settings = await getSiteSettings();
   const smtpCfg = resolveSmtpConfig(settings);
@@ -881,6 +977,7 @@ async function sendOrderEmail(
     kind,
     storeName,
     currencySymbol,
+    payCtx,
   );
 
   // First attempt + one retry on transient failures (5xx / network).
@@ -982,13 +1079,210 @@ export async function sendOrderReceivedEmail(
 }
 
 /** Generic dispatcher used by the admin "Resend" buttons so the UI can
- *  re-fire any of the four templates on demand. */
+ *  re-fire any of the templates on demand. The `payCtx` arg is required
+ *  when re-firing a `payment_failed` reminder so we can mint a fresh
+ *  signed retry URL — admin route builds it from the request origin. */
 export async function sendOrderEmailByKind(
   order: Order,
   kind: OrderEmailKind,
   log: Logger,
+  payCtx?: PaymentFailedContext,
 ): Promise<void> {
-  return sendOrderEmail(order, kind, log);
+  return sendOrderEmail(order, kind, log, payCtx);
+}
+
+/**
+ * Customer-facing failure email sent automatically from the Paystack
+ * webhook + callback paths when a charge does NOT complete. Includes a
+ * "Complete your payment" button that deep-links into a fresh Paystack
+ * checkout session for the same order.
+ */
+export async function sendPaymentFailedEmail(
+  order: Order,
+  payCtx: PaymentFailedContext,
+  log: Logger,
+): Promise<void> {
+  return sendOrderEmail(order, "payment_failed", log, payCtx);
+}
+
+/**
+ * Race-safe variant of {@link sendPaymentFailedEmail}. Used by the
+ * Paystack webhook + browser callback paths, which can both fire for
+ * the same failed charge within milliseconds. The plain
+ * `hasRecentSentEmail` + send + record sequence has a TOCTOU window
+ * where two concurrent callers can both see "no recent send" and both
+ * dispatch a duplicate customer email.
+ *
+ * This function closes that window with a transactional advisory lock
+ * keyed on (orderId, kind=payment_failed). Inside the lock we recheck
+ * the recent-sent state and, if clear, atomically insert a "sent"
+ * placeholder row, committing immediately. The actual SMTP/HTTPS
+ * dispatch happens AFTER the txn commits — we do not hold a lock
+ * across a network call. If the dispatch then fails, we downgrade
+ * the optimistic placeholder row to status='failed' so the admin UI
+ * shows the truth and operators can manually resend.
+ */
+export async function claimAndSendPaymentFailedEmail(
+  order: Order,
+  payCtx: PaymentFailedContext,
+  log: Logger,
+): Promise<void> {
+  const settings = await getSiteSettings();
+  const smtpCfg = resolveSmtpConfig(settings);
+  const apiKey =
+    (settings.resendApiKey && settings.resendApiKey.trim()) ||
+    process.env["RESEND_API_KEY"] ||
+    null;
+  const smtp = apiKey ? null : smtpCfg;
+  if (!smtp && !apiKey) {
+    log.warn(
+      { orderId: order.id, kind: "payment_failed" },
+      "No email transport configured; skipping payment_failed",
+    );
+    return;
+  }
+
+  const { from, replyTo, storeName, currencySymbol } =
+    resolveOrderSender(settings);
+  const { subject, html, text } = renderOrderEmail(
+    order,
+    "payment_failed",
+    storeName,
+    currencySymbol,
+    payCtx,
+  );
+
+  // SHA-256 → first 8 bytes as a signed BigInt → fits Postgres int8.
+  // Stable per (orderId, kind), so concurrent callers contend on the
+  // same lock; different orders contend on different locks.
+  const hash = crypto
+    .createHash("sha256")
+    .update(`payment_failed:${order.id}`)
+    .digest();
+  const lockKey = new DataView(
+    hash.buffer,
+    hash.byteOffset,
+    8,
+  ).getBigInt64(0);
+  const since = new Date(Date.now() - 60 * 60 * 1000);
+
+  let claimedId: number | null = null;
+  try {
+    claimedId = await db.transaction(async (tx) => {
+      // Hold a transaction-scoped exclusive lock; releases on commit.
+      // Concurrent webhook+callback fires serialize through this point,
+      // so the recheck below sees the other caller's INSERT (if any)
+      // before deciding to send.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKey})`);
+      const existing = await tx
+        .select({ id: orderEmailEventsTable.id })
+        .from(orderEmailEventsTable)
+        .where(
+          and(
+            eq(orderEmailEventsTable.orderId, order.id),
+            eq(orderEmailEventsTable.kind, "payment_failed"),
+            eq(orderEmailEventsTable.status, "sent"),
+            gte(orderEmailEventsTable.createdAt, since),
+          ),
+        )
+        .limit(1);
+      if (existing.length > 0) return null;
+      const [row] = await tx
+        .insert(orderEmailEventsTable)
+        .values({
+          orderId: order.id,
+          kind: "payment_failed",
+          status: "sent",
+          toAddress: order.email,
+          fromAddress: from,
+        })
+        .returning({ id: orderEmailEventsTable.id });
+      return row?.id ?? null;
+    });
+  } catch (err) {
+    log.error(
+      { err, orderId: order.id },
+      "payment_failed claim transaction failed",
+    );
+    return;
+  }
+  if (claimedId === null) {
+    log.info(
+      { orderId: order.id },
+      "payment_failed already claimed by concurrent caller; skipping",
+    );
+    return;
+  }
+
+  const trySend = async (): Promise<SendAttempt> => {
+    if (smtp) {
+      return sendViaSmtp({
+        cfg: smtp,
+        from,
+        to: order.email,
+        subject,
+        html,
+        text,
+        replyTo,
+      });
+    }
+    const payload: Record<string, unknown> = {
+      from,
+      to: order.email,
+      subject,
+      html,
+      text,
+    };
+    if (replyTo) payload["reply_to"] = replyTo;
+    return postToResend(apiKey!, payload);
+  };
+
+  let attempt = await trySend();
+  if (!attempt.ok && attempt.transient) {
+    log.warn(
+      { orderId: order.id, statusCode: attempt.statusCode },
+      "payment_failed transient send failure — retrying once",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    attempt = await trySend();
+  }
+
+  if (!attempt.ok) {
+    log.error(
+      {
+        orderId: order.id,
+        statusCode: attempt.statusCode,
+        error: attempt.errorMessage,
+        transport: smtp ? "smtp" : "resend",
+      },
+      "payment_failed dispatch failed — downgrading claim row to failed",
+    );
+    try {
+      await db
+        .update(orderEmailEventsTable)
+        .set({
+          status: "failed",
+          errorMessage: attempt.errorMessage ?? "Unknown send failure",
+          statusCode: attempt.statusCode ?? null,
+        })
+        .where(eq(orderEmailEventsTable.id, claimedId));
+    } catch (err) {
+      log.error(
+        { err, claimedId },
+        "Failed to downgrade payment_failed claim row to 'failed'",
+      );
+    }
+    return;
+  }
+
+  log.info(
+    {
+      orderId: order.id,
+      to: order.email,
+      transport: smtp ? "smtp" : "resend",
+    },
+    "Sent payment_failed email (race-safe path)",
+  );
 }
 
 export interface TestEmailResult {

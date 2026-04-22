@@ -127,7 +127,12 @@ export interface OrderRow {
 export interface OrderEmailEvent {
   id: number;
   orderId: string;
-  kind: "received" | "confirmation" | "shipped" | "delivered";
+  kind:
+    | "received"
+    | "confirmation"
+    | "shipped"
+    | "delivered"
+    | "payment_failed";
   status: "sent" | "failed" | "skipped";
   toAddress: string | null;
   fromAddress: string | null;
@@ -315,7 +320,12 @@ export interface ReviewRow {
 export interface EmailEventRow {
   id: number;
   orderId: string;
-  kind: "received" | "confirmation" | "shipped" | "delivered";
+  kind:
+    | "received"
+    | "confirmation"
+    | "shipped"
+    | "delivered"
+    | "payment_failed";
   status: "sent" | "failed" | "skipped";
   toAddress: string | null;
   fromAddress: string | null;
