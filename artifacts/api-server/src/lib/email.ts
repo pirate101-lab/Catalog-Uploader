@@ -841,12 +841,15 @@ async function sendOrderEmail(
   log: Logger,
 ): Promise<void> {
   const settings = await getSiteSettings();
-  const smtp = resolveSmtpConfig(settings);
+  const smtpCfg = resolveSmtpConfig(settings);
   const apiKey = process.env["RESEND_API_KEY"];
 
-  // Choose transport: prefer SMTP when fully configured (Titan, Zoho,
-  // Workspace, etc), else Resend HTTP API, else skip with a clear log
-  // entry the operator can find in the Emails tab.
+  // Choose transport: prefer Resend HTTP API when an API key is
+  // present (port 443, never blocked by VPS hosts like DigitalOcean
+  // that lock outbound 25/465/587), else fall back to direct SMTP
+  // (Titan, Zoho, Workspace, etc), else skip with a clear log entry
+  // the operator can find in the Emails tab.
+  const smtp = apiKey ? null : smtpCfg;
   if (!smtp && !apiKey) {
     log.warn(
       { orderId: order.id, kind },
@@ -1004,8 +1007,11 @@ export async function sendTestOrderEmail(
   log: Logger,
 ): Promise<TestEmailResult> {
   const settings = await getSiteSettings();
-  const smtp = resolveSmtpConfig(settings);
+  const smtpCfg = resolveSmtpConfig(settings);
   const apiKey = process.env["RESEND_API_KEY"];
+  // Prefer Resend HTTP API when configured (works on hosts that block
+  // outbound SMTP); fall back to direct SMTP otherwise.
+  const smtp = apiKey ? null : smtpCfg;
   if (!smtp && !apiKey) {
     return {
       ok: false,
