@@ -15,7 +15,7 @@ import {
   type PaymentFailedVariant,
 } from "../lib/email";
 import { recordPaymentEvent } from "../lib/paymentEvents";
-import { buildResumeUrl } from "./checkout";
+import { buildResumeUrl } from "../lib/paystackResume";
 
 /**
  * Fire a customer-facing payment_failed reminder. Skipped silently when:

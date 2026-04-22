@@ -48,7 +48,7 @@ import {
   maskSecret,
   probeSecretKey,
 } from "../lib/paystack";
-import { buildResumeUrl } from "./checkout";
+import { buildResumeUrl } from "../lib/paystackResume";
 import {
   sendOrderStatusEmail,
   sendOrderConfirmationEmail,

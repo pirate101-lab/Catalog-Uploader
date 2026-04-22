@@ -19,6 +19,7 @@ import {
   convertCart,
 } from "../lib/fx";
 import { symbolForCurrency } from "../lib/siteSettings";
+import { verifyResumeToken } from "../lib/paystackResume";
 
 const router: IRouter = Router();
 
@@ -375,57 +376,13 @@ router.post("/checkout/paystack/init", async (req: Request, res: Response) => {
 /* ------------------------------------------------------------------ *
  * Resume-payment link (used in customer payment-failed emails)
  * ------------------------------------------------------------------ *
- * The "Complete your payment" button in our payment_failed email
- * points at GET /api/checkout/paystack/resume?order=<id>&token=<sig>.
- * The token is an HMAC of `<orderId>.<expiryMs>` keyed off the active
- * Paystack secret, so:
- *   - the link is non-guessable (you'd need the secret to forge one)
- *   - it expires after 7 days
- *   - rotating the Paystack secret invalidates all in-flight links,
- *     which is the right behaviour for a security rotation
- * The endpoint re-initializes a Paystack transaction against the same
- * order id and 302-redirects the customer to Paystack's hosted
+ * The endpoint below re-initializes a Paystack transaction against the
+ * same order id and 302-redirects the customer to Paystack's hosted
  * authorization URL — so they finish payment in the exact same UI as
  * the original checkout, and the existing webhook/callback flow flips
- * the order to paid with no changes.
+ * the order to paid with no changes. Token sign/verify lives in
+ * `lib/paystackResume.ts`.
  */
-const RESUME_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-function signResumePayload(orderId: string, expiresAt: number, secret: string): string {
-  return crypto
-    .createHmac("sha256", secret)
-    .update(`${orderId}.${expiresAt}`)
-    .digest("base64url");
-}
-
-/** Mint a fresh signed token + URL for the given order. */
-export function buildResumeUrl(
-  origin: string,
-  orderId: string,
-  secret: string,
-): string {
-  const exp = Date.now() + RESUME_TOKEN_TTL_MS;
-  const sig = signResumePayload(orderId, exp, secret);
-  const token = `${exp}.${sig}`;
-  return `${origin}/api/checkout/paystack/resume?order=${encodeURIComponent(orderId)}&token=${encodeURIComponent(token)}`;
-}
-
-function verifyResumeToken(orderId: string, token: string, secret: string): boolean {
-  const dot = token.indexOf(".");
-  if (dot <= 0) return false;
-  const expStr = token.slice(0, dot);
-  const sig = token.slice(dot + 1);
-  const exp = Number(expStr);
-  if (!Number.isFinite(exp) || exp < Date.now()) return false;
-  const expected = signResumePayload(orderId, exp, secret);
-  if (sig.length !== expected.length) return false;
-  try {
-    return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
-  } catch {
-    return false;
-  }
-}
-
 router.get("/checkout/paystack/resume", async (req: Request, res: Response) => {
   const orderId = String(req.query["order"] ?? "");
   const token = String(req.query["token"] ?? "");
