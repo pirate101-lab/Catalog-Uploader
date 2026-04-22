@@ -1,4 +1,5 @@
 import {
+  index,
   jsonb,
   pgTable,
   text,
@@ -15,13 +16,23 @@ import {
  * the throttle by load-balancing across processes, and the bucket
  * survives deploys instead of resetting on every restart.
  */
-export const rateLimitBucketsTable = pgTable("rate_limit_buckets", {
-  key: text("key").primaryKey(),
-  recent: jsonb("recent").$type<number[]>().notNull().default([]),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const rateLimitBucketsTable = pgTable(
+  "rate_limit_buckets",
+  {
+    key: text("key").primaryKey(),
+    recent: jsonb("recent").$type<number[]>().notNull().default([]),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    // Supports the hourly `pruneStaleBuckets` cleanup
+    // (`DELETE ... WHERE updated_at < cutoff`). Without this, the
+    // cleanup degrades to a sequential scan over every bucket row as
+    // the table grows.
+    index("rate_limit_buckets_updated_at_idx").on(table.updatedAt),
+  ],
+);
 
 export type RateLimitBucket = typeof rateLimitBucketsTable.$inferSelect;
