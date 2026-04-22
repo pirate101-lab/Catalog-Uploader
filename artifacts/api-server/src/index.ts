@@ -6,6 +6,7 @@ import { db, ordersTable } from "@workspace/db";
 import { sql, isNull } from "drizzle-orm";
 import { getSiteSettings } from "./lib/siteSettings";
 import { refreshFxRate } from "./lib/fx";
+import { pruneStaleBuckets } from "./lib/rateLimit";
 
 const rawPort = process.env["PORT"];
 
@@ -86,6 +87,21 @@ app.listen(port, (err) => {
   void maybeRefreshFx(FX_STALE_MS).catch((err) => {
     logger.warn({ err }, "FX auto-refresh attempt failed (boot)");
   });
+
+  // Garbage-collect stale rate-limit buckets so the table doesn't
+  // grow unbounded with one row per unique caller. The longest
+  // active sliding window is ~1h (test-email send); deleting rows
+  // untouched for >24h leaves a wide safety margin while keeping
+  // the table size proportional to recently-active callers.
+  const RATE_LIMIT_GC_INTERVAL_MS = 60 * 60 * 1000;
+  const RATE_LIMIT_GC_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+  const rateLimitGcTimer = setInterval(() => {
+    void pruneRateLimitBuckets(RATE_LIMIT_GC_MAX_AGE_MS);
+  }, RATE_LIMIT_GC_INTERVAL_MS);
+  rateLimitGcTimer.unref?.();
+  // Run once on boot so a fresh deploy immediately reaps anything
+  // left over from the previous process.
+  void pruneRateLimitBuckets(RATE_LIMIT_GC_MAX_AGE_MS);
 });
 
 async function backfillDisplayColumns(): Promise<void> {
@@ -108,6 +124,17 @@ async function backfillDisplayColumns(): Promise<void> {
       { count: result.length },
       "Backfilled display_* columns on legacy orders",
     );
+  }
+}
+
+async function pruneRateLimitBuckets(maxAgeMs: number): Promise<void> {
+  try {
+    const removed = await pruneStaleBuckets(maxAgeMs);
+    if (removed > 0) {
+      logger.info({ removed }, "Pruned stale rate-limit buckets");
+    }
+  } catch (err) {
+    logger.warn({ err }, "Failed to prune stale rate-limit buckets");
   }
 }
 

@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, lt, sql } from "drizzle-orm";
 import { db, rateLimitBucketsTable } from "@workspace/db";
 
 /**
@@ -110,4 +110,28 @@ async function persist(tx: Tx, key: string, recent: number[]): Promise<void> {
       target: rateLimitBucketsTable.key,
       set: { recent, updatedAt: sql`now()` },
     });
+}
+
+/**
+ * Delete bucket rows that haven't been touched for `olderThanMs`.
+ *
+ * The table grows by one row per unique bucket key (e.g. one per IP
+ * that ever hit the order lookup form). Rows are updated in place when
+ * the same caller returns, but a row that's never revisited otherwise
+ * lives forever. Callers schedule this periodically (see
+ * `index.ts`) with a threshold safely larger than the longest active
+ * sliding window, so an in-flight bucket is never deleted out from
+ * under `checkQuota`: the worst case is that a returning caller after
+ * the threshold gets a fresh bucket, which is the same outcome they'd
+ * get from the in-row pruning anyway.
+ *
+ * Returns the number of rows deleted (useful for log sampling).
+ */
+export async function pruneStaleBuckets(olderThanMs: number): Promise<number> {
+  const cutoff = new Date(Date.now() - olderThanMs);
+  const deleted = await db
+    .delete(rateLimitBucketsTable)
+    .where(lt(rateLimitBucketsTable.updatedAt, cutoff))
+    .returning({ key: rateLimitBucketsTable.key });
+  return deleted.length;
 }
