@@ -397,8 +397,14 @@ export function ProductsAdmin() {
   const restorableCount = deletedSelectedIds.length;
   // Live = anything in the selection that isn't tombstoned. Used to
   // gate / label Delete (only live rows can be deleted) symmetrically
-  // with Restore (only deleted rows can be restored).
-  const liveSelectedCount = selectionCount - restorableCount;
+  // with Restore (only deleted rows can be restored). Filtering on the
+  // client keeps the request small and the toast count honest when
+  // staff fire delete on a mixed selection.
+  const liveSelectedIds = useMemo(() => {
+    const deleted = new Set(deletedSelectedIds);
+    return visibleSelectedIds.filter((id) => !deleted.has(id));
+  }, [visibleSelectedIds, deletedSelectedIds]);
+  const liveSelectedCount = liveSelectedIds.length;
 
   const runBulk = async (
     label: string,
@@ -418,11 +424,31 @@ export function ProductsAdmin() {
     }
   };
 
-  const performBulkDelete = () =>
-    runBulk("Deleted", () => adminApi.bulkDeleteProducts(visibleSelectedIds));
+  const performBulkDelete = async () => {
+    if (liveSelectedCount === 0) return;
+    setBulkBusy(true);
+    try {
+      const { updated } = await adminApi.bulkDeleteProducts(liveSelectedIds);
+      toast.success(
+        `Deleted ${updated} of ${selectionCount} product${
+          selectionCount === 1 ? "" : "s"
+        }`,
+      );
+      clearSelection();
+      reload();
+    } catch (e) {
+      toast.error(`Delete failed: ${(e as Error).message}`);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
   const handleBulkDelete = () => {
     if (selectionCount === 0) return;
-    if (selectionCount > BULK_DELETE_CONFIRM_THRESHOLD) {
+    if (liveSelectedCount === 0) {
+      toast.message("Nothing to delete — all selected products are already deleted");
+      return;
+    }
+    if (liveSelectedCount > BULK_DELETE_CONFIRM_THRESHOLD) {
       setConfirmBulkDelete(true);
       return;
     }
@@ -1195,13 +1221,13 @@ export function ProductsAdmin() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {selectionCount} product{selectionCount === 1 ? "" : "s"}?
+              Delete {liveSelectedCount} product{liveSelectedCount === 1 ? "" : "s"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {selectionCount} selected product
-              {selectionCount === 1 ? " will be" : "s will be"} hidden from the
-              storefront. You can restore them later from the "Show deleted"
-              view.
+              {liveSelectedCount} of the {selectionCount} selected product
+              {selectionCount === 1 ? " is" : "s are"} currently live and
+              will be hidden from the storefront. You can restore them later
+              from the "Show deleted" view.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1212,7 +1238,7 @@ export function ProductsAdmin() {
                 void performBulkDelete();
               }}
             >
-              Delete {selectionCount}
+              Delete {liveSelectedCount}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
