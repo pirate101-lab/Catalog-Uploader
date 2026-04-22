@@ -349,6 +349,11 @@ router.get(
   "/checkout/paystack/callback",
   async (req: Request, res: Response) => {
     const reference = String(req.query["reference"] ?? req.query["trxref"] ?? "");
+    // Customer-facing redirects should always show the canonical order
+    // id (not a "<orderId>.r<random>" retry suffix that Paystack saw)
+    // so support workflows + bookmarks resolve to the same row across
+    // multiple retry attempts.
+    const canonicalOrderId = reference ? orderIdFromReference(reference) : "";
     if (!reference) {
       await recordPaymentEvent({
         orderId: null,
@@ -412,7 +417,7 @@ router.get(
         );
       }
       res.redirect(
-        `/checkout?paid=0&order=${encodeURIComponent(reference)}&error=${encodeURIComponent(verify.error ?? verify.status ?? "verification_failed")}`,
+        `/checkout?paid=0&order=${encodeURIComponent(canonicalOrderId)}&error=${encodeURIComponent(verify.error ?? verify.status ?? "verification_failed")}`,
       );
       return;
     }
@@ -438,7 +443,7 @@ router.get(
         currency: verify.currency ?? null,
       });
       res.redirect(
-        `/checkout?paid=0&order=${encodeURIComponent(reference)}&error=order_not_found`,
+        `/checkout?paid=0&order=${encodeURIComponent(canonicalOrderId)}&error=order_not_found`,
       );
       return;
     }
@@ -459,7 +464,7 @@ router.get(
       });
       await notifyCustomerOfFailedPayment(result.order, "mismatch", req);
       res.redirect(
-        `/checkout?paid=0&order=${encodeURIComponent(reference)}&error=amount_mismatch`,
+        `/checkout?paid=0&order=${encodeURIComponent(canonicalOrderId)}&error=amount_mismatch`,
       );
       return;
     }
@@ -476,7 +481,7 @@ router.get(
       });
       void sendOrderConfirmationEmail(result.order, req.log);
     }
-    res.redirect(`/checkout?paid=1&order=${encodeURIComponent(reference)}`);
+    res.redirect(`/checkout?paid=1&order=${encodeURIComponent(canonicalOrderId)}`);
   },
 );
 

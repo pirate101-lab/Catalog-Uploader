@@ -1168,7 +1168,7 @@ export async function claimAndSendPaymentFailedEmail(
 
   let claimedId: number | null = null;
   try {
-    claimedId = await db.transaction(async (tx) => {
+    claimedId = await db.transaction(async (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => {
       // Hold a transaction-scoped exclusive lock; releases on commit.
       // Concurrent webhook+callback fires serialize through this point,
       // so the recheck below sees the other caller's INSERT (if any)
