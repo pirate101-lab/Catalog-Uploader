@@ -1138,15 +1138,6 @@ function PaystackSubmit({
 
   return (
     <div className="space-y-4">
-      <div className="border border-border bg-muted/20 p-5 text-sm">
-        <p className="font-medium mb-2 flex items-center gap-2">
-          <CreditCard className="w-4 h-4" /> Pay securely with Paystack
-        </p>
-        <p className="text-muted-foreground">
-          You'll be redirected to Paystack's secure payment page. Card details
-          never touch our servers.
-        </p>
-      </div>
       {currencyError ? (
         <div
           className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
