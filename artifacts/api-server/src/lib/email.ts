@@ -261,11 +261,14 @@ function renderOrderEmail(
     } else if (variant === "verification") {
       heading = "We couldn't verify your payment";
       intro = `Paystack couldn't confirm the payment for order #${orderRef} from ${storeName}. No charge was completed. You can try again with the same card or a different one.`;
-      subject = `Action needed — finish your ${storeName} order #${orderRef}`;
+      // "Action needed" / "URGENT" / etc. are well-known spam-filter
+      // trigger phrases — keep the subject specific and store-branded
+      // so it reads as a normal transactional follow-up, not a nudge.
+      subject = `Finish your ${storeName} order #${orderRef}`;
     } else if (variant === "mismatch") {
       heading = "We couldn't accept that payment";
       intro = `The payment received for order #${orderRef} from ${storeName} didn't match the order total, so we held it back to protect you. Please try again — if you've already been charged, reply to this email and we'll sort it out.`;
-      subject = `Action needed — finish your ${storeName} order #${orderRef}`;
+      subject = `Finish your ${storeName} order #${orderRef}`;
     } else {
       heading = "Your payment didn't go through";
       intro = `Your card was declined for order #${orderRef} from ${storeName} and no charge was completed. Tap below to try again — the items are still reserved for you.`;
