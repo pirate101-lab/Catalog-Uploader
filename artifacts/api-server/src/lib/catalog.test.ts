@@ -5,7 +5,9 @@ import {
   reclassifyMislabeledShoes,
   getReclassifications,
   _resetReclassificationLogForTests,
+  setActiveRecategorisationRules,
   type ProductRow,
+  type ReclassificationRule,
 } from "./catalog.ts";
 
 function makeRow(id: string, title: string, category: string): ProductRow {
@@ -135,5 +137,59 @@ describe("reclassifyMislabeledShoes audit log", () => {
     assert.equal(log.length, 1);
     assert.equal(log[0]!.ruleId, null);
     assert.equal(log[0]!.ruleLabel, null);
+  });
+});
+
+describe("reclassifyMislabeledShoes with an injected custom rule set", () => {
+  // Verifies the data-driven rule path: an admin who pushes a brand-new
+  // rule (one whose target_category isn't in the legacy NON_SHOE_HINTS
+  // list) gets products moved to that fresh target. This is the exact
+  // contract that backs the editable rules admin UI.
+  it("moves a shoes-tagged product to the rule's bespoke target category", () => {
+    _resetReclassificationLogForTests();
+    const customRules: ReclassificationRule[] = [
+      {
+        id: 999,
+        label: "Swimwear (custom admin rule)",
+        re: /\b(bikini|swimsuit|one[-\s]?piece|swimwear)\b/i,
+        category: "swimwear",
+      },
+    ];
+    const rows = [
+      makeRow("custom-1", "Tropical Print Bikini", "shoes"),
+      // Untouched — no custom rule matches and the legacy defaults
+      // aren't in play because we passed an explicit rule list.
+      makeRow("custom-2", "White Sneakers", "shoes"),
+    ];
+    reclassifyMislabeledShoes(rows, customRules);
+    assert.equal(rows[0]!.category, "swimwear");
+    assert.equal(rows[1]!.category, "shoes");
+    const log = getReclassifications();
+    assert.equal(log.length, 1);
+    assert.equal(log[0]!.id, "custom-1");
+    assert.equal(log[0]!.newCategory, "swimwear");
+    assert.equal(log[0]!.ruleId, 999);
+    assert.equal(log[0]!.ruleLabel, "Swimwear (custom admin rule)");
+  });
+
+  it("respects an empty rule set wired through setActiveRecategorisationRules (no moves)", () => {
+    // Mirrors the production code path: when the admin disables every
+    // rule, the rules module pushes `[]` into catalog via
+    // setActiveRecategorisationRules, and the loader must skip
+    // recategorisation entirely. We exercise the mutation here so a
+    // future refactor that drops/renames the setter trips this test.
+    _resetReclassificationLogForTests();
+    setActiveRecategorisationRules([]);
+    try {
+      // Even a title that the bootstrap defaults WOULD have moved
+      // ("Boot Graphic T-Shirt" → tops) must stay put when an empty
+      // rule list is explicitly applied.
+      const rows = [makeRow("empty-1", "Boot Graphic T-Shirt", "shoes")];
+      reclassifyMislabeledShoes(rows, []);
+      assert.equal(rows[0]!.category, "shoes");
+      assert.equal(getReclassifications().length, 0);
+    } finally {
+      setActiveRecategorisationRules(null);
+    }
   });
 });

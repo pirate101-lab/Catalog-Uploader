@@ -5,7 +5,7 @@ import {
   recategorisationRulesMetaTable,
   type RecategorisationRule,
 } from "@workspace/db";
-import { invalidateCatalog, setActiveRecategorisationRules } from "./catalog";
+import { invalidateCatalog, setActiveRecategorisationRules } from "./catalog.ts";
 
 /**
  * One compiled rule fed to `reclassifyMislabeledShoes`. We keep both
