@@ -117,7 +117,11 @@ async function buildAll() {
       "puppeteer-core",
       "electron",
     ],
-    sourcemap: "linked",
+    // Sourcemaps are large (often bigger than the emitted JS) and end users
+    // never need them in production. Keep "linked" maps for local development
+    // so `--enable-source-maps` produces readable stack traces, but skip them
+    // entirely for production builds to keep the deployed `dist/` lean.
+    sourcemap: process.env.NODE_ENV === "development" ? "linked" : false,
     plugins: [
       // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it.
       // pino-pretty is a development-only formatter (see src/lib/logger.ts), so we only bundle that
