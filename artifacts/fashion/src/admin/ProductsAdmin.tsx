@@ -395,6 +395,10 @@ export function ProductsAdmin() {
     return visibleSelectedIds.filter((id) => deleted.has(id));
   }, [rows, visibleSelectedIds]);
   const restorableCount = deletedSelectedIds.length;
+  // Live = anything in the selection that isn't tombstoned. Used to
+  // gate / label Delete (only live rows can be deleted) symmetrically
+  // with Restore (only deleted rows can be restored).
+  const liveSelectedCount = selectionCount - restorableCount;
 
   const runBulk = async (
     label: string,
@@ -1037,6 +1041,16 @@ export function ProductsAdmin() {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full border bg-background shadow-lg px-4 py-2">
           <span className="text-sm font-medium">
             {selectionCount} selected
+            {restorableCount > 0 && liveSelectedCount > 0 && (
+              <span className="ml-1 font-normal text-muted-foreground">
+                ({liveSelectedCount} live, {restorableCount} deleted)
+              </span>
+            )}
+            {restorableCount > 0 && liveSelectedCount === 0 && (
+              <span className="ml-1 font-normal text-muted-foreground">
+                (all deleted)
+              </span>
+            )}
           </span>
           <span className="w-px h-5 bg-border" />
           <Popover
@@ -1093,26 +1107,43 @@ export function ProductsAdmin() {
           >
             <Star className="w-4 h-4 mr-1" /> Featured
           </Button>
-          {/* Both Delete and Restore stay reachable in the bar — staff
-              often have a mix of live and tombstoned rows selected
-              when working in "Show deleted" view, and the bulk
-              endpoints are idempotent for either direction. */}
+          {/* Delete / Restore are gated on the live-vs-deleted breakdown
+              of the current selection: each is disabled when there's
+              nothing it could act on, and labelled with the actionable
+              count when the selection is mixed so staff know up-front
+              how many rows the bulk endpoint will actually touch. */}
           <Button
             size="sm"
             variant="ghost"
             className="text-destructive hover:text-destructive"
             onClick={handleBulkDelete}
-            disabled={bulkBusy}
+            disabled={bulkBusy || liveSelectedCount === 0}
+            title={
+              liveSelectedCount === 0
+                ? "Nothing to delete — all selected products are already deleted"
+                : undefined
+            }
           >
-            <Trash2 className="w-4 h-4 mr-1" /> Delete
+            <Trash2 className="w-4 h-4 mr-1" />
+            {liveSelectedCount > 0 && liveSelectedCount < selectionCount
+              ? `Delete ${liveSelectedCount}`
+              : "Delete"}
           </Button>
           <Button
             size="sm"
             variant="ghost"
             onClick={handleBulkRestore}
-            disabled={bulkBusy}
+            disabled={bulkBusy || restorableCount === 0}
+            title={
+              restorableCount === 0
+                ? "Nothing to restore — none of the selected products are deleted"
+                : undefined
+            }
           >
-            <RotateCcw className="w-4 h-4 mr-1" /> Restore
+            <RotateCcw className="w-4 h-4 mr-1" />
+            {restorableCount > 0 && restorableCount < selectionCount
+              ? `Restore ${restorableCount}`
+              : "Restore"}
           </Button>
           <span className="w-px h-5 bg-border" />
           <Button
