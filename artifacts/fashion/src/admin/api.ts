@@ -731,6 +731,24 @@ export const adminApi = {
     adminFetch<void>(`/admin/recategorisation-rules/${id}`, {
       method: "DELETE",
     }),
+  /**
+   * Bulk-revert every move attributed to a single rule. Pass
+   * `dryRun: true` first to get a count for the confirmation step,
+   * then call again without `dryRun` to apply. The endpoint refuses
+   * with HTTP 400 if the rule is currently enabled — disable or
+   * delete it first so the next reload won't undo the revert.
+   */
+  revertReclassificationsByRule: (ruleId: number, dryRun = false) =>
+    adminFetch<{
+      ruleId: number;
+      ruleLabel: string | null;
+      ruleStatus: "disabled" | "deleted";
+      count?: number;
+      reverted?: number;
+    }>("/admin/reclassifications/revert-by-rule", {
+      method: "POST",
+      body: JSON.stringify({ ruleId, dryRun }),
+    }),
   previewRecategorisationRule: (data: {
     pattern: string;
     targetCategory?: string;

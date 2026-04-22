@@ -1244,6 +1244,19 @@ function ReclassificationsCard({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [revertingId, setRevertingId] = useState<string | null>(null);
+  // Tracks the rule whose bulk-revert is currently being prepared
+  // (dry-run lookup) or applied. Keyed by ruleId so multiple buttons
+  // can show their own spinner without blocking each other.
+  const [bulkRuleBusy, setBulkRuleBusy] = useState<number | null>(null);
+  // Confirmation dialog state for bulk-revert. Holds the dry-run
+  // result so we can show "Revert N moves from {label}?" before any
+  // writes happen.
+  const [bulkConfirm, setBulkConfirm] = useState<{
+    ruleId: number;
+    ruleLabel: string | null;
+    ruleStatus: "disabled" | "deleted";
+    count: number;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1264,6 +1277,57 @@ function ReclassificationsCard({
       cancelled = true;
     };
   }, [reloadTick]);
+
+  // Two-step bulk revert: first a dry-run to fetch the count, then —
+  // after staff confirm — the actual write. Splitting it this way keeps
+  // the confirmation dialog honest (the count comes from the same
+  // query the apply step uses, so we never lie to the operator).
+  const handleBulkRevertPrompt = async (
+    ruleId: number,
+    fallbackLabel: string | null,
+    fallbackStatus: "disabled" | "deleted",
+  ) => {
+    setBulkRuleBusy(ruleId);
+    try {
+      const res = await adminApi.revertReclassificationsByRule(ruleId, true);
+      if ((res.count ?? 0) === 0) {
+        toast.message(
+          `Nothing to revert for "${res.ruleLabel ?? fallbackLabel ?? `rule #${ruleId}`}" — every move from this rule has already been reverted.`,
+        );
+        return;
+      }
+      setBulkConfirm({
+        ruleId,
+        ruleLabel: res.ruleLabel ?? fallbackLabel,
+        ruleStatus: res.ruleStatus ?? fallbackStatus,
+        count: res.count ?? 0,
+      });
+    } catch (e) {
+      toast.error(`Couldn't load count: ${(e as Error).message}`);
+    } finally {
+      setBulkRuleBusy(null);
+    }
+  };
+  const handleBulkRevertApply = async () => {
+    if (!bulkConfirm) return;
+    const { ruleId, ruleLabel } = bulkConfirm;
+    setBulkConfirm(null);
+    setBulkRuleBusy(ruleId);
+    try {
+      const res = await adminApi.revertReclassificationsByRule(ruleId, false);
+      const n = res.reverted ?? 0;
+      toast.success(
+        `Reverted ${n} move${n === 1 ? "" : "s"} from "${
+          res.ruleLabel ?? ruleLabel ?? `rule #${ruleId}`
+        }"`,
+      );
+      onReverted();
+    } catch (e) {
+      toast.error(`Bulk revert failed: ${(e as Error).message}`);
+    } finally {
+      setBulkRuleBusy(null);
+    }
+  };
 
   const handleRevert = async (row: ReclassificationRow) => {
     setRevertingId(row.id);
@@ -1319,16 +1383,82 @@ function ReclassificationsCard({
           )}
           {!loading && rows.length > 0 && (
             <div className="overflow-x-auto">
-              {rows.some(
-                (r) => r.ruleStatus === "disabled" || r.ruleStatus === "deleted",
-              ) && (
-                <div className="px-4 py-2 text-xs bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 border-b border-amber-200 dark:border-amber-900">
-                  Some rows below were moved by a rule that is now
-                  <strong className="mx-1">disabled or deleted</strong>
-                  — review them before the next catalog reload locks in the
-                  current category.
-                </div>
-              )}
+              {(() => {
+                // Group flagged rows (disabled/deleted rule) by ruleId
+                // so we can offer one bulk-revert button per rule above
+                // the table. Iterating in insertion order keeps the
+                // banner deterministic across re-renders.
+                const flaggedByRule = new Map<
+                  number,
+                  {
+                    ruleId: number;
+                    ruleLabel: string | null;
+                    ruleStatus: "disabled" | "deleted";
+                    count: number;
+                  }
+                >();
+                for (const r of rows) {
+                  if (
+                    r.ruleId === null ||
+                    (r.ruleStatus !== "disabled" && r.ruleStatus !== "deleted")
+                  ) {
+                    continue;
+                  }
+                  const existing = flaggedByRule.get(r.ruleId);
+                  if (existing) {
+                    existing.count += 1;
+                  } else {
+                    flaggedByRule.set(r.ruleId, {
+                      ruleId: r.ruleId,
+                      ruleLabel: r.ruleLabel,
+                      ruleStatus: r.ruleStatus,
+                      count: 1,
+                    });
+                  }
+                }
+                if (flaggedByRule.size === 0) return null;
+                return (
+                  <div className="px-4 py-3 text-xs bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 border-b border-amber-200 dark:border-amber-900 space-y-2">
+                    <div>
+                      Some rows below were moved by a rule that is now
+                      <strong className="mx-1">disabled or deleted</strong>
+                      — review them before the next catalog reload locks in
+                      the current category, or revert every move from a
+                      single rule in one click.
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[...flaggedByRule.values()].map((g) => {
+                        const busy = bulkRuleBusy === g.ruleId;
+                        return (
+                          <Button
+                            key={g.ruleId}
+                            size="sm"
+                            variant="outline"
+                            disabled={busy}
+                            onClick={() =>
+                              handleBulkRevertPrompt(
+                                g.ruleId,
+                                g.ruleLabel,
+                                g.ruleStatus,
+                              )
+                            }
+                          >
+                            {busy ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <>
+                                <RotateCcw className="w-3 h-3 mr-1" />
+                                Revert all {g.count} from "
+                                {g.ruleLabel ?? `rule #${g.ruleId}`}"
+                              </>
+                            )}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
               <table className="w-full text-sm">
                 <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
@@ -1426,6 +1556,36 @@ function ReclassificationsCard({
           )}
         </div>
       )}
+      <AlertDialog
+        open={bulkConfirm !== null}
+        onOpenChange={(open) => {
+          if (!open) setBulkConfirm(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Revert {bulkConfirm?.count ?? 0} move
+              {bulkConfirm?.count === 1 ? "" : "s"} from "
+              {bulkConfirm?.ruleLabel ??
+                (bulkConfirm ? `rule #${bulkConfirm.ruleId}` : "")}
+              "?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Each affected product will be sent back to the category it was
+              in before this {bulkConfirm?.ruleStatus ?? "disabled"} rule
+              moved it. This won't re-enable the rule — it just clears the
+              category overrides the rule created.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleBulkRevertApply()}>
+              Revert {bulkConfirm?.count ?? 0}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

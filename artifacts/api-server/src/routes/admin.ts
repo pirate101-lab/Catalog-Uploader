@@ -6,7 +6,7 @@ import {
   raw as expressRaw,
 } from "express";
 import { ObjectStorageService, StorageNotConfiguredError } from "../lib/objectStorage";
-import { eq, sql, desc, asc, and, gte, lte, or, ilike } from "drizzle-orm";
+import { eq, sql, desc, asc, and, gte, lte, or, ilike, inArray } from "drizzle-orm";
 import {
   db,
   heroSlidesTable,
@@ -42,7 +42,10 @@ import {
   invalidateRecategorisationRules,
   listAllRecategorisationRules,
 } from "../lib/recategorisationRules";
-import { recategorisationRulesTable } from "@workspace/db";
+import {
+  recategorisationRulesTable,
+  reclassificationEventsTable,
+} from "@workspace/db";
 import {
   getMergedProducts,
   getMergedProductById,
@@ -752,6 +755,142 @@ router.delete("/admin/recategorisation-rules/:id", async (req, res) => {
     /* non-fatal */
   });
   res.status(204).end();
+});
+
+/* ---------------- Bulk-revert moves attributed to a single rule ----------------
+ * When an admin disables or deletes a rule, every product the rule
+ * moved is still sitting in the new category. Reverting those moves
+ * one-by-one (via the per-row Revert button on the audit log) is
+ * tedious for rules that fired across dozens of products, so this
+ * endpoint flips the override back to `originalCategory` for every
+ * unreverted record attributed to the given ruleId in a single call.
+ *
+ * Guardrails:
+ *  - Only allowed for rules that are currently disabled or deleted.
+ *    Reverting moves from an active rule would just be undone on the
+ *    next catalog reload, so refuse with 400.
+ *  - `dryRun: true` returns the count + rule label without writing,
+ *    so the UI can show a confirmation step before applying.
+ *  - Custom (cust_-prefixed) products write to `customProductsTable`
+ *    instead of the override row, mirroring the per-row revert path.
+ *  - Idempotent: rows whose current category override already matches
+ *    `originalCategory` are skipped, so double-clicking the button
+ *    won't double-count or thrash the DB.
+ */
+router.post("/admin/reclassifications/revert-by-rule", async (req, res) => {
+  const body = (req.body ?? {}) as {
+    ruleId?: unknown;
+    dryRun?: unknown;
+  };
+  const ruleIdNum = Number(body.ruleId);
+  if (!Number.isFinite(ruleIdNum) || !Number.isInteger(ruleIdNum)) {
+    res.status(400).json({ error: "ruleId must be an integer" });
+    return;
+  }
+  const dryRun = body.dryRun === true;
+
+  // Look up the live rule so we can refuse "active" rules and surface
+  // a friendly label in the response. A missing row means the rule was
+  // deleted — that's a valid case for this endpoint.
+  const [liveRule] = await db
+    .select({
+      id: recategorisationRulesTable.id,
+      label: recategorisationRulesTable.label,
+      enabled: recategorisationRulesTable.enabled,
+    })
+    .from(recategorisationRulesTable)
+    .where(eq(recategorisationRulesTable.id, ruleIdNum));
+  let ruleStatus: "disabled" | "deleted";
+  if (!liveRule) {
+    ruleStatus = "deleted";
+  } else if (!liveRule.enabled) {
+    ruleStatus = "disabled";
+  } else {
+    res.status(400).json({
+      error:
+        "Refusing to bulk-revert moves from an enabled rule — disable or delete the rule first so the next catalog reload won't undo the revert.",
+    });
+    return;
+  }
+
+  // Pull every audit record attributed to this rule. We need the
+  // original target category per row because rules can move products
+  // out of multiple source categories (e.g. some hint variants live
+  // outside the default "shoes" bucket), and we want to put each row
+  // back where it came from.
+  const records = await db
+    .select({
+      productId: reclassificationEventsTable.productId,
+      originalCategory: reclassificationEventsTable.originalCategory,
+    })
+    .from(reclassificationEventsTable)
+    .where(eq(reclassificationEventsTable.ruleId, ruleIdNum));
+
+  // Filter out anything whose categoryOverride already matches the
+  // original — those rows are already reverted. Reading overrides
+  // for only the candidate ids keeps this proportional to the rule's
+  // footprint rather than the whole overrides table.
+  const candidateIds = records.map((r) => r.productId);
+  const overrideRows =
+    candidateIds.length > 0
+      ? await db
+          .select({
+            productId: productOverridesTable.productId,
+            categoryOverride: productOverridesTable.categoryOverride,
+          })
+          .from(productOverridesTable)
+          .where(inArray(productOverridesTable.productId, candidateIds))
+      : [];
+  const overrideById = new Map(
+    overrideRows.map((o) => [o.productId, o.categoryOverride]),
+  );
+  const pending = records.filter(
+    (r) => overrideById.get(r.productId) !== r.originalCategory,
+  );
+
+  const ruleLabel = liveRule?.label ?? null;
+
+  if (dryRun) {
+    res.json({
+      ruleId: ruleIdNum,
+      ruleLabel,
+      ruleStatus,
+      count: pending.length,
+    });
+    return;
+  }
+
+  let custTouched = false;
+  let ovTouched = false;
+  for (const r of pending) {
+    const id = r.productId;
+    const target = r.originalCategory;
+    if (id.startsWith("cust_")) {
+      await db
+        .update(customProductsTable)
+        .set({ category: target })
+        .where(eq(customProductsTable.id, id));
+      custTouched = true;
+    } else {
+      await db
+        .insert(productOverridesTable)
+        .values({ productId: id, categoryOverride: target })
+        .onConflictDoUpdate({
+          target: productOverridesTable.productId,
+          set: { categoryOverride: target },
+        });
+      ovTouched = true;
+    }
+  }
+  if (custTouched) invalidateCustomProducts();
+  if (ovTouched) invalidateOverrides();
+
+  res.json({
+    ruleId: ruleIdNum,
+    ruleLabel,
+    ruleStatus,
+    reverted: pending.length,
+  });
 });
 
 /* Dry-run a candidate rule against the live catalog without saving.
