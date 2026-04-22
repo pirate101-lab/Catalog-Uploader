@@ -68,6 +68,15 @@ import {
 
 type Row = ProductRow & { override: ProductOverride | null };
 
+/**
+ * Selections strictly larger than this threshold pop a confirmation
+ * before bulk-deleting. Smaller selections delete immediately — the
+ * action bar already shows the count and an Undo toast follows, so
+ * the extra click would just be friction. Tweak here if staff feedback
+ * suggests a different ceiling.
+ */
+const BULK_DELETE_CONFIRM_THRESHOLD = 5;
+
 interface DraftFields {
   title: string;
   category: string;
@@ -160,6 +169,7 @@ export function ProductsAdmin() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [viewing, setViewing] = useState<Row | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -389,8 +399,16 @@ export function ProductsAdmin() {
     }
   };
 
-  const handleBulkDelete = () =>
+  const performBulkDelete = () =>
     runBulk("Deleted", () => adminApi.bulkDeleteProducts(visibleSelectedIds));
+  const handleBulkDelete = () => {
+    if (selectionCount === 0) return;
+    if (selectionCount > BULK_DELETE_CONFIRM_THRESHOLD) {
+      setConfirmBulkDelete(true);
+      return;
+    }
+    void performBulkDelete();
+  };
   const handleBulkRestore = () =>
     runBulk("Restored", () => adminApi.bulkRestoreProducts(visibleSelectedIds));
   const handleBulkFeature = () =>
@@ -1084,6 +1102,38 @@ export function ProductsAdmin() {
               onClick={() => confirmDelete && handleDelete(confirmDelete)}
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmBulkDelete}
+        onOpenChange={(open) => {
+          if (!open) setConfirmBulkDelete(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectionCount} product{selectionCount === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectionCount} selected product
+              {selectionCount === 1 ? " will be" : "s will be"} hidden from the
+              storefront. You can restore them later from the "Show deleted"
+              view.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmBulkDelete(false);
+                void performBulkDelete();
+              }}
+            >
+              Delete {selectionCount}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
