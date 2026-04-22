@@ -119,8 +119,13 @@ async function buildAll() {
     ],
     sourcemap: "linked",
     plugins: [
-      // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
-      esbuildPluginPino({ transports: ["pino-pretty"] })
+      // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it.
+      // pino-pretty is a development-only formatter (see src/lib/logger.ts), so we only bundle that
+      // transport worker (~115 kB) when NODE_ENV is explicitly "development". Defaulting to the
+      // production-shaped bundle keeps deploys deterministic if NODE_ENV is unset at build time.
+      esbuildPluginPino({
+        transports: process.env.NODE_ENV === "development" ? ["pino-pretty"] : [],
+      }),
     ],
     // Make sure packages that are cjs only (e.g. express) but are bundled continue to work in our esm output file
     banner: {
