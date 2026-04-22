@@ -55,7 +55,14 @@ export function Footer() {
       </div>
       <div className="container mx-auto px-4 mt-6 pt-4 border-t border-white/10 text-xs text-zinc-500 flex flex-col md:flex-row justify-between items-center gap-3">
         <p>&copy; {new Date().getFullYear()} VELOUR. All rights reserved.</p>
-        <div className="flex space-x-6">
+        <div className="flex space-x-6 items-center">
+          <Link
+            href="/orders"
+            className="hover:text-zinc-100 transition-colors min-h-[40px] inline-flex items-center px-1"
+            data-testid="link-footer-track-order"
+          >
+            Track an order
+          </Link>
           <FooterLegalLink label="Terms" />
           <FooterLegalLink label="Privacy" />
           <FooterLegalLink label="Cookies" />

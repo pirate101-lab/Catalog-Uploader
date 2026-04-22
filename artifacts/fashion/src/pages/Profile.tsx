@@ -350,6 +350,16 @@ export function ProfilePage() {
       >
         Sign in
       </Link>
+      <p className="text-sm text-muted-foreground mt-6">
+        Checked out as a guest?{' '}
+        <Link
+          href="/orders"
+          className="text-primary hover:underline font-medium"
+          data-testid="link-profile-track-order"
+        >
+          Track an order
+        </Link>
+      </p>
     </div>
   );
 }

@@ -85,6 +85,17 @@ export function SignInPage() {
             Create an account
           </Link>
         </p>
+
+        <p className="text-xs text-muted-foreground text-center mt-4">
+          Checked out as a guest?{' '}
+          <Link
+            href="/orders"
+            className="text-primary hover:underline font-medium"
+            data-testid="link-signin-track-order"
+          >
+            Track an order
+          </Link>
+        </p>
       </div>
     </div>
   );
