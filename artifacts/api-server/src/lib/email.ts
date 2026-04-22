@@ -842,7 +842,13 @@ async function sendOrderEmail(
 ): Promise<void> {
   const settings = await getSiteSettings();
   const smtpCfg = resolveSmtpConfig(settings);
-  const apiKey = process.env["RESEND_API_KEY"];
+  // DB-stored key (set in admin Settings → Email) wins over the env
+  // var so operators can rotate the key from the UI without touching
+  // the server. Env var stays as a deployment-time fallback.
+  const apiKey =
+    (settings.resendApiKey && settings.resendApiKey.trim()) ||
+    process.env["RESEND_API_KEY"] ||
+    null;
 
   // Choose transport: prefer Resend HTTP API when an API key is
   // present (port 443, never blocked by VPS hosts like DigitalOcean
@@ -1008,9 +1014,13 @@ export async function sendTestOrderEmail(
 ): Promise<TestEmailResult> {
   const settings = await getSiteSettings();
   const smtpCfg = resolveSmtpConfig(settings);
-  const apiKey = process.env["RESEND_API_KEY"];
-  // Prefer Resend HTTP API when configured (works on hosts that block
-  // outbound SMTP); fall back to direct SMTP otherwise.
+  // DB-stored key wins over env var (rotate from the admin UI without
+  // touching the server). Prefer Resend HTTP API when configured —
+  // works on hosts that block outbound SMTP. Fall back to direct SMTP.
+  const apiKey =
+    (settings.resendApiKey && settings.resendApiKey.trim()) ||
+    process.env["RESEND_API_KEY"] ||
+    null;
   const smtp = apiKey ? null : smtpCfg;
   if (!smtp && !apiKey) {
     return {

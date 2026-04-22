@@ -1096,6 +1096,8 @@ const SUPER_ADMIN_ONLY_FIELDS = [
   "smtpUsername",
   "smtpPassword",
   "smtpPasswordSet",
+  "resendApiKey",
+  "resendApiKeySet",
   "bankName",
   "bankAccountName",
   "bankAccountNumber",
@@ -1127,11 +1129,13 @@ function shapeSettingsForAdmin(
     adminPasswordHash: _hash,
     adminUsername: _username,
     smtpPassword: _smtpPwd,
+    resendApiKey: _resendKey,
     ...rest
   } = s;
   void _hash;
   void _username;
   void _smtpPwd;
+  void _resendKey;
   const full = {
     ...rest,
     paystackLiveSecretKey: maskSecret(s.paystackLiveSecretKey),
@@ -1142,6 +1146,9 @@ function shapeSettingsForAdmin(
     // the UI can show "saved" without ever revealing the secret.
     smtpPassword: maskSecret(s.smtpPassword),
     smtpPasswordSet: !!s.smtpPassword,
+    // Resend API key is write-only too — same masked + "set" pattern.
+    resendApiKey: maskSecret(s.resendApiKey),
+    resendApiKeySet: !!s.resendApiKey,
   };
   if (role === "super_admin") return full;
   // General admin view: blank out every super-admin-only field so the
@@ -1301,6 +1308,8 @@ router.put("/admin/settings", async (req, res) => {
   if (testSecret !== undefined) patch["paystackTestSecretKey"] = testSecret;
   const smtpPwd = acceptSecret(body["smtpPassword"]);
   if (smtpPwd !== undefined) patch["smtpPassword"] = smtpPwd;
+  const resendKey = acceptSecret(body["resendApiKey"]);
+  if (resendKey !== undefined) patch["resendApiKey"] = resendKey;
 
   // Coerce/validate the SMTP host/port/string fields so we never save
   // garbage that would break nodemailer at send time.

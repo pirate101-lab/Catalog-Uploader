@@ -195,6 +195,8 @@ export interface SiteSettings {
   /** Masked or empty. Send back as-is to keep, or replace to update. */
   smtpPassword: string;
   smtpPasswordSet: boolean;
+  resendApiKey: string;
+  resendApiKeySet: boolean;
   paymentAlertMode: "off" | "instant" | "hourly";
   paymentAlertRecipients: string | null;
   /** USD→KES conversion rate stored as a numeric string (Drizzle

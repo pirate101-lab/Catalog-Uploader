@@ -433,6 +433,41 @@ export function SettingsAdmin() {
               </p>
             </Field>
 
+            <div className="border-t pt-4 mt-2">
+              <h4 className="text-sm font-medium mb-1">
+                Resend API key (recommended for VPS hosts)
+              </h4>
+              <p className="text-xs text-muted-foreground mb-2">
+                When set, order and test emails go through Resend's HTTPS
+                API instead of the SMTP fields above. Use this if your
+                host (DigitalOcean, Linode, AWS EC2, etc.) blocks
+                outbound SMTP ports 25/465/587. Get a key at{" "}
+                <a
+                  href="https://resend.com/api-keys"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  resend.com/api-keys
+                </a>{" "}
+                after verifying your sending domain.
+              </p>
+              <Field label="API key">
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  value={s.resendApiKey ?? ""}
+                  placeholder="re_..."
+                  onChange={(e) => set("resendApiKey", e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {s.resendApiKeySet
+                    ? "A Resend API key is saved (shown as ••••). Order emails are routing through Resend. Type a new key to replace it, or clear the field to fall back to SMTP."
+                    : "Leave empty to use the SMTP fields above. Stored server-side and never returned to the browser."}
+                </p>
+              </Field>
+            </div>
+
             <div className="border-t pt-4 mt-2 flex items-center gap-2">
               <Button
                 type="button"

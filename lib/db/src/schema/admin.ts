@@ -224,6 +224,12 @@ export const siteSettingsTable = pgTable("site_settings", {
   smtpSecure: boolean("smtp_secure").notNull().default(true),
   smtpUsername: text("smtp_username"),
   smtpPassword: text("smtp_password"),
+  // Resend HTTP API key. When present, order/test emails go through
+  // Resend (https://api.resend.com) instead of SMTP — preferred on
+  // VPS hosts (DigitalOcean, Linode, etc.) that block outbound 25/465/587.
+  // Write-only via the admin UI (masked on read). Falls back to the
+  // RESEND_API_KEY env var if this column is null.
+  resendApiKey: text("resend_api_key"),
   // FX (display→charge) configuration. The merchant Paystack account
   // is locked to KES, so storefront prices are quoted in USD and we
   // multiply by `usdToKesRate` at checkout time. Operators can edit
